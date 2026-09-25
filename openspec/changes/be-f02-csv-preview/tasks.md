@@ -241,7 +241,7 @@
 **Files:**
 - Test: `TEST/api/importsession/SourcePreviewIntegrationTest.java` (cùng setup với `ImportSessionApiIntegrationTest` của F01: RANDOM_PORT, Testcontainers, `@TempDir` cho storage, `RestClient`)
 
-- [ ] 6.1 Viết các case:
+- [x] 6.1 Viết các case:
   | Case | Mong đợi |
   |---|---|
   | Upload `customers.csv` = `name,email\nAn,an@x.com\nBinh,binh@x.com\n` | 201 với `status`=`CONFIGURING`. `GET preview` → 200, `totalRows`=2, `columns[0].name`=`name`, `rows[1]` = `{rowNumber 3, values ["Binh","binh@x.com"]}` |
@@ -249,8 +249,8 @@
   | Upload `header-only.csv` = `name,email\n` | 201; preview `totalRows`=0, `rows`=[] |
   | Upload `dup.csv` = `Email,email,\n1,2,3\n` | preview `columns` có tên `Email`, `email (2)`, `Column C` |
   | `GET /api/import-sessions/{UUID chưa từng tạo}/preview` | 404, `code`=`SESSION_NOT_FOUND` |
-- [ ] 6.2 Chạy `./mvnw -q test -Dtest=SourcePreviewIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, không nới lỏng test.
-- [ ] 6.3 Commit: `test(api): CSV upload and preview over real HTTP`
+- [x] 6.2 Chạy `./mvnw -q test -Dtest=SourcePreviewIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, không nới lỏng test.
+- [x] 6.3 Commit: `test(api): CSV upload and preview over real HTTP`
 
 ## 7. Kiểm tra toàn bộ và hoàn tất
 
