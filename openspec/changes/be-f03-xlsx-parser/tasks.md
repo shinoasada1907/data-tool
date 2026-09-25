@@ -104,7 +104,8 @@
   ```
   Nếu chọn POI, `isDateFormat` gọi `DateUtil.isADateFormat` nhưng giữ nguyên chữ ký và bộ test.
 
-- [ ] 2.1 Viết `ExcelDateFormatsTest` (parameterized):
+- [x] 2.1 Viết `ExcelDateFormatsTest` (parameterized):
+  - Làm thêm: case id 14 với chuỗi `mm-dd-yy` (chuỗi fastexcel trả cho format có sẵn 14, theo spike); case `isTimeOnlyFormat` với `mmmm` → false, và id 20 không kèm chuỗi → true.
   | formatId | formatString | Mong đợi |
   |---|---|---|
   | 14 | `m/d/yyyy` | true |
@@ -135,10 +136,11 @@
   | 165 | `yyyy-mm-dd hh:mm:ss` | false |
   | 164 | `dd/mm/yyyy` | false |
   | 0 | `General` | false |
-- [ ] 2.2 Chạy `./mvnw -q test -Dtest=ExcelDateFormatsTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 2.3 Cài theo design X2. `isTimeOnlyFormat` = `isDateFormat` và, sau khi bỏ phần quote/escape/`[...]`, không còn chữ `y` hay `d`.
-- [ ] 2.4 Chạy lại lệnh ở 2.2. Mong đợi: PASS (15 + 9 case).
-- [ ] 2.5 Commit: `feat(infra): detect Excel date formats`
+- [x] 2.2 Chạy `./mvnw -q test -Dtest=ExcelDateFormatsTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 2.3 Cài theo design X2. `isTimeOnlyFormat` = `isDateFormat` và, sau khi bỏ phần quote/escape/`[...]`, không còn chữ `y` hay `d`.
+  - Làm khác: `isTimeOnlyFormat` = format ngày/giờ **có `h` hoặc `s`** và không có `y`/`d`. **LÝ DO**: nếu chỉ xét "không có `y`/`d`" thì format tên tháng `mmmm` bị nhận nhầm là giờ. Class để package-private, vì chỉ `XlsxSourceParser` cùng package dùng.
+- [x] 2.4 Chạy lại lệnh ở 2.2. Mong đợi: PASS (15 + 9 case).
+- [x] 2.5 Commit: `feat(infra): detect Excel date formats`
 
 ## 3. Chống zip bomb
 
