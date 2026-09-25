@@ -1,3 +1,6 @@
+# Fixed project name: the stack is the same whether started from the main checkout or a worktree.
+name: universal-importer
+
 services:
   postgres:
     image: postgres:17

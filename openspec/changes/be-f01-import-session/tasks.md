@@ -35,9 +35,10 @@
 **Interfaces:**
 - Produces: `TestcontainersConfiguration` (`@TestConfiguration`, bean `PostgreSQLContainer` gắn `@ServiceConnection`, image `postgres:17`). Mọi test cần DB đều `@Import` class này.
 
-- [ ] 1.1 Chạy `git mv compose.yaml docker-compose.yml`, rồi `docker compose config -q` (không báo lỗi là đạt).
-- [ ] 1.2 Chạy `./mvnw -q test` để xác nhận lỗi hiện tại: `ApiApplicationTests` FAIL với `FATAL: invalid value for parameter "TimeZone": "Asia/Saigon"`.
-- [ ] 1.3 Sửa `pom.xml`: thêm các dependency scope `test` sau (version do BOM của Boot quản lý, trừ ArchUnit):
+- [x] 1.1 Chạy `git mv compose.yaml docker-compose.yml`, rồi `docker compose config -q` (không báo lỗi là đạt).
+  - Làm thêm: đặt `name: universal-importer` ở đầu `docker-compose.yml`. **LÝ DO**: nếu không đặt, Compose lấy tên thư mục làm project name; chạy từ worktree (`universal-importer-be`) sẽ tạo stack thứ hai và đụng `container_name` với DB đang chạy.
+- [x] 1.2 Chạy `./mvnw -q test` để xác nhận lỗi hiện tại: `ApiApplicationTests` FAIL với `FATAL: invalid value for parameter "TimeZone": "Asia/Saigon"`.
+- [x] 1.3 Sửa `pom.xml`: thêm các dependency scope `test` sau (version do BOM của Boot quản lý, trừ ArchUnit):
   ```xml
   <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-testcontainers</artifactId><scope>test</scope></dependency>
   <dependency><groupId>org.testcontainers</groupId><artifactId>testcontainers-junit-jupiter</artifactId><scope>test</scope></dependency>
@@ -52,7 +53,7 @@
     <configuration><argLine>-Duser.timezone=UTC</argLine></configuration>
   </plugin>
   ```
-- [ ] 1.4 Tạo `TestcontainersConfiguration` rồi gắn vào `ApiApplicationTests` (`@Import(TestcontainersConfiguration.class)`):
+- [x] 1.4 Tạo `TestcontainersConfiguration` rồi gắn vào `ApiApplicationTests` (`@Import(TestcontainersConfiguration.class)`):
   ```java
   @TestConfiguration(proxyBeanMethods = false)
   public class TestcontainersConfiguration {
@@ -63,15 +64,15 @@
       }
   }
   ```
-- [ ] 1.5 Tạo `ArchitectureTest`. Import class của `com.universalimporter` bằng `ImportOption.Predefined.DO_NOT_INCLUDE_TESTS`. Viết 2 test, cả hai `.allowEmptyShould(true)` vì lúc này các package còn trống:
+- [x] 1.5 Tạo `ArchitectureTest`. Import class của `com.universalimporter` bằng `ImportOption.Predefined.DO_NOT_INCLUDE_TESTS`. Viết 2 test, cả hai `.allowEmptyShould(true)` vì lúc này các package còn trống:
   - `domain_only_depends_on_jdk`: `classes().that().resideInAPackage("..domain..").should().onlyDependOnClassesThat().resideInAnyPackage("java..", "..domain..")`
   - `layers_respect_dependency_direction`: `layeredArchitecture().consideringOnlyDependenciesInLayers()`, layer `api`/`application`/`domain`/`infrastructure` theo package cùng tên. Cấu hình:
     - `api` không được layer nào truy cập;
     - `application` chỉ được `api` và `infrastructure` truy cập;
     - `infrastructure` không được layer nào truy cập;
     - `domain` chỉ được `api`, `application`, `infrastructure` truy cập.
-- [ ] 1.6 Chạy `./mvnw -q test` và xác nhận PASS: `contextLoads` xanh với Postgres chạy trong container, ArchitectureTest xanh.
-- [ ] 1.7 Commit: `chore(api): add Testcontainers, ArchUnit and UTC test timezone`
+- [x] 1.6 Chạy `./mvnw -q test` và xác nhận PASS: `contextLoads` xanh với Postgres chạy trong container, ArchitectureTest xanh.
+- [x] 1.7 Commit: `chore(api): add Testcontainers, ArchUnit and UTC test timezone`
 
 ## 2. Mã lỗi và bảng HTTP status
 
