@@ -76,8 +76,9 @@
 - Consumes: `SourceParser`, `SourceSchema`, `ImportRow`, `ColumnNames` (task 1); `DomainException`, `ErrorCode` (F01).
 - Produces: `@Component public class CsvSourceParser implements SourceParser`, với `supports(CSV) == true`, `supports(XLSX) == false`.
 
-- [ ] 2.1 Thêm dependency `<dependency><groupId>org.apache.commons</groupId><artifactId>commons-csv</artifactId><version>1.14.1</version></dependency>`. Kiểm version resolve được: `./mvnw -q dependency:tree -Dincludes=org.apache.commons:commons-csv`, mong đợi thấy `org.apache.commons:commons-csv:jar:1.14.1:compile`.
-- [ ] 2.2 Viết `CsvSourceParserTest`. Input là `ByteArrayInputStream` của chuỗi UTF-8 (trừ case có ghi rõ byte). `rows(x)` là `read(x)` gom vào list, trong `try (var s = parser.read(...))`.
+- [x] 2.1 Thêm dependency `<dependency><groupId>org.apache.commons</groupId><artifactId>commons-csv</artifactId><version>1.14.1</version></dependency>`. Kiểm version resolve được: `./mvnw -q dependency:tree -Dincludes=org.apache.commons:commons-csv`, mong đợi thấy `org.apache.commons:commons-csv:jar:1.14.1:compile`.
+- [x] 2.2 Viết `CsvSourceParserTest`. Input là `ByteArrayInputStream` của chuỗi UTF-8 (trừ case có ghi rõ byte). `rows(x)` là `read(x)` gom vào list, trong `try (var s = parser.read(...))`.
+  - Làm thêm: case byte UTF-8 hỏng ở dòng 2002 của file lớn hơn 8KB (message phải nêu đúng `near row 2002`); case `read` cũng báo lỗi UTF-8; case syntax error kiểm message không chứa giá trị ô.
   | # | Input | Mong đợi |
   |---|---|---|
   | 1 | `name,email\nAn,an@x.com\nBinh,binh@x.com\n` | `inspect`: columns `[{0,name},{1,email}]`, `totalRows` 2, `sheetName` null. `rows`: `(2,[An,an@x.com])`, `(3,[Binh,binh@x.com])` |
@@ -94,8 +95,10 @@
   | 12 | `a,b\n1,2\n` + byte `C3 28` + `\n` | `inspect` ném `FILE_PARSE_ERROR`, message `File is not valid UTF-8 (near row 3).` |
   | 13 | `a,b\n"unterminated,1\n` | `inspect` ném `FILE_PARSE_ERROR`, message bắt đầu bằng `CSV syntax error near row` |
   | 14 | `a,b\n1,2\n` và gọi `read` rồi `close()` stream | `InputStream` gốc đã bị đóng (dùng một `InputStream` kiểm được cờ `closed`) |
-- [ ] 2.3 Chạy `./mvnw -q test -Dtest=CsvSourceParserTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 2.4 Viết `CsvSourceParser` theo design P5:
+- [x] 2.3 Chạy `./mvnw -q test -Dtest=CsvSourceParserTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 2.4 Viết `CsvSourceParser` theo design P5:
+  - Làm khác: ~~reader UTF-8 dùng decoder `REPORT`~~ giải mã bằng `REPLACE`, rồi coi record nào chứa U+FFFD là byte không hợp lệ (`File is not valid UTF-8 (near row N).`, N là dòng chính xác). **LÝ DO**: `InputStreamReader` giải mã từng khối 8KB; với `REPORT`, lỗi nổ ra ngay lần đọc đầu tiên, trước khi có record nào, nên file nhỏ luôn bị báo "row 1". Đánh đổi: file có sẵn ký tự U+FFFD thật sẽ bị từ chối; chấp nhận vì ký tự này gần như chỉ xuất hiện trong file đã hỏng.
+  - Sự cố công cụ: công cụ ghi file đã biến escape `\uFEFF`/`\uFFFD` thành ký tự thật (vô hình) trong source. Đã thay bằng `(char) 0xFEFF`/`(char) 0xFFFD`, và rà mọi file Java không còn ký tự điều khiển, bidi hay BOM.
   - `CSVFormat.RFC4180.builder().setIgnoreEmptyLines(false).get()`;
   - reader UTF-8 dùng decoder `REPORT`;
   - bỏ `﻿`;
@@ -106,8 +109,8 @@
   - bắt `UncheckedIOException` rồi đổi sang `DomainException(FILE_PARSE_ERROR, …)`, N = số dòng đọc thành công gần nhất + 1.
 
   `read` trả `Stream` với `onClose` đóng `CSVParser`, tức là đóng luôn input.
-- [ ] 2.5 Chạy lại lệnh ở 2.3. Mong đợi: PASS (14 case).
-- [ ] 2.6 Commit: `feat(infra): CSV source parser (UTF-8, RFC 4180, Excel-style row numbers)`
+- [x] 2.5 Chạy lại lệnh ở 2.3. Mong đợi: PASS (14 case).
+- [x] 2.6 Commit: `feat(infra): CSV source parser (UTF-8, RFC 4180, Excel-style row numbers)`
 
 ## 3. Lưu source schema trên session (Flyway V2)
 
