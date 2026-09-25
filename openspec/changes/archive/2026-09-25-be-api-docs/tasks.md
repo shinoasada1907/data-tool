@@ -30,4 +30,5 @@
 - [x] 1.7 Chạy app thật, mở `/swagger-ui.html` và `/v3/api-docs` để kiểm tận mắt.
   - Kết quả (database tạm, cổng 18080): `/swagger-ui.html` trả 302 tới `/swagger-ui/index.html` (200). `/v3/api-docs` là OpenAPI 3.1.0, "Universal Importer API 0.1", có 3 endpoint kèm tóm tắt.
 - [x] 1.8 Commit: `feat(api): Swagger UI and OpenAPI docs`
-- [ ] 1.9 Hỏi người dùng trước khi merge nhánh `chore/be-api-tooling`. Archive change này trên nhánh **trước** khi merge.
+- [x] 1.9 ~~Hỏi người dùng trước khi merge nhánh `chore/be-api-tooling`. Archive change này trên nhánh **trước** khi merge.~~
+  - Làm khác: người dùng đồng ý merge ngày 2026-09-26 (chưa làm F04). Archive trên nhánh trước khi merge fast-forward vào `main`.
