@@ -4,6 +4,7 @@ import com.jayway.jsonpath.JsonPath;
 import com.universalimporter.support.HttpTestClient;
 import com.universalimporter.support.HttpTestClient.Response;
 import com.universalimporter.support.TestcontainersConfiguration;
+import com.universalimporter.support.XlsxFixtures;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -14,11 +15,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -75,11 +74,13 @@ class ImportSessionApiIntegrationTest {
     }
 
     @Test
-    void uploaded_xlsx_is_recognised_by_its_zip_signature() throws IOException {
-        Response upload = http.upload("customers.xlsx", minimalXlsx());
+    void uploaded_xlsx_is_recognised_and_read(@TempDir Path workDir) throws IOException {
+        // A real workbook: since BE-F03 an .xlsx is parsed at upload, so a bare zip is no longer accepted.
+        Response upload = http.upload("customers.xlsx", Files.readAllBytes(XlsxFixtures.headerOnly(workDir)));
 
         assertThat(upload.status()).isEqualTo(201);
         assertThat((String) JsonPath.read(upload.body(), "$.fileType")).isEqualTo("XLSX");
+        assertThat((String) JsonPath.read(upload.body(), "$.status")).isEqualTo("CONFIGURING");
     }
 
     @Test
@@ -89,15 +90,5 @@ class ImportSessionApiIntegrationTest {
         assertThat(upload.status()).isEqualTo(415);
         assertThat(upload.headers().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
         assertThat((String) JsonPath.read(upload.body(), "$.code")).isEqualTo("FILE_UNSUPPORTED");
-    }
-
-    private static byte[] minimalXlsx() throws IOException {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        try (ZipOutputStream zip = new ZipOutputStream(out)) {
-            zip.putNextEntry(new ZipEntry("xl/workbook.xml"));
-            zip.write("<workbook/>".getBytes(UTF_8));
-            zip.closeEntry();
-        }
-        return out.toByteArray();
     }
 }

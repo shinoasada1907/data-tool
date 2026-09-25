@@ -203,7 +203,7 @@
   }
   ```
 
-- [ ] 4.1 Viết `XlsxCellValuesTest`:
+- [x] 4.1 Viết `XlsxCellValuesTest`:
   | Hàm | Input | Mong đợi |
   |---|---|---|
   | `number` | `("123", 0, "General", false)` | `123` |
@@ -218,7 +218,8 @@
   | `number` | `("0.99999999", 21, "hh:mm:ss", false)` | `00:00:00` (làm tròn lên 24:00:00 thì ra 00:00:00) |
   | `serialToIso` | `(43830, true)` | `2024-01-01` (hệ 1904) |
   | `serialToIso` | `(45292, false)` | `2024-01-01` (hệ 1900) |
-- [ ] 4.2 Viết `XlsxSourceParserTest` (dùng fixture của task 1):
+- [x] 4.2 Viết `XlsxSourceParserTest` (dùng fixture của task 1):
+  - Làm khác: `types.xlsx` có 14 cột (thêm `time_only` → `13:30:00`, xem 1.1). Row datetime dùng đúng raw Excel ghi (`45651.573263888902`).
   | Fixture | Mong đợi |
   |---|---|
   | `types.xlsx` | `sheetName` `Data`; 13 cột đúng tên header; `totalRows` 1; row `(2, ["An","123","-5.25","0.001","84901234567","TRUE","2024-02-29","2024-12-25","2024-12-25T13:45:30","246","An!","TRUE","#N/A"])` |
@@ -233,14 +234,16 @@
   | Bytes `PK\x03\x04` + 100 byte rác | `inspect` ném `FILE_PARSE_ERROR` |
   | Zip hợp lệ không có `xl/workbook.xml` | `inspect` ném `FILE_PARSE_ERROR`, message `File is not a valid XLSX workbook.` |
   | `read(headerOnly)` rồi `close()` | input đã đóng; không còn file tạm `xlsx-*.xlsx` trong `java.io.tmpdir` được tạo sau thời điểm bắt đầu test (nếu áp dụng X6) |
-- [ ] 4.3 Chạy `./mvnw -q test -Dtest=XlsxCellValuesTest,XlsxSourceParserTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 4.4 Cài `XlsxCellValues` và `XlsxSourceParser` theo design X3, X5, X6:
+- [x] 4.3 Chạy `./mvnw -q test -Dtest=XlsxCellValuesTest,XlsxSourceParserTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 4.4 Cài `XlsxCellValues` và `XlsxSourceParser` theo design X3, X5, X6:
+  - Làm khác: cả `inspect` lẫn `read` đều chép input ra file tạm `xlsx-*.xlsx` (X6) và mở bằng `ReadableWorkbook(File)`; file tạm được xoá trong `finally` (với `inspect`) và khi đóng stream (với `read`). **LÝ DO**: `inspect` cần hai lượt đọc (guard rồi mới parse), còn `InputStream` chỉ đọc được một lần. Ô công thức lấy kiểu từ `getValue()` theo kết quả spike C4.
+  - Làm thêm: sửa integration test của F01 (`uploaded_xlsx_is_recognised_and_read`) để upload một workbook thật và kỳ vọng `CONFIGURING`. **LÝ DO**: từ F03, `.xlsx` được parse ngay lúc upload, nên zip "giả" chỉ chứa `<workbook/>` bị từ chối với 422, và đó là hành vi đúng.
   - `inspect` gọi `guard.check` trước (qua một lượt mở stream riêng), rồi mới parse;
   - `read` bỏ qua guard;
   - `rowNumber` lấy theo số dòng của sheet;
   - dùng `ColumnNames.normalize` và `ColumnNames.isBlankRow`.
-- [ ] 4.5 Chạy lại lệnh ở 4.3. Mong đợi: PASS.
-- [ ] 4.6 Commit: `feat(infra): XLSX source parser (first visible sheet, ISO dates, plain numbers)`
+- [x] 4.5 Chạy lại lệnh ở 4.3. Mong đợi: PASS.
+- [x] 4.6 Commit: `feat(infra): XLSX source parser (first visible sheet, ISO dates, plain numbers)`
 
 ## 5. Upload và preview XLSX qua HTTP thật
 
