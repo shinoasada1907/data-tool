@@ -309,7 +309,8 @@
   );
   ```
 
-- [ ] 7.1 Viết `JpaImportSessionRepositoryTest`, với các annotation `@DataJpaTest`, `@AutoConfigureTestDatabase(replace = NONE)` và `@Import({TestcontainersConfiguration.class, JpaImportSessionRepository.class})`:
+- [x] 7.1 Viết `JpaImportSessionRepositoryTest`, với các annotation `@DataJpaTest`, `@AutoConfigureTestDatabase(replace = NONE)` và `@Import({TestcontainersConfiguration.class, JpaImportSessionRepository.class})`:
+  - Làm khác: case thứ ba đổi thành "lưu → flush/clear → sửa → lưu lại chính session vừa nhận về, hai lần" (mong đợi `version` = 2). Test dùng `TestEntityManager.flush()/clear()` để thật sự đọc lại từ DB. **LÝ DO**: bắt lỗi version cũ sau `merge` (xem 7.3).
   | Case | Mong đợi |
   |---|---|
   | `save(create(id, file("a.csv", CSV, 7), t0))` rồi `findById(id)` | các field giống hệt; `status`=`UPLOADED`; `version`=`0` |
@@ -317,12 +318,13 @@
   | lưu, `transitionTo(CONFIGURING, t1)` trên bản đã lưu, rồi `save` | `status`=`CONFIGURING`; `updatedAt`=`t1`; `version`=`1` |
 
   (`t0`, `t1` là `Instant` chính xác tới micro giây.)
-- [ ] 7.2 Chạy `./mvnw -q test -Dtest=JpaImportSessionRepositoryTest`. Mong đợi: FAIL vì lỗi compile hoặc thiếu bảng.
-- [ ] 7.3 Tạo migration, entity, Spring Data repository và adapter:
+- [x] 7.2 Chạy `./mvnw -q test -Dtest=JpaImportSessionRepositoryTest`. Mong đợi: FAIL vì lỗi compile hoặc thiếu bảng.
+- [x] 7.3 Tạo migration, entity, Spring Data repository và adapter:
+  - Làm khác: adapter dùng `saveAndFlush` thay vì `save`. **LÝ DO**: sau `merge`, version chỉ tăng lúc flush, nên session trả về mang version cũ và lần lưu kế tiếp bị `ObjectOptimisticLockingFailureException`. Đã kiểm mutation: đổi về `save` thì case ở 7.1 fail đúng lỗi này. Entity và Spring Data repository để package-private, bên ngoài chỉ thấy port `ImportSessionRepository`.
   - Entity: `@Version Long version`; `status` và `fileType` là `@Enumerated(STRING)`; `createdAt` và `updatedAt` là `Instant`.
   - Adapter: map domain sang entity (detached, mang id và version), gọi `save`, rồi map ngược về domain.
-- [ ] 7.4 Chạy lại lệnh ở 7.2. Mong đợi: PASS (Flyway áp V1; `ddl-auto: validate` không báo lỗi).
-- [ ] 7.5 Commit: `feat(infra): persist import sessions with Flyway V1`
+- [x] 7.4 Chạy lại lệnh ở 7.2. Mong đợi: PASS (Flyway áp V1; `ddl-auto: validate` không báo lỗi).
+- [x] 7.5 Commit: `feat(infra): persist import sessions with Flyway V1`
 
 ## 8. Use case: upload và đọc session
 
