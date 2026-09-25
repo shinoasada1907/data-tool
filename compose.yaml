@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: universal-importer-db
+    environment:
+      POSTGRES_DB: universal_importer
+      POSTGRES_USER: importer
+      POSTGRES_PASSWORD: importer
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U importer -d universal_importer"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
