@@ -269,7 +269,12 @@ Mọi lỗi API trả `application/problem+json`:
 - Tên file lưu trữ do server sinh; tên gốc chỉ là metadata đã làm sạch (D5).
 - **Log không chứa nội dung file.** Chỉ log `sessionId`, loại file và dung lượng.
 - `message` của lỗi không lặp lại giá trị ô; giá trị chỉ nằm trong `sourceValue`.
-- **CSV export chống formula injection**: thêm tiền tố `'` khi giá trị bắt đầu bằng `=`, `+`, `-`, `@`, `\t` hoặc `\r`. Chỉ áp cho cột kiểu `string`/`email`, cùng `message` và `sourceValue` của error report. Cột số, boolean, ngày đã được validate nên không cần (review B4).
+- **CSV export chống formula injection**: thêm tiền tố `'` khi giá trị bắt đầu bằng `=`, `+`, `-`, `@`, `\t` hoặc `\r`. Áp cho:
+  - cột kiểu `string`/`email`;
+  - **ô header** (tên field do người dùng đặt);
+  - các cột `fieldName`, `rule`, `message`, `sourceValue` của error report.
+
+  Cột số, boolean, ngày đã được validate nên không cần (review B4). Header được thêm vào sau khi fork F10 phát hiện: tên field như `=cmd()` sẽ lọt vào hàng đầu của file CSV.
 - `Content-Disposition` dùng `filename*` theo RFC 5987 (qua `ContentDisposition.builder(...).filename(name, UTF_8)`).
 
 ### D14. Test
@@ -292,7 +297,7 @@ Mọi lỗi API trả `application/problem+json`:
 | 5 | `PUT /api/import-sessions/{id}/mapping` | `MappingConfigDto` | `200 ConfigUpdateResponseDto` | 404, 409, 422 `MAPPING_INVALID`/`SOURCE_COLUMN_NOT_FOUND` | F05 |
 | 6 | `PUT /api/import-sessions/{id}/transformations` | `TransformationConfigDto` | `200 ConfigUpdateResponseDto` | 404, 409, 422 `CONFIG_INVALID` | F06 |
 | 7 | `PUT /api/import-sessions/{id}/validations` | `ValidationConfigDto` | `200 ConfigUpdateResponseDto` | 404, 409, 422 `CONFIG_INVALID` | F07 |
-| 8 | `POST /api/import-sessions/{id}/process` | — | `200 PipelineSummaryDto` | 404, 409 `SESSION_NOT_READY`/`SESSION_STATE_INVALID` | F08 |
+| 8 | `POST /api/import-sessions/{id}/process` | — | `200 PipelineSummaryDto` | 404, 409 `SESSION_NOT_READY`/`SESSION_STATE_INVALID`; đọc file lỗi thì trả 422 `FILE_PARSE_ERROR` (sai cấu trúc) hoặc 500 `INTERNAL_ERROR` (IO, mất file), và session chuyển sang `FAILED` | F08 |
 | 9 | `GET /api/import-sessions/{id}/result?view=valid\|invalid&page=0&size=50&field=&code=` | — | `200 PipelineResultDto` | 400, 404, 409 `RESULT_NOT_AVAILABLE` | F09 |
 | 10 | `GET /api/import-sessions/{id}/export?format=json\|csv` | — | `200` file stream + `Content-Disposition` | 400, 404, 409, 500 `EXPORT_FAILED` | F10 |
 | 11 | `GET /api/import-sessions/{id}/errors/export` | — | `200` file CSV + `Content-Disposition` | 404, 409, 500 `EXPORT_FAILED` | F10 |
