@@ -254,10 +254,13 @@
 
 ## 7. Kiểm tra toàn bộ và hoàn tất
 
-- [ ] 7.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm ArchitectureTest.
-- [ ] 7.2 Chạy app thật (`docker compose up -d`, `./mvnw spring-boot:run`):
+- [x] 7.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm ArchitectureTest.
+  - Kết quả: 162 test, 0 failure, BUILD SUCCESS.
+- [x] 7.2 Chạy app thật (`docker compose up -d`, `./mvnw spring-boot:run`):
+  - Làm khác: chạy trên database tạm `universal_importer_f02_check` ở cổng 18080, xong thì xoá. **LÝ DO**: migration V2 chạy trên DB chung sẽ làm app ở `main` (chỉ có V1) lỗi Flyway.
+  - Kết quả: file giống "CSV UTF-8" của Excel (BOM, CRLF, tiếng Việt, một dòng trống ở giữa) cho `CONFIGURING`; cột `Họ tên`, `Email` không dính BOM; row số 2 và 4 (dòng 3 trống vẫn được đếm); `totalRows` 2; dấu tiếng Việt đúng từng ký tự. File Windows-1252 (byte `0xE9`) trả 422 `FILE_PARSE_ERROR` với message `File is not valid UTF-8 (near row 2).`, đúng dòng. Log chỉ có `Created import session … (CSV, 80 bytes, CONFIGURING)`; nội dung file xuất hiện 0 lần.
   - upload một CSV tiếng Việt có dấu (UTF-8 có BOM, lưu từ Excel bằng "CSV UTF-8");
   - `curl localhost:8080/api/import-sessions/{id}/preview?limit=5` hiển thị đúng dấu và số dòng;
   - upload một CSV lưu bằng "CSV (Comma delimited)" (Windows-1258/1252), nhận 422 `FILE_PARSE_ERROR` nếu file có ký tự không phải UTF-8.
-- [ ] 7.3 Tick đủ checkbox, ghi LÝ DO cho mọi chỗ làm khác kế hoạch. Commit: `docs(openspec): complete be-f02 tasks`
+- [x] 7.3 Tick đủ checkbox, ghi LÝ DO cho mọi chỗ làm khác kế hoạch. Commit: `docs(openspec): complete be-f02 tasks`
 - [ ] 7.4 Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f02-csv-preview -y`.
