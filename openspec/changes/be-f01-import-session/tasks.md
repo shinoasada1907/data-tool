@@ -205,7 +205,8 @@
   }
   ```
 
-- [ ] 5.1 Viết `OriginalFileNameTest` (parameterized):
+- [x] 5.1 Viết `OriginalFileNameTest` (parameterized):
+  - Làm thêm 2 case: bỏ ký tự bidi override `U+202A–U+202E` và `U+2066–U+2069`; không cắt ngang cặp surrogate ở giới hạn 255. **LÝ DO**: bidi override làm tên hiển thị sai đuôi file (kỹ thuật giả mạo tên file); cắt ngang surrogate sinh chuỗi UTF-16 hỏng mà PostgreSQL không lưu được. Bước 5.2 thêm case `tiny.xlsx` (2 byte), để bắt lỗi đọc quá độ dài mảng khi so magic bytes.
   | Input | Output |
   |---|---|
   | `customers.csv` | `customers.csv` |
@@ -217,7 +218,7 @@
   | 300 chữ `a` + `.csv` | 251 chữ `a` + `.csv` (độ dài 255) |
   | `null` | `""` |
   | `"   "` | `""` |
-- [ ] 5.2 Viết `FileTypeDetectorTest`. Hằng `ZIP = {0x50,0x4B,0x03,0x04,0x14,0x00}`.
+- [x] 5.2 Viết `FileTypeDetectorTest`. Hằng `ZIP = {0x50,0x4B,0x03,0x04,0x14,0x00}`.
   | Tên | Head | Mong đợi |
   |---|---|---|
   | `data.csv` | `"a,b\n1,2"` (UTF-8) | `CSV` |
@@ -233,8 +234,8 @@
   | `empty.xls` | `{}` | `FILE_UNSUPPORTED` (đuôi được kiểm trước) |
 
   Các case lỗi dùng `assertThatThrownBy(...).isInstanceOf(DomainException.class)` và kiểm `code()`.
-- [ ] 5.3 Chạy `./mvnw -q test -Dtest=OriginalFileNameTest,FileTypeDetectorTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 5.4 Viết `OriginalFileName.sanitize` theo thứ tự:
+- [x] 5.3 Chạy `./mvnw -q test -Dtest=OriginalFileNameTest,FileTypeDetectorTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 5.4 Viết `OriginalFileName.sanitize` theo thứ tự:
   1. Cắt lấy phần sau `/` hoặc `\` cuối cùng.
   2. `Normalizer.normalize(NFC)`.
   3. Bỏ ký tự `\p{Cntrl}`.
@@ -242,8 +243,8 @@
   5. Nếu dài hơn 255: cắt phần tên, giữ đuôi.
 
   Viết `FileTypeDetector.detect` theo thứ tự: kiểm đuôi (lowercase), rồi `head.length == 0`, rồi magic bytes. Message: `Only .csv and .xlsx files are supported.`, `File is empty.`, `File content does not match the .xlsx format.`, `File content is not a text CSV.`
-- [ ] 5.5 Chạy lại lệnh ở 5.3. Mong đợi: PASS.
-- [ ] 5.6 Commit: `feat(domain): sanitize uploaded file names and detect CSV/XLSX by magic bytes`
+- [x] 5.5 Chạy lại lệnh ở 5.3. Mong đợi: PASS.
+- [x] 5.6 Commit: `feat(domain): sanitize uploaded file names and detect CSV/XLSX by magic bytes`
 
 ## 6. Lưu file: port FileStorage và LocalFileStorage
 
