@@ -1,0 +1,87 @@
+package com.universalimporter.infrastructure.storage;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.UUID;
+import java.util.stream.Stream;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+class LocalFileStorageTest {
+
+    private static final UUID ID = UUID.fromString("0b6f0c52-8a8e-4d5c-9a55-2f3c1c3f7e11");
+
+    @TempDir
+    Path root;
+
+    private LocalFileStorage storage;
+
+    @BeforeEach
+    void setUp() {
+        storage = new LocalFileStorage(new StorageProperties(root));
+    }
+
+    @Test
+    void save_writes_only_source_bin_under_the_session_directory_and_returns_its_size() throws IOException {
+        long written = storage.save(ID, stream("a,b"));
+
+        Path sessionDir = root.resolve(ID.toString());
+        assertThat(written).isEqualTo(3);
+        assertThat(Files.readString(sessionDir.resolve("source.bin"))).isEqualTo("a,b");
+        try (Stream<Path> files = Files.list(sessionDir)) {
+            assertThat(files.map(path -> path.getFileName().toString())).containsExactly("source.bin");
+        }
+    }
+
+    @Test
+    void open_returns_the_saved_bytes() throws IOException {
+        storage.save(ID, stream("a,b"));
+
+        try (InputStream in = storage.open(ID)) {
+            assertThat(new String(in.readAllBytes(), StandardCharsets.UTF_8)).isEqualTo("a,b");
+        }
+    }
+
+    @Test
+    void delete_removes_the_whole_session_directory_and_can_be_repeated() throws IOException {
+        storage.save(ID, stream("a,b"));
+        Path resultDir = Files.createDirectories(root.resolve(ID.toString()).resolve("result"));
+        Files.writeString(resultDir.resolve("summary.json"), "{}");
+
+        storage.delete(ID);
+
+        assertThat(root.resolve(ID.toString())).doesNotExist();
+        assertThatCode(() -> storage.delete(ID)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void open_of_a_session_without_a_file_fails() {
+        assertThatThrownBy(() -> storage.open(UUID.fromString("11111111-2222-3333-4444-555555555555")))
+                .isInstanceOf(UncheckedIOException.class);
+    }
+
+    @Test
+    void creates_a_missing_root_directory_on_first_save() {
+        Path missingRoot = root.resolve("does").resolve("not").resolve("exist");
+        LocalFileStorage fresh = new LocalFileStorage(new StorageProperties(missingRoot));
+
+        fresh.save(ID, stream("x"));
+
+        assertThat(missingRoot.resolve(ID.toString()).resolve("source.bin")).hasContent("x");
+    }
+
+    private static InputStream stream(String text) {
+        return new ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8));
+    }
+}

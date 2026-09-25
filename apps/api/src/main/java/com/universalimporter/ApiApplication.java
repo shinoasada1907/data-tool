@@ -2,15 +2,17 @@ package com.universalimporter;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
 import java.util.TimeZone;
 
 @SpringBootApplication
+@ConfigurationPropertiesScan
 public class ApiApplication {
 
     public static void main(String[] args) {
-        // Windows reports the legacy alias "Asia/Saigon", which PostgreSQL rejects
-        // when the JDBC driver sends it as the session TimeZone.
+        // Windows reports the legacy alias "Asia/Saigon". The JDBC driver sends the JVM zone on connect,
+        // and postgres:17 (Debian 13) ships tzdata without legacy aliases, so it refuses the connection.
         if ("Asia/Saigon".equals(TimeZone.getDefault().getID())) {
             TimeZone.setDefault(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
         }

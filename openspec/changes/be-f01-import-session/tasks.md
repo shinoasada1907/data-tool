@@ -264,17 +264,19 @@
   @Component public class LocalFileStorage implements FileStorage { public LocalFileStorage(StorageProperties properties); }
   ```
 
-- [ ] 6.1 Viết `LocalFileStorageTest` với `@TempDir Path root` và `new LocalFileStorage(new StorageProperties(root))`:
+- [x] 6.1 Viết `LocalFileStorageTest` với `@TempDir Path root` và `new LocalFileStorage(new StorageProperties(root))`:
+  - Làm thêm 2 case: `delete` xoá được cả thư mục con `result/` (F08 sẽ tạo); `save` tự tạo thư mục gốc nếu chưa có.
   | Case | Mong đợi |
   |---|---|
   | `save(id, "a,b".bytes)` | trả `3`; `root/{id}/source.bin` chứa đúng `a,b`; không còn file `*.tmp` nào trong `root/{id}` |
   | `save` rồi `open(id)` | đọc ra đúng `a,b` |
   | `save` rồi `delete(id)` | `root/{id}` không còn; gọi `delete(id)` lần nữa không ném lỗi |
   | `open(randomUUID)` | ném `UncheckedIOException` |
-- [ ] 6.2 Chạy `./mvnw -q test -Dtest=LocalFileStorageTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 6.3 Tạo 3 class. `save` ghi ra `source.bin.tmp` rồi `Files.move(tmp, target, ATOMIC_MOVE, REPLACE_EXISTING)`. `delete` xoá đệ quy bằng `Files.walk` theo thứ tự ngược.
-- [ ] 6.4 Chạy lại lệnh ở 6.2. Mong đợi: PASS.
-- [ ] 6.5 Commit: `feat(infra): local file storage keyed by session id`
+- [x] 6.2 Chạy `./mvnw -q test -Dtest=LocalFileStorageTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 6.3 Tạo 3 class. `save` ghi ra `source.bin.tmp` rồi `Files.move(tmp, target, ATOMIC_MOVE, REPLACE_EXISTING)`. `delete` xoá đệ quy bằng `Files.walk` theo thứ tự ngược.
+  - Làm khác: `@ConfigurationPropertiesScan` và thuộc tính `importer.storage.dir` được thêm ngay ở task này, không đợi tới task 9. **LÝ DO**: `LocalFileStorage` là bean cần `StorageProperties`; thiếu chúng thì `ApiApplicationTests` đỏ ở commit này. `save` không đóng stream đầu vào, người gọi đóng.
+- [x] 6.4 Chạy lại lệnh ở 6.2. Mong đợi: PASS.
+- [x] 6.5 Commit: `feat(infra): local file storage keyed by session id`
 
 ## 7. Persistence: Flyway V1 và repository JPA
 
