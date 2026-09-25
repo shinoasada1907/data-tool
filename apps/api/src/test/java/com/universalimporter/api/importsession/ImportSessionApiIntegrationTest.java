@@ -65,6 +65,15 @@ class ImportSessionApiIntegrationTest {
     }
 
     @Test
+    void vietnamese_file_name_sent_as_utf8_survives_the_round_trip() {
+        // Browsers send the multipart file name as UTF-8; the server must decode it as UTF-8 too.
+        Response upload = http.upload("khách hàng.csv", "a,b\n".getBytes(UTF_8));
+
+        assertThat(upload.status()).isEqualTo(201);
+        assertThat((String) JsonPath.read(upload.body(), "$.originalFileName")).isEqualTo("khách hàng.csv");
+    }
+
+    @Test
     void uploaded_xlsx_is_recognised_by_its_zip_signature() throws IOException {
         Response upload = http.upload("customers.xlsx", minimalXlsx());
 

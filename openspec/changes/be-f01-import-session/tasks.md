@@ -445,11 +445,15 @@
 
 ## 11. Kiểm tra toàn bộ và hoàn tất
 
-- [ ] 11.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm cả ArchitectureTest (lúc này các package đã có class).
-- [ ] 11.2 Chạy app thật: `docker compose up -d`, rồi `./mvnw spring-boot:run`. Dùng `curl -F "file=@<csv>" localhost:8080/api/import-sessions` và kiểm:
+- [x] 11.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm cả ArchitectureTest (lúc này các package đã có class).
+  - Kết quả: 101 test, 0 failure, 0 error, BUILD SUCCESS.
+- [x] 11.2 Chạy app thật: `docker compose up -d`, rồi `./mvnw spring-boot:run`. Dùng `curl -F "file=@<csv>" localhost:8080/api/import-sessions` và kiểm:
+  - Làm khác: chạy trên database tạm `universal_importer_f01_check` ở cổng 18080, xong thì xoá DB. **LÝ DO**: DB của compose dùng chung với nhánh `main`; nếu Flyway V1 chạy trên đó, app ở `main` (chưa có migration này) sẽ lỗi "applied migration not resolved locally".
+  - Kết quả: upload CSV (gửi với MIME `application/vnd.ms-excel`) trả 201 kèm `Location`; GET trả 200; `.xls` trả 415 `FILE_UNSUPPORTED` dạng problem+json; UUID lạ trả 404 `SESSION_NOT_FOUND`; file nằm ở `{storage}/{id}/source.bin`; log chỉ có metadata, chuỗi đánh dấu trong nội dung file xuất hiện 0 lần.
+  - Phát hiện: `curl` từ Git Bash trên Windows gửi tên file theo code page ANSI, nên tên tiếng Việt thành U+FFFD. Server không có lỗi; trình duyệt gửi UTF-8. Đã thêm test `vietnamese_file_name_sent_as_utf8_survives_the_round_trip` (characterization: mutation ép ISO-8859-1 qua `server.servlet.encoding` không làm test fail, vì Tomcat 11 luôn giải mã tên file multipart theo UTF-8; test vẫn bắt được trường hợp code của mình làm hỏng ký tự).
   - Nhận 201 kèm JSON.
   - `curl localhost:8080/api/import-sessions/{id}` trả 200.
   - Gửi file `.xls` nhận 415 với `code`.
   - Log không chứa nội dung file.
-- [ ] 11.3 Tick đủ các checkbox trong file này. Chỗ nào làm khác kế hoạch thì gạch ngang và ghi LÝ DO. Commit: `docs(openspec): complete be-f01 tasks`
+- [x] 11.3 Tick đủ các checkbox trong file này. Chỗ nào làm khác kế hoạch thì gạch ngang và ghi LÝ DO. Commit: `docs(openspec): complete be-f01 tasks`
 - [ ] 11.4 Hỏi người dùng trước khi merge vào `main`. Sau khi merge: `openspec archive be-f01-import-session -y`, commit phần archive.
