@@ -429,18 +429,19 @@
 - Cả hai class dùng `@SpringBootTest(webEnvironment = RANDOM_PORT)` và `@Import(TestcontainersConfiguration.class)`. `static @TempDir Path storageDir` được đăng ký qua `@DynamicPropertySource` cho `importer.storage.dir`. Gọi HTTP bằng `RestClient.create("http://localhost:" + port)`, đọc status và body bằng `exchange(...)` để không bị ném lỗi khi status là 4xx.
 - File XLSX dùng trong test được tạo trong bộ nhớ bằng `ZipOutputStream`, với một entry `xl/workbook.xml`.
 
-- [ ] 10.1 Viết `ImportSessionApiIntegrationTest`:
+- [x] 10.1 Viết `ImportSessionApiIntegrationTest`:
   | Case | Mong đợi |
   |---|---|
   | POST `customers.csv` (`"name,email\nAn,an@x.com\n"`) | 201; theo `Location` gọi GET được 200, cùng `id`, `status`=`UPLOADED`; file `storageDir/{id}/source.bin` có đúng các byte đã gửi |
   | POST `customers.xlsx` (zip tạo trong bộ nhớ) | 201; `fileType`=`XLSX` |
   | POST `data.xls` | 415; `Content-Type` chứa `application/problem+json`; `code`=`FILE_UNSUPPORTED` |
-- [ ] 10.2 Viết `UploadSizeLimitIntegrationTest` với `@TestPropertySource(properties = {"spring.servlet.multipart.max-file-size=1KB", "spring.servlet.multipart.max-request-size=2KB"})`:
+- [x] 10.2 Viết `UploadSizeLimitIntegrationTest` với `@TestPropertySource(properties = {"spring.servlet.multipart.max-file-size=1KB", "spring.servlet.multipart.max-request-size=2KB"})`:
+  - Làm khác: ~~`big.csv` 5KB~~ đổi thành 3MB. **LÝ DO**: 5KB nằm dưới ngưỡng swallow mặc định 2MB của Tomcat, nên test vẫn pass cả khi thiếu `max-swallow-size: -1`. Đã kiểm mutation: đặt lại 2MB thì client nhận `I/O error … chunked transfer encoding` thay vì 413. Các lời gọi HTTP dùng helper `TEST/support/HttpTestClient` (RestClient không ném lỗi với 4xx/5xx).
   | Case | Mong đợi |
   |---|---|
   | POST `big.csv` 5KB | nhận được response (không bị reset kết nối); status 413; `code`=`FILE_TOO_LARGE` |
-- [ ] 10.3 Chạy `./mvnw -q test -Dtest=ImportSessionApiIntegrationTest,UploadSizeLimitIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính (không nới lỏng test), rồi chạy lại.
-- [ ] 10.4 Commit: `test(api): end-to-end upload tests over real HTTP`
+- [x] 10.3 Chạy `./mvnw -q test -Dtest=ImportSessionApiIntegrationTest,UploadSizeLimitIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính (không nới lỏng test), rồi chạy lại.
+- [x] 10.4 Commit: `test(api): end-to-end upload tests over real HTTP`
 
 ## 11. Kiểm tra toàn bộ và hoàn tất
 
