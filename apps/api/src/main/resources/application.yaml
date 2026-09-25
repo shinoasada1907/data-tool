@@ -26,3 +26,8 @@ server:
 importer:
   storage:
     dir: ${IMPORTER_STORAGE_DIR:${java.io.tmpdir}/universal-importer}
+  xlsx:
+    # Zip bomb guard for uploaded workbooks (BE-F03 design X4).
+    max-uncompressed-size: ${IMPORTER_XLSX_MAX_UNCOMPRESSED_SIZE:200MB}
+    max-inflate-ratio: ${IMPORTER_XLSX_MAX_INFLATE_RATIO:100}
+    max-entries: ${IMPORTER_XLSX_MAX_ENTRIES:10000}

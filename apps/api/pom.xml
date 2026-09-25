@@ -67,6 +67,12 @@
             <artifactId>fastexcel-reader</artifactId>
             <version>0.20.2</version>
         </dependency>
+        <!-- Zip reading for the XLSX zip bomb guard; same library and version fastexcel-reader uses. -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>1.28.0</version>
+        </dependency>
 
         <dependency>
             <groupId>org.postgresql</groupId>

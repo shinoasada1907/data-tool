@@ -9,7 +9,10 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Random;
 import java.util.function.Consumer;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * XLSX files generated in code for parser tests (design X7). Files that need a real spreadsheet application
@@ -121,6 +124,47 @@ public final class XlsxFixtures {
                 }
             }
         });
+    }
+
+    /** A zip with one entry of {@code size} zero bytes: a tiny file that expands enormously. */
+    public static Path zipOfZeros(Path file, String entryName, long size) {
+        return zip(file, zip -> {
+            zip.putNextEntry(new ZipEntry(entryName));
+            byte[] zeros = new byte[64 * 1024];
+            for (long written = 0; written < size; written += zeros.length) {
+                zip.write(zeros, 0, (int) Math.min(zeros.length, size - written));
+            }
+            zip.closeEntry();
+        });
+    }
+
+    /** A zip with {@code count} entries, each {@code size} bytes of pseudo-random letters (compresses poorly). */
+    public static Path zipOfRandomText(Path file, int count, int size) {
+        Random random = new Random(42);
+        return zip(file, zip -> {
+            for (int i = 0; i < count; i++) {
+                zip.putNextEntry(new ZipEntry("xl/entry-" + i + ".xml"));
+                byte[] text = new byte[size];
+                for (int b = 0; b < size; b++) {
+                    text[b] = (byte) ('a' + random.nextInt(26));
+                }
+                zip.write(text);
+                zip.closeEntry();
+            }
+        });
+    }
+
+    private interface ZipContent {
+        void write(ZipOutputStream zip) throws IOException;
+    }
+
+    private static Path zip(Path file, ZipContent content) {
+        try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(file))) {
+            content.write(zip);
+            return file;
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private static void flush(Worksheet sheet) {

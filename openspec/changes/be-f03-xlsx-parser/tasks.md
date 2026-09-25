@@ -169,7 +169,7 @@
       max-entries: ${IMPORTER_XLSX_MAX_ENTRIES:10000}
   ```
 
-- [ ] 3.1 Viết `XlsxZipGuardTest`, với `limits = (200MB, 100, 10000)` trừ khi có ghi khác:
+- [x] 3.1 Viết `XlsxZipGuardTest`, với `limits = (200MB, 100, 10000)` trừ khi có ghi khác:
   | Case | Mong đợi |
   |---|---|
   | `XlsxFixtures.headerOnly` | không ném lỗi |
@@ -178,10 +178,11 @@
   | limits `(200MB, 100, 100)`; zip có 101 entry nhỏ | `FILE_PARSE_ERROR` (vượt số entry) |
   | Bytes `"hello"` | `FILE_PARSE_ERROR`, message `File is not a valid XLSX workbook.` |
   | Zip có entry 2MB byte `0` với limits `(200MB, 5000, 10000)` | không ném lỗi (tỉ lệ dưới ngưỡng) |
-- [ ] 3.2 Chạy `./mvnw -q test -Dtest=XlsxZipGuardTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 3.3 Cài theo design X4: đếm byte nén bằng một `FilterInputStream` đếm byte bọc bên dưới `ZipInputStream`; ngắt ngay khi vượt, không đọc tiếp.
-- [ ] 3.4 Chạy lại lệnh ở 3.2. Mong đợi: PASS.
-- [ ] 3.5 Commit: `feat(infra): guard XLSX uploads against zip bombs`
+- [x] 3.2 Chạy `./mvnw -q test -Dtest=XlsxZipGuardTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 3.3 Cài theo design X4: đếm byte nén bằng một `FilterInputStream` đếm byte bọc bên dưới `ZipInputStream`; ngắt ngay khi vượt, không đọc tiếp.
+  - Làm khác: đọc zip bằng `ZipArchiveInputStream` của commons-compress 1.28.0 (khai báo trực tiếp trong pom, cùng version fastexcel-reader dùng), ~~`ZipInputStream`~~. **LÝ DO**: `java.util.zip.ZipInputStream` tin kích thước khai trong local header, nên từ chối workbook hợp lệ có local header khai size 0 (chỉ ghi trong central directory), ví dụ file do fastexcel writer ghi: `ZipException: invalid entry size (expected 0 but got 894 bytes)`. Guard dùng như vậy sẽ chặn cả file mà parser đọc được. Làm thêm: case `a_workbook_saved_by_excel_passes` (file Excel thật phải qua được guard).
+- [x] 3.4 Chạy lại lệnh ở 3.2. Mong đợi: PASS.
+- [x] 3.5 Commit: `feat(infra): guard XLSX uploads against zip bombs`
 
 ## 4. XlsxSourceParser
 
