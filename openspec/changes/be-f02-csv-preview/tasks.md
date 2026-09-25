@@ -175,7 +175,8 @@
   // ImportSessionService: constructor thêm tham số SourceParsers sourceParsers (vị trí cuối)
   ```
 
-- [ ] 4.1 Thêm test vào `ImportSessionServiceTest`, dùng `FakeSourceParser`:
+- [x] 4.1 Thêm test vào `ImportSessionServiceTest`, dùng `FakeSourceParser`:
+  - Làm thêm: kiểm parser đọc đúng bản file đã lưu trong storage (`inspectedContent` bằng `storage.content(id)`). Các test F01 cũ dùng service không có parser, tức đúng hành vi F01.
   | Case | Mong đợi |
   |---|---|
   | Parser CSV trả schema `[name,email]`, `totalRows` 2; `upload("customers.csv", "name,email\n…")` | `status`=`CONFIGURING`; `sourceSchema` chính là schema đó; repository có session |
@@ -183,10 +184,11 @@
   | Parser CSV ném `IllegalStateException` | ném lại exception đó; storage trống |
   | Không có parser cho XLSX; `upload("a.xlsx", ZIP)` | `status`=`UPLOADED`; `sourceSchema` rỗng |
   | Parser CSV thành công nhưng repository `failOnSave` | ném lại lỗi; storage trống (nhánh dọn file của F01 vẫn đúng) |
-- [ ] 4.2 Chạy `./mvnw -q test -Dtest=ImportSessionServiceTest`. Mong đợi: FAIL.
-- [ ] 4.3 Cài `SourceParsers` và sửa `upload` theo design P6.
-- [ ] 4.4 Chạy lại lệnh ở 4.2. Mong đợi: PASS (cả case cũ của F01).
-- [ ] 4.5 Commit: `feat(app): inspect uploaded files and move sessions to CONFIGURING`
+- [x] 4.2 Chạy `./mvnw -q test -Dtest=ImportSessionServiceTest`. Mong đợi: FAIL.
+- [x] 4.3 Cài `SourceParsers` và sửa `upload` theo design P6.
+- [x] 4.4 Chạy lại lệnh ở 4.2. Mong đợi: PASS (cả case cũ của F01).
+  - Làm thêm: sửa assertion trong integration test của F01 (`ImportSessionApiIntegrationTest`) từ `UPLOADED` sang `CONFIGURING`. **LÝ DO**: từ F02, upload CSV đọc file ngay trong cùng request; đây là thay đổi có chủ đích theo spec source-parsing. `createdAt` và `updatedAt` dùng cùng một `now`.
+- [x] 4.5 Commit: `feat(app): inspect uploaded files and move sessions to CONFIGURING`
 
 ## 5. Preview: use case và endpoint
 

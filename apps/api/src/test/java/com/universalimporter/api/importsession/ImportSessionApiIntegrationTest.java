@@ -60,7 +60,8 @@ class ImportSessionApiIntegrationTest {
 
         assertThat(read.status()).isEqualTo(200);
         assertThat((String) JsonPath.read(read.body(), "$.id")).isEqualTo(id);
-        assertThat((String) JsonPath.read(read.body(), "$.status")).isEqualTo("UPLOADED");
+        // Since BE-F02 the upload reads the CSV in the same request, so the session is already CONFIGURING.
+        assertThat((String) JsonPath.read(read.body(), "$.status")).isEqualTo("CONFIGURING");
         assertThat((String) JsonPath.read(read.body(), "$.originalFileName")).isEqualTo("customers.csv");
     }
 
