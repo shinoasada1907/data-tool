@@ -4,6 +4,8 @@ import com.universalimporter.domain.importsession.ImportSession;
 import com.universalimporter.domain.importsession.SessionStatus;
 import com.universalimporter.domain.importsession.SourceFile;
 import com.universalimporter.domain.importsession.SourceFileType;
+import com.universalimporter.domain.source.SourceColumn;
+import com.universalimporter.domain.source.SourceSchema;
 import com.universalimporter.support.TestcontainersConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +15,7 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -72,6 +75,26 @@ class JpaImportSessionRepositoryTest {
         assertThat(found.updatedAt()).isEqualTo(T2);
         assertThat(found.createdAt()).isEqualTo(T0);
         assertThat(found.version()).isEqualTo(2L);
+    }
+
+    @Test
+    void source_schema_is_stored_as_a_json_object_and_read_back() {
+        SourceSchema schema = new SourceSchema(
+                List.of(new SourceColumn(0, "name"), new SourceColumn(1, "email")), 2, null);
+        ImportSession session = ImportSession.create(ID, FILE, T0);
+        session.markInspected(schema, T1);
+        repository.save(session);
+        flushAndClear();
+
+        ImportSession found = repository.findById(ID).orElseThrow();
+
+        assertThat(found.sourceSchema()).contains(schema);
+        // A JSON object, not a JSON string holding the text of one (double encoding would still round-trip).
+        Object jsonType = entityManager.getEntityManager()
+                .createNativeQuery("SELECT jsonb_typeof(source_schema) FROM import_session WHERE id = :id")
+                .setParameter("id", ID)
+                .getSingleResult();
+        assertThat(jsonType).isEqualTo("object");
     }
 
     private void flushAndClear() {

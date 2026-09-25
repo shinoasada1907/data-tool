@@ -137,23 +137,25 @@
 - Migration: `ALTER TABLE import_session ADD COLUMN source_schema JSONB;`
 - Entity: `@JdbcTypeCode(SqlTypes.JSON) @Column(name = "source_schema") private String sourceSchemaJson;`. Adapter serialize và deserialize bằng `JsonMapper` (bean của Boot, được inject vào `JpaImportSessionRepository`).
 
-- [ ] 3.1 Thêm test vào `ImportSessionTest`:
+- [x] 3.1 Thêm test vào `ImportSessionTest`:
   | Case | Mong đợi |
   |---|---|
   | `create(...)` rồi `markInspected(schema, t1)` | `status`=`CONFIGURING`; `sourceSchema()` chứa `schema`; `updatedAt`=`t1` |
   | `restore(..., READY, ..., schema)` rồi `markInspected(schema, t1)` | ném `DomainException(SESSION_STATE_INVALID)`, message `Source file has already been inspected.` (`markInspected` chỉ hợp lệ khi đang `UPLOADED`, dù READY→CONFIGURING có trong bảng); `status` vẫn `READY` |
   | `create(...)` | `sourceSchema()` là `Optional.empty()` |
-- [ ] 3.2 Thêm test vào `JpaImportSessionRepositoryTest`: lưu một session đã `markInspected` với schema `columns [{0,"name"},{1,"email"}], totalRows 2, sheetName null`, rồi `findById`. Mong đợi: `sourceSchema` đọc ra bằng đúng bản ghi vào.
-- [ ] 3.3 Chạy `./mvnw -q test -Dtest=ImportSessionTest,JpaImportSessionRepositoryTest`. Mong đợi: FAIL.
-- [ ] 3.4 Cài đặt:
+- [x] 3.2 Thêm test vào `JpaImportSessionRepositoryTest`: lưu một session đã `markInspected` với schema `columns [{0,"name"},{1,"email"}], totalRows 2, sheetName null`, rồi `findById`. Mong đợi: `sourceSchema` đọc ra bằng đúng bản ghi vào.
+  - Làm thêm: kiểm trong DB rằng `jsonb_typeof(source_schema) = 'object'`. **LÝ DO**: nếu Hibernate mã hoá `String` hai lần (thành một chuỗi JSON), test đọc-ghi vẫn khớp, nên cần kiểm thẳng kiểu dữ liệu trong DB.
+- [x] 3.3 Chạy `./mvnw -q test -Dtest=ImportSessionTest,JpaImportSessionRepositoryTest`. Mong đợi: FAIL.
+- [x] 3.4 Cài đặt:
   - migration V2;
   - `ImportSession`: thêm field, `markInspected`, tham số mới cho `restore`, và cập nhật mọi chỗ gọi `restore`;
   - `SourceSchemaDocument`;
   - `ImportSessionEntity`: thêm cột `sourceSchemaJson`;
   - adapter: dùng `JsonMapper` để map.
-- [ ] 3.5 Chạy lại lệnh ở 3.3. Mong đợi: PASS. Nếu context lỗi vì Hibernate không có JSON FormatMapper (không có Jackson 2): đổi cột sang `@ColumnTransformer(write = "?::jsonb") @Column(name = "source_schema", columnDefinition = "jsonb") String`, chạy lại, rồi gạch ghi chú này và ghi LÝ DO.
-- [ ] 3.6 Chạy `./mvnw -q test` để kiểm các test F01 vẫn xanh sau khi đổi `restore`.
-- [ ] 3.7 Commit: `feat(infra): persist source schema as jsonb (Flyway V2)`
+- [x] 3.5 Chạy lại lệnh ở 3.3. Mong đợi: PASS. Nếu context lỗi vì Hibernate không có JSON FormatMapper (không có Jackson 2): đổi cột sang `@ColumnTransformer(write = "?::jsonb") @Column(name = "source_schema", columnDefinition = "jsonb") String`, chạy lại, rồi gạch ghi chú này và ghi LÝ DO.
+  - Kết quả: `@JdbcTypeCode(SqlTypes.JSON)` trên `String` chạy đúng với Hibernate 7 và Jackson 3 (lưu thành object, không mã hoá hai lần), nên không cần phương án `@ColumnTransformer`. Rủi ro A5 của design F01 đã được kiểm chứng. Làm khác: adapter dùng `JsonMapper` riêng (`JsonMapper.builder().build()`) thay vì bean của Boot. **LÝ DO**: định dạng lưu trữ không đổi theo cấu hình JSON của API, và `@DataJpaTest` không nạp Jackson auto-config.
+- [x] 3.6 Chạy `./mvnw -q test` để kiểm các test F01 vẫn xanh sau khi đổi `restore`.
+- [x] 3.7 Commit: `feat(infra): persist source schema as jsonb (Flyway V2)`
 
 ## 4. Upload đọc file
 

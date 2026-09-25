@@ -9,6 +9,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -44,11 +46,17 @@ class ImportSessionEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    /** {@link SourceSchemaDocument} as JSON text; the adapter owns the (de)serialization. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "source_schema")
+    private String sourceSchemaJson;
+
     protected ImportSessionEntity() {
     }
 
     ImportSessionEntity(UUID id, String originalFileName, SourceFileType fileType, long sizeBytes,
-                        SessionStatus status, Long version, Instant createdAt, Instant updatedAt) {
+                        SessionStatus status, Long version, Instant createdAt, Instant updatedAt,
+                        String sourceSchemaJson) {
         this.id = id;
         this.originalFileName = originalFileName;
         this.fileType = fileType;
@@ -57,6 +65,7 @@ class ImportSessionEntity {
         this.version = version;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.sourceSchemaJson = sourceSchemaJson;
     }
 
     UUID getId() {
@@ -89,5 +98,9 @@ class ImportSessionEntity {
 
     Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    String getSourceSchemaJson() {
+        return sourceSchemaJson;
     }
 }

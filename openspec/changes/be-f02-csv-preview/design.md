@@ -54,7 +54,8 @@ F03 dùng lại hàm này.
 
 ### P5. Luật đọc CSV (`CsvSourceParser`)
 - **Format**: `CSVFormat.RFC4180.builder().setIgnoreEmptyLines(false).get()`. Không dùng `setHeader`; header do parser tự đọc để áp P4.
-- **Reader UTF-8 strict**: `StandardCharsets.UTF_8.newDecoder()`, `onMalformedInput(REPORT)`, `onUnmappableCharacter(REPORT)`.
+- ~~**Reader UTF-8 strict**: `StandardCharsets.UTF_8.newDecoder()`, `onMalformedInput(REPORT)`, `onUnmappableCharacter(REPORT)`.~~
+- **Reader UTF-8, phát hiện theo record** (đổi khi thi công): decoder `REPLACE`, rồi record nào chứa U+FFFD thì báo `FILE_PARSE_ERROR` với **đúng** số dòng của record đó. **LÝ DO**: với `REPORT`, `InputStreamReader` ném lỗi ngay khi giải mã khối 8KB đầu tiên, trước khi có record nào, nên không biết được dòng lỗi. Đánh đổi: file có sẵn ký tự U+FFFD thật cũng bị từ chối.
 - **BOM**: bỏ ký tự `﻿` ở đầu ô header đầu tiên.
 - **Số dòng**: `rowNumber = CSVRecord.getRecordNumber()`.
   - Vì `ignoreEmptyLines=false`, dòng trống vẫn là một record (tăng số dòng).
@@ -66,10 +67,8 @@ F03 dùng lại hàm này.
   - Ô `""` → `null`. Parser không trim.
   - Row thiếu ô thì bù `null`; row thừa ô thì bỏ phần thừa.
 - **Lỗi**:
-  - `UncheckedIOException` khi duyệt record → `FILE_PARSE_ERROR`.
-  - Nếu nguyên nhân là `CharacterCodingException`: message `File is not valid UTF-8 (near row N).`
-  - Còn lại: `CSV syntax error near row N.`
-  - N = số dòng của record đọc thành công gần nhất + 1.
+  - Record chứa U+FFFD → `FILE_PARSE_ERROR`, message `File is not valid UTF-8 (near row N).`, với N là số dòng của chính record đó.
+  - `UncheckedIOException` khi duyệt record (quote không đóng, …) → `FILE_PARSE_ERROR`, message `CSV syntax error near row N.`, với N = số dòng của record đọc thành công gần nhất + 1.
   - Message không chứa giá trị ô (D13).
 
 ### P6. Upload đọc file
