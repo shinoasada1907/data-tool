@@ -354,7 +354,8 @@
 
   `now = Instant.now(clock).truncatedTo(MICROS)`.
 
-- [ ] 8.1 Viết 2 fake, dùng map trong bộ nhớ. `InMemoryImportSessionRepository` có cờ `failOnSave` để giả lập lỗi DB. Viết `ImportSessionServiceTest` với `Clock.fixed(t0, UTC)` và `ByteArrayResource`:
+- [x] 8.1 Viết 2 fake, dùng map trong bộ nhớ. `InMemoryImportSessionRepository` có cờ `failOnSave` để giả lập lỗi DB. Viết `ImportSessionServiceTest` với `Clock.fixed(t0, UTC)` và `ByteArrayResource`:
+  - Làm thêm: clock cố định có phần nano giây (`…123456789Z`), mong đợi `createdAt` là `…123456Z`, để test bắt được trường hợp quên cắt về micro giây. Case "không lưu gì" kiểm cả storage lẫn repository.
   | Case | Mong đợi |
   |---|---|
   | `upload("customers.csv", "a,b\n1,2")` | `status`=`UPLOADED`; `fileType`=`CSV`; `sizeBytes`=7; `originalFileName`=`customers.csv`; `createdAt`=`t0`; storage có đúng 7 byte dưới id đó; repository có session |
@@ -364,10 +365,10 @@
   | `failOnSave=true`, `upload("a.csv", "a")` | ném lại lỗi của repository; storage không còn file nào |
   | `get(id)` sau khi upload | trả đúng session |
   | `get(randomUUID)` | `DomainException(SESSION_NOT_FOUND)` |
-- [ ] 8.2 Chạy `./mvnw -q test -Dtest=ImportSessionServiceTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 8.3 Tạo `ImportSessionService` và `ClockConfig` theo phần Interfaces.
-- [ ] 8.4 Chạy lại lệnh ở 8.2. Mong đợi: PASS.
-- [ ] 8.5 Commit: `feat(app): upload and read import sessions`
+- [x] 8.2 Chạy `./mvnw -q test -Dtest=ImportSessionServiceTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 8.3 Tạo `ImportSessionService` và `ClockConfig` theo phần Interfaces.
+- [x] 8.4 Chạy lại lệnh ở 8.2. Mong đợi: PASS.
+- [x] 8.5 Commit: `feat(app): upload and read import sessions`
 
 ## 9. API: controller, DTO, cấu hình multipart
 
