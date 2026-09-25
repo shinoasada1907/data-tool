@@ -125,7 +125,8 @@
   - Override `handleExceptionInternal`: gắn `code` cho lỗi framework. `MaxUploadSizeExceededException` thành `FILE_TOO_LARGE`; status 5xx thành `INTERNAL_ERROR`; còn lại là `REQUEST_INVALID`. Status giữ nguyên.
   - Mọi body có `instance` là request URI, `Content-Type` là `application/problem+json`.
 
-- [ ] 3.1 Viết `GlobalExceptionHandlerTest` với `@WebMvcTest(controllers = GlobalExceptionHandlerTest.ErrorProbeController.class)`. `ErrorProbeController` là `@RestController` lồng static, có:
+- [x] 3.1 Viết `GlobalExceptionHandlerTest` với `@WebMvcTest(controllers = GlobalExceptionHandlerTest.ErrorProbeController.class)`. `ErrorProbeController` là `@RestController` lồng static, có:
+  - Làm khác: gắn thêm `@Import(ErrorProbeController.class)`. **LÝ DO**: component scan không nhận controller lồng trong test (lần RED đầu mọi request đều 404, tức là fail sai lý do). `ProblemItem` và `DomainException` được tạo ở task này, cùng với test đầu tiên cần tới chúng.
   - `GET /test-errors/domain`: ném `DomainException(FILE_UNSUPPORTED, "Only .csv and .xlsx files are supported.")`
   - `GET /test-errors/items`: ném `DomainException(SCHEMA_INVALID, "Schema is invalid.", List.of(new ProblemItem("email", "SCHEMA_INVALID", "Duplicate field name")))`
   - `GET /test-errors/boom`: ném `IllegalStateException("secret-db-password")`
@@ -140,10 +141,10 @@
   | `GET /test-errors/uuid/abc` | 400; `$.code`=`REQUEST_INVALID` |
   | `DELETE /test-errors/domain` | 405; `$.code`=`REQUEST_INVALID` |
   | `GET /test-errors/khong-ton-tai` | 404; `$.code`=`REQUEST_INVALID` |
-- [ ] 3.2 Chạy `./mvnw -q test -Dtest=GlobalExceptionHandlerTest`. Mong đợi: FAIL, vì chưa có handler nên lỗi không có `code`.
-- [ ] 3.3 Tạo `GlobalExceptionHandler` theo phần Interfaces.
-- [ ] 3.4 Chạy lại lệnh ở 3.2. Mong đợi: PASS (6 case). Nếu `$.code` bị lồng trong `properties` thay vì ở top-level (rủi ro với Jackson 3), sửa cách serialize để `code` và `errors` nằm ở top-level rồi chạy lại.
-- [ ] 3.5 Commit: `feat(api): unified ProblemDetail error envelope with error codes`
+- [x] 3.2 Chạy `./mvnw -q test -Dtest=GlobalExceptionHandlerTest`. Mong đợi: FAIL, vì chưa có handler nên lỗi không có `code`.
+- [x] 3.3 Tạo `GlobalExceptionHandler` theo phần Interfaces.
+- [x] 3.4 Chạy lại lệnh ở 3.2. Mong đợi: PASS (6 case). Nếu `$.code` bị lồng trong `properties` thay vì ở top-level (rủi ro với Jackson 3), sửa cách serialize để `code` và `errors` nằm ở top-level rồi chạy lại.
+- [x] 3.5 Commit: `feat(api): unified ProblemDetail error envelope with error codes`
 
 ## 4. Domain: ImportSession và state machine
 
