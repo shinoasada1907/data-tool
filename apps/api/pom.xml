@@ -67,6 +67,13 @@
             <artifactId>fastexcel-reader</artifactId>
             <version>0.20.2</version>
         </dependency>
+        <!-- Live API documentation: Swagger UI at /swagger-ui.html, OpenAPI JSON at /v3/api-docs (change be-api-docs).
+             3.1.1 is built on Spring Boot 4.1.0. -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>3.1.1</version>
+        </dependency>
         <!-- Zip reading for the XLSX zip bomb guard; same library and version fastexcel-reader uses. -->
         <dependency>
             <groupId>org.apache.commons</groupId>
