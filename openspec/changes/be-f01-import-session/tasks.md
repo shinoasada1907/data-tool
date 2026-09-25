@@ -96,7 +96,7 @@
   public final class ErrorHttpStatus { public static HttpStatus of(ErrorCode code); }  // switch không có default → compiler bắt thiếu case
   ```
 
-- [ ] 2.1 Viết `ErrorHttpStatusTest` dạng `@ParameterizedTest @CsvSource`, mỗi dòng là `code,status`:
+- [x] 2.1 Viết `ErrorHttpStatusTest` dạng `@ParameterizedTest @CsvSource`, mỗi dòng là `code,status`:
   - `REQUEST_INVALID,400`
   - `SESSION_NOT_FOUND,404`
   - `SESSION_NOT_READY,409`, `SESSION_STATE_INVALID,409`, `RESULT_NOT_AVAILABLE,409`
@@ -170,22 +170,23 @@
   }
   ```
 
-- [ ] 4.1 Viết `SessionStatusTest` dạng `@ParameterizedTest @CsvSource`, liệt kê đủ 25 cặp `from,to,allowed`. Chỉ các cặp sau là `true`, còn lại `false`:
+- [x] 4.1 Viết `SessionStatusTest` dạng `@ParameterizedTest @CsvSource`, liệt kê đủ 25 cặp `from,to,allowed`. Chỉ các cặp sau là `true`, còn lại `false`:
   - `UPLOADED→CONFIGURING`
   - `CONFIGURING→CONFIGURING`, `CONFIGURING→READY`
   - `READY→CONFIGURING`, `READY→READY`, `READY→PROCESSED`, `READY→FAILED`
   - `PROCESSED→CONFIGURING`, `PROCESSED→READY`, `PROCESSED→PROCESSED`, `PROCESSED→FAILED`
-- [ ] 4.2 Viết `ImportSessionTest`, dùng `t0 = Instant.parse("2026-09-25T10:00:00Z")` và `t1 = t0 + 1 phút`:
+- [x] 4.2 Viết `ImportSessionTest`, dùng `t0 = Instant.parse("2026-09-25T10:00:00Z")` và `t1 = t0 + 1 phút`:
   | Case | Mong đợi |
   |---|---|
   | `create(id, file, t0)` | `status`=`UPLOADED`; `createdAt`=`updatedAt`=`t0`; `version`=null |
   | `restore(…, READY, t0, t0, 3L)` rồi `transitionTo(PROCESSED, t1)` | `status`=`PROCESSED`; `updatedAt`=`t1`; `createdAt`=`t0` |
   | `restore(…, FAILED, …)` rồi `transitionTo(CONFIGURING, t1)` | ném `DomainException` có `code()`=`SESSION_STATE_INVALID`; `status` vẫn `FAILED`; `updatedAt` không đổi |
   | `create(…)` rồi `transitionTo(PROCESSED, t1)` | ném `DomainException` `SESSION_STATE_INVALID` |
-- [ ] 4.3 Chạy `./mvnw -q test -Dtest=SessionStatusTest+ImportSessionTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 4.4 Tạo 4 class ở phần Interfaces. `canTransitionTo` dùng `EnumMap<SessionStatus, EnumSet<SessionStatus>>`.
-- [ ] 4.5 Chạy lại lệnh ở 4.3. Mong đợi: PASS.
-- [ ] 4.6 Commit: `feat(domain): import session lifecycle state machine`
+- [x] 4.3 Chạy `./mvnw -q test -Dtest=SessionStatusTest,ImportSessionTest`. Mong đợi: FAIL vì lỗi compile.
+  - Làm khác: tạo trước class khung (method ném `UnsupportedOperationException`, `canTransitionTo` trả `false`), để RED là 11 failure ở assertion cộng 4 error "not implemented", thay vì lỗi compile. Dùng dấu phẩy trong `-Dtest=A,B`. **LÝ DO**: Surefire 3.5.6 không nhận `A+B` (khi đó không chạy test nào mà cũng không báo gì); mọi lệnh `-Dtest` trong file này đã được sửa sang dấu phẩy.
+- [x] 4.4 Tạo 4 class ở phần Interfaces. ~~`canTransitionTo` dùng `EnumMap<SessionStatus, EnumSet<SessionStatus>>`.~~ `canTransitionTo` dùng `switch` trên `this`. **LÝ DO**: `switch` không có `default` nên compiler bắt được khi thêm trạng thái mới mà quên xử lý; cách dùng map không có đảm bảo đó.
+- [x] 4.5 Chạy lại lệnh ở 4.3. Mong đợi: PASS.
+- [x] 4.6 Commit: `feat(domain): import session lifecycle state machine`
 
 ## 5. Chấp nhận file: làm sạch tên và nhận diện loại file
 
@@ -232,7 +233,7 @@
   | `empty.xls` | `{}` | `FILE_UNSUPPORTED` (đuôi được kiểm trước) |
 
   Các case lỗi dùng `assertThatThrownBy(...).isInstanceOf(DomainException.class)` và kiểm `code()`.
-- [ ] 5.3 Chạy `./mvnw -q test -Dtest=OriginalFileNameTest+FileTypeDetectorTest`. Mong đợi: FAIL vì lỗi compile.
+- [ ] 5.3 Chạy `./mvnw -q test -Dtest=OriginalFileNameTest,FileTypeDetectorTest`. Mong đợi: FAIL vì lỗi compile.
 - [ ] 5.4 Viết `OriginalFileName.sanitize` theo thứ tự:
   1. Cắt lấy phần sau `/` hoặc `\` cuối cùng.
   2. `Normalizer.normalize(NFC)`.
@@ -431,7 +432,7 @@
   | Case | Mong đợi |
   |---|---|
   | POST `big.csv` 5KB | nhận được response (không bị reset kết nối); status 413; `code`=`FILE_TOO_LARGE` |
-- [ ] 10.3 Chạy `./mvnw -q test -Dtest=ImportSessionApiIntegrationTest+UploadSizeLimitIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính (không nới lỏng test), rồi chạy lại.
+- [ ] 10.3 Chạy `./mvnw -q test -Dtest=ImportSessionApiIntegrationTest,UploadSizeLimitIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính (không nới lỏng test), rồi chạy lại.
 - [ ] 10.4 Commit: `test(api): end-to-end upload tests over real HTTP`
 
 ## 11. Kiểm tra toàn bộ và hoàn tất
