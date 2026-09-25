@@ -1,0 +1,12 @@
+schema: spec-driven
+
+context: |
+  Phạm vi: chỉ Frontend của Universal Importer (apps/web). Backend (Java 21 + Spring Boot)
+  được phát triển ở nơi khác — không lập kế hoạch hay spec cho BE trong thư mục này;
+  chỉ ghi phần API contract mà FE phụ thuộc.
+  Stack: React 19 + TypeScript + Vite 8 + pnpm; lint bằng oxlint; test bằng Vitest +
+  Testing Library + MSW. Không router, không global state library, không UI kit.
+  Nguồn yêu cầu: Notion "Universal Importer — Agent Project Pack" (trang 00 → 03).
+  Khi tài liệu mâu thuẫn, ưu tiên: Requirements → System Design → Feature Breakdown,
+  và phải ghi rõ mâu thuẫn trước khi tự chọn.
+  Ngôn ngữ tài liệu và giao diện: tiếng Việt.
