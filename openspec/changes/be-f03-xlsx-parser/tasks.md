@@ -250,7 +250,8 @@
 **Files:**
 - Test: `TEST/api/importsession/XlsxUploadIntegrationTest.java` (setup như `SourcePreviewIntegrationTest` của F02)
 
-- [ ] 5.1 Viết các case:
+- [x] 5.1 Viết các case:
+  - Làm thêm: kiểm `rows[0].values[13]` = `13:30:00` (ô chỉ có giờ) trên file Excel thật.
   | Case | Mong đợi |
   |---|---|
   | Upload `types.xlsx` | 201, `status` `CONFIGURING`, `fileType` `XLSX`. Preview: `sheetName` `Data`, `rows[0].values[6]` = `2024-02-29`, `rows[0].values[4]` = `84901234567` |
@@ -258,8 +259,8 @@
   | Upload `emptyFirstSheet` | 422 `FILE_EMPTY`; không còn thư mục storage mới |
   | Upload zip bomb (50MB byte `0`, đặt tên `bomb.xlsx`) | 422 `FILE_PARSE_ERROR` |
   | Upload `large(dir, 5000, 10)` | 201; preview `totalRows` 5000 |
-- [ ] 5.2 Chạy `./mvnw -q test -Dtest=XlsxUploadIntegrationTest`. Mong đợi: PASS. Parser đã tự đăng ký vào `SourceParsers` qua `@Component`, không phải sửa luồng upload. Nếu FAIL thì sửa code chính, không nới lỏng test.
-- [ ] 5.3 Commit: `test(api): XLSX upload and preview over real HTTP`
+- [x] 5.2 Chạy `./mvnw -q test -Dtest=XlsxUploadIntegrationTest`. Mong đợi: PASS. Parser đã tự đăng ký vào `SourceParsers` qua `@Component`, không phải sửa luồng upload. Nếu FAIL thì sửa code chính, không nới lỏng test.
+- [x] 5.3 Commit: `test(api): XLSX upload and preview over real HTTP`
 
 ## 6. Kiểm tra toàn bộ và hoàn tất
 
