@@ -28,6 +28,8 @@
     </scm>
     <properties>
         <java.version>21</java.version>
+        <!-- Extra JVM flags for tests, e.g. -Dsurefire.extraArgLine=-Xmx256m for memory checks. -->
+        <surefire.extraArgLine></surefire.extraArgLine>
     </properties>
     <dependencies>
         <dependency>
@@ -58,6 +60,12 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-csv</artifactId>
             <version>1.14.1</version>
+        </dependency>
+        <!-- Streaming XLSX reader, chosen over Apache POI by the BE-F03 spike (see its design.md). -->
+        <dependency>
+            <groupId>org.dhatim</groupId>
+            <artifactId>fastexcel-reader</artifactId>
+            <version>0.20.2</version>
         </dependency>
 
         <dependency>
@@ -111,6 +119,13 @@
             <version>1.4.1</version>
             <scope>test</scope>
         </dependency>
+        <!-- Writes generated XLSX fixtures in tests. -->
+        <dependency>
+            <groupId>org.dhatim</groupId>
+            <artifactId>fastexcel</artifactId>
+            <version>0.20.2</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -125,7 +140,7 @@
                 <configuration>
                     <!-- postgres:17 (Debian 13) has no legacy zone aliases such as Asia/Saigon;
                          the JDBC driver sends the JVM zone on connect, so tests run in UTC. -->
-                    <argLine>-Duser.timezone=UTC</argLine>
+                    <argLine>-Duser.timezone=UTC ${surefire.extraArgLine}</argLine>
                 </configuration>
             </plugin>
         </plugins>

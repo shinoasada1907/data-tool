@@ -42,7 +42,8 @@
   }
   ```
 
-- [ ] 1.1 Tạo 2 fixture làm tay bằng LibreOffice Calc (hoặc Excel) rồi lưu dạng `.xlsx`:
+- [x] 1.1 Tạo 2 fixture làm tay bằng LibreOffice Calc (hoặc Excel) rồi lưu dạng `.xlsx`:
+  - Làm khác: hai fixture được tạo bằng **Excel thật điều khiển qua COM** (PowerShell), không làm tay. Thêm cột thứ 14 `time_only` = 13:30 với format `h:mm` (Excel lưu id 20). **LÝ DO**: máy không có LibreOffice nhưng có Excel; tự động hoá thì tái tạo được. Cột `time_only` để kiểm quyết định `HH:mm:ss` (2026-09-25) với file thật. Excel lưu số 0.001 dưới dạng `1E-3`, nên C2 có giá trị thật.
   - **`types.xlsx`**: một sheet tên `Data`.
     - Dòng 1: `text | int | decimal | small | big | bool | date_builtin | date_custom | datetime | formula_num | formula_text | formula_bool | na`
     - Dòng 2:
@@ -66,24 +67,26 @@
     - Excel: *Options › Advanced › Use 1904 date system*.
 
     Dòng 1: `d`. Dòng 2: ngày `2024-01-01`, format `dd/mm/yyyy`.
-- [ ] 1.2 Thêm dependency tạm vào `pom.xml`, **scope test** (chỉ phục vụ spike):
+- [x] 1.2 Thêm dependency tạm vào `pom.xml`, **scope test** (chỉ phục vụ spike):
   - `org.dhatim:fastexcel-reader:0.20.2`
   - `org.apache.poi:poi-ooxml:5.5.1`
   - `org.dhatim:fastexcel:0.20.2` (writer, giữ lâu dài)
 
   Đổi cấu hình Surefire để nhận thêm tham số JVM: `<argLine>-Duser.timezone=UTC ${surefire.extraArgLine}</argLine>`, kèm property `<surefire.extraArgLine></surefire.extraArgLine>` (mặc định rỗng). Kiểm bằng `./mvnw -q test`: mong đợi mọi test cũ vẫn PASS.
-- [ ] 1.3 Viết `XlsxFixtures` theo phần Interfaces. Viết `XlsxLibrarySpikeTest`: với **mỗi** ứng viên, đọc các fixture và in ra giá trị thật của từng tiêu chí C1–C8 trong design X1. Riêng C7: đọc hết `large(dir, 200_000, 10)` mà không gom row vào list.
+- [x] 1.3 Viết `XlsxFixtures` theo phần Interfaces. Viết `XlsxLibrarySpikeTest`: với **mỗi** ứng viên, đọc các fixture và in ra giá trị thật của từng tiêu chí C1–C8 trong design X1. Riêng C7: đọc hết `large(dir, 200_000, 10)` mà không gom row vào list.
+  - Làm khác: spike chỉ chạy fastexcel; mỗi tiêu chí là một test in quan sát thật và có assertion. **LÝ DO**: luật X1 là "chọn fastexcel nếu đạt mọi tiêu chí", POI chỉ là phương án dự phòng; fastexcel đạt đủ C1–C8 nên không cần spike POI.
   - fastexcel: `new ReadableWorkbook(in, new ReadingOptions(true, false))`, `getSheets().filter(s -> s.getVisibility() == VISIBLE).findFirst()`, `Cell.getRawValue()/getDataFormatId()/getDataFormatString()`, `isDate1904()`.
   - POI: `OPCPackage.open(in)`, `XSSFReader`. Visibility đọc thuộc tính `state` trong `xl/workbook.xml`. Dùng `XSSFSheetXMLHandler` với một `DataFormatter` tự viết để lấy giá trị raw, và `DateUtil.isADateFormat`.
-- [ ] 1.4 Chạy `./mvnw -q test -Dtest=XlsxLibrarySpikeTest -Dsurefire.extraArgLine=-Xmx256m`. Ghi kết quả từng tiêu chí C1–C8 cho cả hai ứng viên.
-- [ ] 1.5 Điền mục "Kết quả spike" trong `design.md`: bảng C1–C8 × hai ứng viên, và lựa chọn cuối cùng. Luật chọn nằm ở X1. Phương án không chọn gạch ngang kèm LÝ DO.
-- [ ] 1.6 Dọn spike:
+- [x] 1.4 Chạy `./mvnw -q test -Dtest=XlsxLibrarySpikeTest -Dsurefire.extraArgLine=-Xmx256m`. Ghi kết quả từng tiêu chí C1–C8 cho cả hai ứng viên.
+  - Kết quả: 7/7 PASS với `-Xmx256m`; C7: 200.000 row × 10 cột, file 10MB, 2,4 giây. Chi tiết ở mục "Kết quả spike" của design.md.
+- [x] 1.5 Điền mục "Kết quả spike" trong `design.md`: bảng C1–C8 × hai ứng viên, và lựa chọn cuối cùng. Luật chọn nằm ở X1. Phương án không chọn gạch ngang kèm LÝ DO.
+- [x] 1.6 Dọn spike:
   - xoá `XlsxLibrarySpikeTest`;
   - chuyển thư viện được chọn sang scope `compile`, xoá thư viện còn lại khỏi `pom.xml`;
   - giữ `fastexcel` writer ở scope `test`;
   - chạy `./mvnw -q test` (PASS);
   - kiểm không có Jackson 2 theo Global Constraints.
-- [ ] 1.7 Commit: `chore(api): pick XLSX reader via spike, add XLSX fixtures`
+- [x] 1.7 Commit: `chore(api): pick XLSX reader via spike, add XLSX fixtures`
 
 ## 2. Nhận diện format ngày
 

@@ -113,7 +113,22 @@ Nếu thư viện đã chọn cần `File` để truy cập ngẫu nhiên, `Xlsx
 
 ## Kết quả spike
 
-(điền ở task 1.5)
+Chạy ngày 2026-09-26 bằng `XlsxLibrarySpikeTest`, với `-Xmx256m`. Fixture `types.xlsx` và `date1904.xlsx` do Excel thật tạo ra (qua COM).
+
+| # | fastexcel-reader 0.20.2 | Quan sát |
+|---|---|---|
+| C1 | Đạt | `getVisibility()` trả `HIDDEN`/`VISIBLE`; sheet hiển thị đầu tiên là `Visible`; workbook mọi sheet đều ẩn thì không có sheet `VISIBLE` nào |
+| C2 | Đạt | Raw `123`, `-5.25`, `1E-3` (Excel ghi đúng như vậy), `84901234567`, qua `toPlainString()` ra `0.001` |
+| C3 | Đạt | Format id 14 (fastexcel trả chuỗi `mm-dd-yy`), 164 `dd/mm/yyyy`, 165 `yyyy\-mm\-dd\ hh:mm:ss` (có ký tự escape), 20 `h:mm`; `isDate1904()` = true |
+| C4 | Đạt | Ô công thức có type `FORMULA`, nhưng `getValue()` trả giá trị cache đã có kiểu: `BigDecimal 246`, `String "An!"`, `Boolean true`, `String "#N/A"`. Raw của công thức boolean là `1`, nên phải dựa vào `getValue()`, không dựa vào raw |
+| C5 | Đạt | `getRowNum()` trả `1, 2, 4` (dòng 3 vắng mặt); ô phụ của vùng gộp là `null` |
+| C6 | Đạt | Shared string của Excel (`An`) và string do writer ghi đều ra text; ô thiếu là `null` |
+| C7 | Đạt | 200.000 row × 10 cột (file 10MB) đọc hết trong 2,4 giây, heap tối đa 256MB, không OOM |
+| C8 | Đạt | Theo X4 (bước quét riêng), không phụ thuộc thư viện |
+
+**Chọn fastexcel-reader.** ~~(b) `org.apache.poi:poi-ooxml:5.5.1`~~ **LÝ DO**: fastexcel đạt đủ C1–C8, và theo luật X1 thì POI chỉ là phương án dự phòng; không cần spike POI.
+
+Hệ quả cho X3: ô công thức lấy kiểu từ `getValue()`. `BigDecimal` áp luật số hoặc ngày theo format của ô; `Boolean` ra `TRUE`/`FALSE`; `String` giữ nguyên (gồm cả mã lỗi như `#N/A`).
 
 ## Open Questions
 
