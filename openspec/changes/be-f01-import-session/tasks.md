@@ -105,11 +105,11 @@
   - `FILE_EMPTY,422`, `FILE_PARSE_ERROR,422`, `SCHEMA_INVALID,422`, `MAPPING_INVALID,422`, `SOURCE_COLUMN_NOT_FOUND,422`, `CONFIG_INVALID,422`
   - `EXPORT_FAILED,500`, `INTERNAL_ERROR,500`
 
-  Thêm test `every_code_has_a_status`: lặp qua `ErrorCode.values()`, `of()` không ném lỗi.
-- [ ] 2.2 Chạy `./mvnw -q test -Dtest=ErrorHttpStatusTest`. Mong đợi: FAIL vì lỗi compile (chưa có class).
-- [ ] 2.3 Tạo 4 class ở phần Interfaces.
-- [ ] 2.4 Chạy lại lệnh ở 2.2. Mong đợi: PASS (16 case).
-- [ ] 2.5 Commit: `feat(api): add error codes and HTTP status mapping`
+  ~~Thêm test `every_code_has_a_status`: lặp qua `ErrorCode.values()`, `of()` không ném lỗi.~~ **LÝ DO bỏ**: `switch` không có `default` nên compiler đã bắt thiếu case; test này không bao giờ fail được.
+- [x] 2.2 ~~Chạy `./mvnw -q test -Dtest=ErrorHttpStatusTest`. Mong đợi: FAIL vì lỗi compile (chưa có class).~~ Tạo trước `ErrorCode` và một `ErrorHttpStatus` cố tình trả sai (418), rồi chạy. Kết quả: 15/15 FAIL ở assertion. **LÝ DO**: phải thấy fail ở assertion thì mới chứng minh được test bắt được ánh xạ sai; fail vì lỗi compile không chứng minh điều đó.
+- [x] 2.3 ~~Tạo 4 class ở phần Interfaces.~~ Viết bảng ánh xạ thật trong `ErrorHttpStatus`. **LÝ DO**: `ProblemItem` và `DomainException` chuyển sang task 3, vì chỉ test của task 3 mới dùng tới chúng (TDD: không viết code khi chưa có test cần nó).
+- [x] 2.4 Chạy lại lệnh ở 2.2. Mong đợi: PASS (15 case; không phải 16 như ghi ban đầu, vì đã bỏ `every_code_has_a_status`).
+- [x] 2.5 Commit: `feat(api): add error codes and HTTP status mapping`
 
 ## 3. Định dạng lỗi thống nhất (GlobalExceptionHandler)
 
