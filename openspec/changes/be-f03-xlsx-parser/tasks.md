@@ -92,7 +92,14 @@
 - Test: `TEST/infrastructure/parser/xlsx/ExcelDateFormatsTest.java`
 
 **Interfaces:**
-- Produces: `public final class ExcelDateFormats { public static boolean isDateFormat(Integer formatId, String formatString); }`. Nếu chọn POI, hàm này gọi `DateUtil.isADateFormat` nhưng giữ nguyên chữ ký và bộ test.
+- Produces:
+  ```java
+  public final class ExcelDateFormats {
+      public static boolean isDateFormat(Integer formatId, String formatString);
+      public static boolean isTimeOnlyFormat(Integer formatId, String formatString);   // ngày/giờ nhưng không có y/d
+  }
+  ```
+  Nếu chọn POI, `isDateFormat` gọi `DateUtil.isADateFormat` nhưng giữ nguyên chữ ký và bộ test.
 
 - [ ] 2.1 Viết `ExcelDateFormatsTest` (parameterized):
   | formatId | formatString | Mong đợi |
@@ -112,9 +119,22 @@
   | 170 | `[h]:mm` | true |
   | 171 | `\d0.0` | false |
   | null | null | false |
+
+  Thêm test `isTimeOnlyFormat` (parameterized). Cột "Mong đợi" là kết quả của `isTimeOnlyFormat`:
+  | formatId | formatString | Mong đợi |
+  |---|---|---|
+  | 20 | `h:mm` | true |
+  | 21 | `h:mm:ss` | true |
+  | 45 | `mm:ss` | true |
+  | 170 | `[h]:mm` | true |
+  | 172 | `hh:mm AM/PM` | true |
+  | 14 | `m/d/yyyy` | false |
+  | 165 | `yyyy-mm-dd hh:mm:ss` | false |
+  | 164 | `dd/mm/yyyy` | false |
+  | 0 | `General` | false |
 - [ ] 2.2 Chạy `./mvnw -q test -Dtest=ExcelDateFormatsTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 2.3 Cài theo design X2.
-- [ ] 2.4 Chạy lại lệnh ở 2.2. Mong đợi: PASS (15 case).
+- [ ] 2.3 Cài theo design X2. `isTimeOnlyFormat` = `isDateFormat` và, sau khi bỏ phần quote/escape/`[...]`, không còn chữ `y` hay `d`.
+- [ ] 2.4 Chạy lại lệnh ở 2.2. Mong đợi: PASS (15 + 9 case).
 - [ ] 2.5 Commit: `feat(infra): detect Excel date formats`
 
 ## 3. Chống zip bomb
@@ -186,6 +206,10 @@
   | `number` | `("45351", 14, "m/d/yyyy", false)` | `2024-02-29` |
   | `number` | `("45651.5732638889", 165, "yyyy-mm-dd hh:mm:ss", false)` | `2024-12-25T13:45:30` (49530 giây = 13:45:30) |
   | `number` | `("45651.99999999", 14, "m/d/yyyy", false)` | `2024-12-26` (làm tròn tới giây thì sang ngày mới, phần giờ là 0) |
+  | `number` | `("0.5625", 20, "h:mm", false)` | `13:30:00` (ô chỉ có giờ; không kèm `1899-12-30`) |
+  | `number` | `("0.5732638889", 21, "hh:mm:ss", false)` | `13:45:30` |
+  | `number` | `("45651.5625", 20, "h:mm", false)` | `13:30:00` (format chỉ có giờ thì bỏ phần ngày của serial) |
+  | `number` | `("0.99999999", 21, "hh:mm:ss", false)` | `00:00:00` (làm tròn lên 24:00:00 thì ra 00:00:00) |
   | `serialToIso` | `(43830, true)` | `2024-01-01` (hệ 1904) |
   | `serialToIso` | `(45292, false)` | `2024-01-01` (hệ 1900) |
 - [ ] 4.2 Viết `XlsxSourceParserTest` (dùng fixture của task 1):
@@ -232,5 +256,5 @@
 
 - [ ] 6.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm ArchitectureTest.
 - [ ] 6.2 Chạy app thật và upload một file XLSX thật do người dùng cung cấp (có tiếng Việt, ngày, số điện thoại lưu dạng số). Kiểm preview qua `curl` và ghi các bất thường vào mục Open Questions của `design.md`.
-- [ ] 6.3 Nếu người dùng đã chốt Open Question "ô chỉ có giờ" thì làm theo; nếu chưa thì giữ luật X3 và ghi rõ vào README ở F11. Tick checkbox, commit: `docs(openspec): complete be-f03 tasks`
+- [ ] 6.3 Tick checkbox, commit: `docs(openspec): complete be-f03 tasks`. ("Ô chỉ có giờ" đã chốt 2026-09-25 là `HH:mm:ss`, có test ở 2.1 và 4.1.)
 - [ ] 6.4 Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f03-xlsx-parser -y`.

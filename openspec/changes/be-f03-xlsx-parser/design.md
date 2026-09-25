@@ -67,6 +67,7 @@ Kết quả spike ghi vào mục "Kết quả spike" của file này. Phương �
 |---|---|
 | Số, format không phải ngày | `new BigDecimal(raw).toPlainString()` |
 | Số, format ngày | Serial → `LocalDateTime`: gốc `1899-12-30` (hệ 1900) hoặc `1904-01-01` (hệ 1904); phần lẻ của ngày làm tròn tới giây. Phần giờ là `00:00:00` thì `yyyy-MM-dd`, ngược lại `yyyy-MM-dd'T'HH:mm:ss` |
+| Số, format **chỉ có giờ** (có `h`/`s` nhưng không có `y`/`d`, xem `ExcelDateFormats.isTimeOnlyFormat`) | `HH:mm:ss`, lấy từ phần lẻ của serial (làm tròn tới giây; tròn lên đúng 24:00:00 thì ra `00:00:00`). Đã chốt 2026-09-25 |
 | Chuỗi (shared/inline) | Text đúng như trong ô. `""` → `null` |
 | Boolean | `TRUE` / `FALSE` |
 | Công thức | Theo kiểu của giá trị đã cache, áp đúng các dòng trên. Không có giá trị cache → `null` |
@@ -116,4 +117,5 @@ Nếu thư viện đã chọn cần `File` để truy cập ngẫu nhiên, `Xlsx
 
 ## Open Questions
 
-- **Ô chỉ có giờ** (format `hh:mm`, serial < 1): D9 chỉ nói ngày và ngày-giờ. Theo đúng luật X3, ô này sẽ ra `1899-12-30T13:30:00`, khó dùng. Đề xuất trả `HH:mm:ss` (ví dụ `13:30:00`) khi format chỉ có giờ (có `h`/`s` nhưng không có `y`/`d`). **Cần người dùng quyết**; chưa chốt thì làm theo X3 và ghi lại.
+- ~~**Ô chỉ có giờ** (format `hh:mm`, serial < 1): D9 chỉ nói ngày và ngày-giờ. Theo đúng luật X3, ô này sẽ ra `1899-12-30T13:30:00`, khó dùng. Đề xuất trả `HH:mm:ss` (ví dụ `13:30:00`) khi format chỉ có giờ (có `h`/`s` nhưng không có `y`/`d`). **Cần người dùng quyết**; chưa chốt thì làm theo X3 và ghi lại.~~ **Đã chốt 2026-09-25**: người dùng đồng ý trả `HH:mm:ss`; đã đưa vào X3.
+  - Giới hạn đã biết: format thời gian luỹ kế (`[h]:mm`) với giá trị từ 24 giờ trở lên chỉ giữ phần giờ trong ngày, vì `HH:mm:ss` không biểu diễn được quá 24 giờ.

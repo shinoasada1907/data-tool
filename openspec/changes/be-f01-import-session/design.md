@@ -194,6 +194,7 @@ Mọi lỗi API trả `application/problem+json`:
   - Ô công thức lấy giá trị đã cache.
   - Ô số lấy từ chuỗi raw trong XML qua `BigDecimal.toPlainString()`, không đi qua `double`.
   - Ô ngày thành ISO `yyyy-MM-dd`. Nếu có phần giờ khác 0 thì thành `yyyy-MM-dd'T'HH:mm:ss`.
+  - Ô có format chỉ có giờ (ví dụ `h:mm`) thành `HH:mm:ss` (đã chốt 2026-09-25).
   - Ô boolean thành `TRUE`/`FALSE`.
   - Workbook hoặc sheet trống trả `FILE_EMPTY`.
   - Thư viện: spike `fastexcel-reader` trước; nếu không được thì dùng Apache POI SAX (review A4).
@@ -434,7 +435,7 @@ interface ImportErrorDto {
   - Có đủ các mã FE đề xuất. Thêm các mã `FILE_EMPTY`, `REQUEST_INVALID`, `SESSION_STATE_INVALID`, `RESULT_NOT_AVAILABLE`, `INTERNAL_ERROR` (xem D4).
 - **Q9**:
   - Header trùng tên hoặc rỗng được tự đặt lại tên (`Email (2)`, `Column C`), nên `columns[].name` luôn duy nhất và không rỗng.
-  - Ô XLSX: số trả về dạng chuỗi plain; ngày trả về dạng ISO `yyyy-MM-dd`; boolean trả về `TRUE`/`FALSE`.
+  - Ô XLSX: số trả về dạng chuỗi plain; ngày trả về dạng ISO `yyyy-MM-dd`; ô chỉ có giờ trả về `HH:mm:ss`; boolean trả về `TRUE`/`FALSE`.
 - **Q10**: BE chạy cổng 8080. FE gọi cùng origin qua Vite proxy, nên V0.1 không có CORS.
 - **Ngoài 10 câu hỏi**: BE có `GET /api/import-sessions/{id}` trả `config` và `readiness`. FE có thể dùng nó để khôi phục state sau khi tải lại trang (hiện đang là non-goal của FE).
 
@@ -456,4 +457,5 @@ interface ImportErrorDto {
 
 ## Open Questions
 
-- Quy tắc "mỗi field chỉ báo lỗi đầu tiên" (D10) là quyết định mới, chưa được trình bày riêng trong phần brainstorming. Cần xác nhận khi review spec. Nếu đổi sang báo mọi lỗi của field, chỉ phải sửa trong F07.
+- ~~Quy tắc "mỗi field chỉ báo lỗi đầu tiên" (D10) là quyết định mới, chưa được trình bày riêng trong phần brainstorming. Cần xác nhận khi review spec. Nếu đổi sang báo mọi lỗi của field, chỉ phải sửa trong F07.~~ **Đã chốt 2026-09-25**: người dùng đồng ý giữ quy tắc này.
+- ~~Ô XLSX chỉ có giờ (câu hỏi phát sinh ở F03).~~ **Đã chốt 2026-09-25**: trả `HH:mm:ss` (D9).

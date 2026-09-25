@@ -10,6 +10,7 @@ Pack yêu cầu hỗ trợ XLSX ngang với CSV. Sau F02, file XLSX vẫn dừng
 - Chuyển giá trị ô thành chuỗi (D9):
   - số: chuỗi raw → `BigDecimal.toPlainString()`;
   - ngày: ISO `yyyy-MM-dd`, hoặc `yyyy-MM-dd'T'HH:mm:ss` nếu có phần giờ;
+  - ô chỉ có giờ (format như `h:mm`): `HH:mm:ss` (đã chốt 2026-09-25);
   - boolean: `TRUE`/`FALSE`;
   - công thức: giá trị đã cache;
   - ô lỗi: chuỗi lỗi (`#N/A`);

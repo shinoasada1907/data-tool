@@ -308,5 +308,5 @@
 
 - [ ] 10.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm cả ArchitectureTest.
 - [ ] 10.2 Chạy app thật, dùng `curl -X PUT` gọi `/validations` với 3 body: hợp lệ, có `required` (phải nhận warning), và `email` trên field số (phải nhận 422).
-- [ ] 10.3 Tick đủ checkbox; chỗ nào làm khác kế hoạch thì gạch ngang và ghi LÝ DO. Nếu review chốt khác quy tắc "chỉ báo lỗi đầu tiên" (OQ1), ghi quyết định vào đây. Commit: `docs(openspec): complete be-f07 tasks`
+- [ ] 10.3 Tick đủ checkbox; chỗ nào làm khác kế hoạch thì gạch ngang và ghi LÝ DO. (OQ1 "chỉ báo lỗi đầu tiên" đã chốt 2026-09-25: giữ.) Commit: `docs(openspec): complete be-f07 tasks`
 - [ ] 10.4 Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f07-validations -y`.

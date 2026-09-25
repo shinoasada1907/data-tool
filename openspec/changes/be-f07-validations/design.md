@@ -139,6 +139,6 @@ Mỗi lần bỏ kèm warning `CONFIG_PRUNED`. Rule `unique` được giữ khi 
 
 ## Open Questions
 
-- **OQ1** (kế thừa Open Question của be-f01): quy tắc "mỗi field chỉ báo lỗi đầu tiên" cần được xác nhận khi review.
+- ~~**OQ1** (kế thừa Open Question của be-f01): quy tắc "mỗi field chỉ báo lỗi đầu tiên" cần được xác nhận khi review.~~ **Đã chốt 2026-09-25**: người dùng đồng ý giữ quy tắc này.
 - **OQ2**: rule trùng trong payload (ví dụ hai `unique` cho cùng một field) bị từ chối với 422. Có thể dùng cách khác là lặng lẽ gộp; đề xuất từ chối, vì FE vốn đã chặn chuyện này ở UI.
 - **OQ3**: `email` gửi cho field kiểu `email` được xử lý như `required`/`type`: bỏ qua và trả warning `RULE_IMPLIED_BY_SCHEMA`, đúng như D10. Ghi lại ở đây để FE hiển thị chip "suy ra từ kiểu".

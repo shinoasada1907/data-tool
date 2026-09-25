@@ -40,4 +40,4 @@ FR-07 yêu cầu validate giá trị **sau** transformation bằng 4 rule: `requ
 - **Phụ thuộc**:
   - F04 (schema, config, khung prune, readiness, khoá).
   - F06: `RowErrorCode`, `TextValues`, `EngineConfig`.
-- **Câu hỏi để ngỏ**: quy tắc "mỗi field chỉ báo lỗi đầu tiên" là Open Question của be-f01 và cần xác nhận khi review. Nếu đổi, chỉ phải sửa `FieldValidator`.
+- **Đã chốt 2026-09-25**: quy tắc "mỗi field chỉ báo lỗi đầu tiên" (từng là Open Question của be-f01) được người dùng xác nhận.

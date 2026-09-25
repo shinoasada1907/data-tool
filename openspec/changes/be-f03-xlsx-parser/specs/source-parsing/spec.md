@@ -29,6 +29,7 @@ Với XLSX, hệ thống SHALL áp dụng cùng các luật như CSV:
 Mọi ô XLSX SHALL được chuyển thành chuỗi theo luật sau:
 - số: dùng dạng thập phân thường (không ký hiệu khoa học, không thêm `.0`);
 - ô số có format ngày: `yyyy-MM-dd`, hoặc `yyyy-MM-dd'T'HH:mm:ss` khi phần giờ khác 0; đúng cho cả hệ ngày 1900 và 1904;
+- ô số có format chỉ có giờ (có giờ/giây nhưng không có năm/ngày): `HH:mm:ss`;
 - boolean: `TRUE` hoặc `FALSE`;
 - ô công thức: giá trị đã cache, chuyển theo đúng các luật trên;
 - ô lỗi: chuỗi lỗi, ví dụ `#N/A`;
@@ -37,6 +38,10 @@ Mọi ô XLSX SHALL được chuyển thành chuỗi theo luật sau:
 #### Scenario: Các kiểu ô thường gặp
 - **WHEN** dòng 2 của sheet chứa lần lượt: chuỗi `An`; số `123`; số `-5.25`; số `0.001`; số `84901234567`; boolean TRUE; ngày 2024-02-29 với format có sẵn `m/d/yyyy`; ngày 2024-12-25 với format `dd/mm/yyyy`; ngày-giờ 2024-12-25 13:45:30 với format `yyyy-mm-dd hh:mm:ss`; công thức `=B2*2`; công thức `=A2&"!"`; công thức `=B2>100`; công thức `=NA()`
 - **THEN** values của row dòng 2 là `["An","123","-5.25","0.001","84901234567","TRUE","2024-02-29","2024-12-25","2024-12-25T13:45:30","246","An!","TRUE","#N/A"]`
+
+#### Scenario: Ô chỉ có giờ
+- **WHEN** ô A2 chứa 13:30 với format `h:mm`, và ô B2 chứa 13:45:30 với format `hh:mm:ss`
+- **THEN** giá trị hai ô lần lượt là `13:30:00` và `13:45:30`, không kèm ngày `1899-12-30`
 
 #### Scenario: Hệ ngày 1904
 - **WHEN** workbook dùng hệ ngày 1904 và ô A2 là ngày 2024-01-01 với format `dd/mm/yyyy`
