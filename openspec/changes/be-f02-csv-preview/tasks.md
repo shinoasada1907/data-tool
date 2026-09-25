@@ -45,7 +45,7 @@
   }
   ```
 
-- [ ] 1.1 Viết `ColumnNamesTest`:
+- [x] 1.1 Viết `ColumnNamesTest`:
   | Input `normalize` | Tên mong đợi |
   |---|---|
   | `["name","email"]` | `["name","email"]` |
@@ -58,11 +58,12 @@
   | `[null, "b"]` | `["Column A","b"]` |
 
   `index` của từng cột bằng vị trí của nó. Thêm các case: `excelLetters` với 0 → `A`, 25 → `Z`, 26 → `AA`, 701 → `ZZ`, 702 → `AAA`; `isBlankRow` với `[null,"  "]` → true, `[null,"x"]` → false, `[]` → true.
-- [ ] 1.2 Viết `ImportRowTest`: `new ImportRow(2, List.of("a")).value(0)` → `"a"`; `.value(3)` → `null`. `values` là bản sao bất biến: sửa list gốc sau khi tạo không làm row thay đổi. Dùng `Collections.unmodifiableList(new ArrayList<>(values))` để giữ được phần tử `null`.
-- [ ] 1.3 Chạy `./mvnw -q test -Dtest=ColumnNamesTest,ImportRowTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 1.4 Tạo 5 file ở phần Interfaces.
-- [ ] 1.5 Chạy lại lệnh ở 1.3. Mong đợi: PASS. Chạy thêm `./mvnw -q test -Dtest=ArchitectureTest`: vẫn PASS, vì `domain.source` chỉ dùng `java.*`.
-- [ ] 1.6 Commit: `feat(domain): neutral source model and column naming rules`
+- [x] 1.2 Viết `ImportRowTest`: `new ImportRow(2, List.of("a")).value(0)` → `"a"`; `.value(3)` → `null`. `values` là bản sao bất biến: sửa list gốc sau khi tạo không làm row thay đổi. Dùng `Collections.unmodifiableList(new ArrayList<>(values))` để giữ được phần tử `null`.
+- [x] 1.3 Chạy `./mvnw -q test -Dtest=ColumnNamesTest,ImportRowTest`. Mong đợi: FAIL vì lỗi compile.
+  - Làm khác: tạo trước class khung (trả giá trị rỗng), để RED là 16/17 failure ở assertion. Case pass sẵn: "row có chữ không trống" (khung trả `false`).
+- [x] 1.4 Tạo 5 file ở phần Interfaces.
+- [x] 1.5 Chạy lại lệnh ở 1.3. Mong đợi: PASS. Chạy thêm `./mvnw -q test -Dtest=ArchitectureTest`: vẫn PASS, vì `domain.source` chỉ dùng `java.*`.
+- [x] 1.6 Commit: `feat(domain): neutral source model and column naming rules`
 
 ## 2. CsvSourceParser
 
