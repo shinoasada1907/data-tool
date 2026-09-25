@@ -1,6 +1,7 @@
 package com.universalimporter.infrastructure.parser.xlsx;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -11,6 +12,7 @@ import java.time.format.DateTimeFormatter;
 final class XlsxCellValues {
 
     private static final long SECONDS_PER_DAY = 86_400;
+    private static final MathContext EXCEL_PRECISION = new MathContext(15, RoundingMode.HALF_EVEN);
     /** Day 0 of Excel's 1900 date system; correct for every date after Excel's fictitious 1900-02-29. */
     private static final LocalDate EPOCH_1900 = LocalDate.of(1899, 12, 30);
     private static final LocalDate EPOCH_1904 = LocalDate.of(1904, 1, 1);
@@ -32,7 +34,9 @@ final class XlsxCellValues {
         if (ExcelDateFormats.isDateFormat(formatId, formatString)) {
             return serialToIso(value, date1904);
         }
-        return value.toPlainString();
+        // Excel keeps 15 significant digits but may write a double's full 17 (0.075 → 0.074999999999999997);
+        // show what Excel shows.
+        return value.round(EXCEL_PRECISION).stripTrailingZeros().toPlainString();
     }
 
     /** {@code yyyy-MM-dd}, or {@code yyyy-MM-dd'T'HH:mm:ss} when the time is not midnight (rounded to seconds). */

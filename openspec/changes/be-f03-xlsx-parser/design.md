@@ -65,7 +65,7 @@ Kết quả spike ghi vào mục "Kết quả spike" của file này. Phương �
 ### X3. Chuyển giá trị ô (D9)
 | Loại ô | Chuỗi trả về |
 |---|---|
-| Số, format không phải ngày | `new BigDecimal(raw).toPlainString()` |
+| Số, format không phải ngày | ~~`new BigDecimal(raw).toPlainString()`~~ `new BigDecimal(raw).round(15 chữ số có nghĩa).stripTrailingZeros().toPlainString()`. **LÝ DO** (phát hiện ở task 6.2 với file thật): Excel lưu 0.075 thành `0.074999999999999997` (double 17 chữ số), trong khi chỉ hiển thị 15 chữ số |
 | Số, format ngày | Serial → `LocalDateTime`: gốc `1899-12-30` (hệ 1900) hoặc `1904-01-01` (hệ 1904); phần lẻ của ngày làm tròn tới giây. Phần giờ là `00:00:00` thì `yyyy-MM-dd`, ngược lại `yyyy-MM-dd'T'HH:mm:ss` |
 | Số, format **chỉ có giờ** (có `h`/`s` nhưng không có `y`/`d`, xem `ExcelDateFormats.isTimeOnlyFormat`) | `HH:mm:ss`, lấy từ phần lẻ của serial (làm tròn tới giây; tròn lên đúng 24:00:00 thì ra `00:00:00`). Đã chốt 2026-09-25 |
 | Chuỗi (shared/inline) | Text đúng như trong ô. `""` → `null` |
@@ -129,6 +129,20 @@ Chạy ngày 2026-09-26 bằng `XlsxLibrarySpikeTest`, với `-Xmx256m`. Fixture
 **Chọn fastexcel-reader.** ~~(b) `org.apache.poi:poi-ooxml:5.5.1`~~ **LÝ DO**: fastexcel đạt đủ C1–C8, và theo luật X1 thì POI chỉ là phương án dự phòng; không cần spike POI.
 
 Hệ quả cho X3: ô công thức lấy kiểu từ `getValue()`. `BigDecimal` áp luật số hoặc ngày theo format của ô; `Boolean` ra `TRUE`/`FALSE`; `String` giữ nguyên (gồm cả mã lỗi như `#N/A`).
+
+## Kiểm với file thật (task 6.2, 2026-09-26)
+
+File `khach-hang.xlsx` do Excel tạo (sheet `Khách hàng`, tiêu đề tiếng Việt, ngày `dd/mm/yyyy`, số điện thoại lưu dạng số và dạng text, số tiền `#,##0`, tỉ lệ `0.00%`, một dòng trống ở giữa).
+- **Đúng**:
+  - tên sheet và dấu tiếng Việt;
+  - ngày ra ISO;
+  - số điện thoại dạng text giữ số 0 đầu;
+  - row số 2 và 4 (dòng trống vẫn được đếm);
+  - log chỉ có metadata.
+- **Đã sửa**: tỉ lệ ra `0.074999999999999997`. Đã làm tròn về 15 chữ số có nghĩa, giờ ra `0.075` (xem X3).
+- **Hành vi đã biết, không sửa** (ghi vào README ở F11):
+  - số điện thoại nhập dạng số đã mất số 0 đầu ngay trong Excel;
+  - format hiển thị không được áp dụng: `#,##0` ra `1500000`, `0.00%` ra `0.075`. BE lấy giá trị, không lấy chuỗi hiển thị.
 
 ## Open Questions
 

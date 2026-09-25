@@ -264,7 +264,10 @@
 
 ## 6. Kiểm tra toàn bộ và hoàn tất
 
-- [ ] 6.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm ArchitectureTest.
-- [ ] 6.2 Chạy app thật và upload một file XLSX thật do người dùng cung cấp (có tiếng Việt, ngày, số điện thoại lưu dạng số). Kiểm preview qua `curl` và ghi các bất thường vào mục Open Questions của `design.md`.
-- [ ] 6.3 Tick checkbox, commit: `docs(openspec): complete be-f03 tasks`. ("Ô chỉ có giờ" đã chốt 2026-09-25 là `HH:mm:ss`, có test ở 2.1 và 4.1.)
+- [x] 6.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm ArchitectureTest.
+  - Kết quả: 226 test, 0 failure, BUILD SUCCESS (trước khi sửa làm tròn); sau khi sửa, các test XLSX vẫn xanh.
+- [x] 6.2 Chạy app thật và upload một file XLSX thật do người dùng cung cấp (có tiếng Việt, ngày, số điện thoại lưu dạng số). Kiểm preview qua `curl` và ghi các bất thường vào mục Open Questions của `design.md`.
+  - Làm khác: file "người dùng" được tạo bằng Excel qua COM (`khach-hang.xlsx`), chạy trên database tạm `universal_importer_f03_check` ở cổng 18080, xong thì xoá.
+  - Phát hiện: tỉ lệ 7.50% ra `0.074999999999999997`. Đã sửa theo TDD (4 case mới trong `XlsxCellValuesTest`): làm tròn về 15 chữ số có nghĩa như Excel, giờ ra `0.075`. Kết quả chi tiết ở mục "Kiểm với file thật" của design.md.
+- [x] 6.3 Tick checkbox, commit: `docs(openspec): complete be-f03 tasks`. ("Ô chỉ có giờ" đã chốt 2026-09-25 là `HH:mm:ss`, có test ở 2.1 và 4.1.)
 - [ ] 6.4 Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f03-xlsx-parser -y`.

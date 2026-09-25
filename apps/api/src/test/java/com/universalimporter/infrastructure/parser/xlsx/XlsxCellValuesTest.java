@@ -15,6 +15,10 @@ class XlsxCellValuesTest {
             123                | 0   | General             | false | 123
             8.4901234567E10    | 0   | General             | false | 84901234567
             1E-3               | 0   | General             | false | 0.001
+            0.074999999999999997 | 10 | 0.00%              | false | 0.075
+            2750000.5          | 3   | '#,##0'             | false | 2750000.5
+            1500000            | 3   | '#,##0'             | false | 1500000
+            0.30000000000000004 | 0  | General             | false | 0.3
             45351              | 14  | m/d/yyyy            | false | 2024-02-29
             45651.573263888902 | 165 | yyyy-mm-dd hh:mm:ss | false | 2024-12-25T13:45:30
             45651.99999999     | 14  | m/d/yyyy            | false | 2024-12-26
