@@ -263,4 +263,5 @@
   - `curl localhost:8080/api/import-sessions/{id}/preview?limit=5` hiển thị đúng dấu và số dòng;
   - upload một CSV lưu bằng "CSV (Comma delimited)" (Windows-1258/1252), nhận 422 `FILE_PARSE_ERROR` nếu file có ký tự không phải UTF-8.
 - [x] 7.3 Tick đủ checkbox, ghi LÝ DO cho mọi chỗ làm khác kế hoạch. Commit: `docs(openspec): complete be-f02 tasks`
-- [ ] 7.4 Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f02-csv-preview -y`.
+- [x] 7.4 ~~Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f02-csv-preview -y`.~~
+  - Làm khác: người dùng đồng ý merge ngày 2026-09-26. Archive chạy trên nhánh feature **trước** khi merge fast-forward vào `main`. **LÝ DO**: không commit thẳng lên `main` (giống be-f01).
