@@ -12,6 +12,16 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: ${IMPORTER_MAX_FILE_SIZE:20MB}
+      # Room for the multipart envelope around a file that is exactly at the limit.
+      max-request-size: ${IMPORTER_MAX_REQUEST_SIZE:21MB}
+
+server:
+  tomcat:
+    # Read oversized uploads to the end so the client receives the 413 instead of a connection reset.
+    max-swallow-size: -1
 
 importer:
   storage:

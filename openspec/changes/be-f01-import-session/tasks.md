@@ -403,7 +403,8 @@
       dir: ${IMPORTER_STORAGE_DIR:${java.io.tmpdir}/universal-importer}
   ```
 
-- [ ] 9.1 Viết `ImportSessionControllerTest` với `@WebMvcTest(ImportSessionController.class)` và `@MockitoBean ImportSessionService`:
+- [x] 9.1 Viết `ImportSessionControllerTest` với `@WebMvcTest(ImportSessionController.class)` và `@MockitoBean ImportSessionService`:
+  - Làm khác: ~~case service ném `FILE_UNSUPPORTED` → 415~~ và ~~case `DELETE` → 405~~ đã bỏ. **LÝ DO**: cả hai chỉ kiểm lại `GlobalExceptionHandler`, vốn đã có test riêng ở task 3; luồng 415 thật được kiểm end-to-end ở task 10. Thêm vào đó: dùng `ArgumentCaptor` kiểm controller đưa đúng tên file và đúng nội dung file cho service.
   | Request | Stub | Mong đợi |
   |---|---|---|
   | multipart `file`=`customers.csv` | `upload` trả session `UPLOADED`, CSV, 7 byte, `t0` | 201; header `Location`=`/api/import-sessions/{id}`; `$.id`, `$.status`=`UPLOADED`, `$.fileType`=`CSV`, `$.sizeBytes`=7, `$.originalFileName`=`customers.csv`, `$.createdAt`=`2026-09-25T10:00:00Z` |
@@ -413,10 +414,10 @@
   | `GET /api/import-sessions/{uuid}` | `get` ném `DomainException(SESSION_NOT_FOUND, …)` | 404; `$.code`=`SESSION_NOT_FOUND` |
   | `GET /api/import-sessions/abc` | — | 400; `$.code`=`REQUEST_INVALID` |
   | `DELETE /api/import-sessions` | — | 405; `$.code`=`REQUEST_INVALID` |
-- [ ] 9.2 Chạy `./mvnw -q test -Dtest=ImportSessionControllerTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 9.3 Tạo controller và DTO, sửa `ApiApplication` và `application.yaml`.
-- [ ] 9.4 Chạy lại lệnh ở 9.2. Mong đợi: PASS.
-- [ ] 9.5 Commit: `feat(api): import session upload and read endpoints`
+- [x] 9.2 Chạy `./mvnw -q test -Dtest=ImportSessionControllerTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 9.3 Tạo controller và DTO, sửa `ApiApplication` và `application.yaml`.
+- [x] 9.4 Chạy lại lệnh ở 9.2. Mong đợi: PASS.
+- [x] 9.5 Commit: `feat(api): import session upload and read endpoints`
 
 ## 10. Integration test qua HTTP thật
 
