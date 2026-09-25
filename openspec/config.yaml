@@ -1,20 +1,25 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Phạm vi: Backend của Universal Importer (apps/api). Frontend có OpenSpec riêng ở
+  apps/web/openspec (change fe-import-wizard-v0-1); không lập kế hoạch FE ở đây.
+  API contract chính thức do BE chốt: openspec/changes/be-f01-import-session/design.md
+  (mục "API contract V0.1"), sau khi archive thì nằm trong openspec/specs/.
+  Stack: Java 21, Spring Boot 4.1.1 (Web MVC, Validation, Data JPA, Flyway, Actuator),
+  PostgreSQL 17, Jackson 3 (tools.jackson), JUnit Jupiter 6, Testcontainers 2.0.5, ArchUnit.
+  Package: com.universalimporter.{api, application, domain, infrastructure};
+  domain là Java thuần, không phụ thuộc Spring/JPA/Servlet (kiểm bằng ArchUnit).
+  Nguồn yêu cầu: Notion "Universal Importer — Agent Project Pack" (trang 00 → 03).
+  Khi tài liệu mâu thuẫn: Requirements → System Design → Feature Breakdown, và báo
+  mâu thuẫn trước khi tự đổi thiết kế. Quyết định nền dùng chung cho mọi change BE
+  nằm trong design.md của be-f01-import-session, đánh mã D1…D14.
+  Mỗi feature BE-Fxx là một change be-fxx-*, làm trên nhánh feature/be-fxx-* theo pack.
+  Ngôn ngữ tài liệu: tiếng Việt, giữ thuật ngữ kỹ thuật tiếng Anh; requirement dùng
+  SHALL/MUST, scenario dùng WHEN/THEN.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  specs:
+    - Ưu tiên ADDED requirement mới thay vì MODIFIED requirement của change khác chưa archive
+  tasks:
+    - Mỗi nhóm task là một chu kỳ TDD, kết thúc bằng một commit
+    - Test case ghi rõ input và kết quả mong đợi; không viết "thêm test cho phần trên"
