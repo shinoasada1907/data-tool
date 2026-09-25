@@ -1,6 +1,6 @@
 ## Context
 
-- Nền chung: `openspec/changes/be-f01-import-session/design.md`, gồm:
+- Nền chung: `openspec/changes/archive/2026-09-25-be-f01-import-session/design.md`, gồm:
   - D4 (`MAPPING_INVALID`, `SOURCE_COLUMN_NOT_FOUND`);
   - D10: map `SOURCE_COLUMN` / `CONSTANT` / `null`; giá trị là chuỗi cho tới bước ép kiểu; field required chưa map thành readiness issue.
 - Nền của F02: `SourceSchema`, `SourceColumn` (tên duy nhất), `ImportRow` (giá trị theo `index`).

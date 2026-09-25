@@ -1,6 +1,6 @@
 ## Context
 
-- Nền chung: `openspec/changes/be-f01-import-session/design.md` (D1–D14). Change này cài đặt D9 cho CSV và endpoint preview của contract V0.1.
+- Nền chung: `openspec/changes/archive/2026-09-25-be-f01-import-session/design.md` (D1–D14). Change này cài đặt D9 cho CSV và endpoint preview của contract V0.1.
 - F01 đã có:
   - `FileTypeDetector` (đuôi file + magic bytes);
   - `FileStorage` (`save`/`open`/`delete`);

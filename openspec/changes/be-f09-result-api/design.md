@@ -1,6 +1,6 @@
 ## Context
 
-- Quyết định nền nằm trong `openspec/changes/be-f01-import-session/design.md` (D1–D14, mục "API contract V0.1"). Change này không chép lại các quyết định đó, chỉ dẫn chiếu.
+- Quyết định nền nằm trong `openspec/changes/archive/2026-09-25-be-f01-import-session/design.md` (D1–D14, mục "API contract V0.1"). Change này không chép lại các quyết định đó, chỉ dẫn chiếu.
 - Các mục liên quan trực tiếp:
   - D3: phân trang, `size` mặc định 50 và tối đa 200, ngoài khoảng thì 400.
   - D4: `RESULT_NOT_AVAILABLE` là 409.

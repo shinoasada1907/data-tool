@@ -1,6 +1,6 @@
 ## Context
 
-- Nền chung: `openspec/changes/be-f01-import-session/design.md` (D1–D14), nhất là D9 (luật đọc XLSX) và D13 (bảo mật).
+- Nền chung: `openspec/changes/archive/2026-09-25-be-f01-import-session/design.md` (D1–D14), nhất là D9 (luật đọc XLSX) và D13 (bảo mật).
 - F02 đã có:
   - port `SourceParser` (`inspect` + `read`);
   - `ColumnNames` (đặt tên cột, `isBlankRow`);

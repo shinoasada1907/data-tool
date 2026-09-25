@@ -12,7 +12,7 @@
 
 **Tech Stack:** Java 21, Spring Boot 4.1.1 (Web MVC, StreamingResponseBody), Jackson 3, Apache Commons CSV (có sẵn từ be-f02), JUnit Jupiter 6, AssertJ, Mockito, Testcontainers 2.0.5.
 
-**Spec:** `openspec/changes/be-f10-export/specs/data-export/spec.md`. Thiết kế ở `design.md` cùng thư mục (F10-D1…D8) và `openspec/changes/be-f01-import-session/design.md` (D1–D14, API contract V0.1).
+**Spec:** `openspec/changes/be-f10-export/specs/data-export/spec.md`. Thiết kế ở `design.md` cùng thư mục (F10-D1…D8) và `openspec/changes/archive/2026-09-25-be-f01-import-session/design.md` (D1–D14, API contract V0.1).
 
 ## Global Constraints
 

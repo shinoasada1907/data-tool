@@ -8,11 +8,11 @@
 
 **Tech Stack:** Như F01, thêm `org.apache.commons:commons-csv:1.14.1`.
 
-**Spec:** `openspec/changes/be-f02-csv-preview/specs/source-parsing/spec.md`. Thiết kế: `design.md` cùng thư mục (P1–P8) và `openspec/changes/be-f01-import-session/design.md` (D1–D14).
+**Spec:** `openspec/changes/be-f02-csv-preview/specs/source-parsing/spec.md`. Thiết kế: `design.md` cùng thư mục (P1–P8) và `openspec/changes/archive/2026-09-25-be-f01-import-session/design.md` (D1–D14).
 
 ## Global Constraints
 
-- Mọi ràng buộc chung của F01 (`openspec/changes/be-f01-import-session/tasks.md`, mục Global Constraints) vẫn áp dụng: `MAIN`/`TEST`, Jackson 3, D1, D4, micro giây, UTC, commit có `Co-Authored-By`.
+- Mọi ràng buộc chung của F01 (`openspec/changes/archive/2026-09-25-be-f01-import-session/tasks.md`, mục Global Constraints) vẫn áp dụng: `MAIN`/`TEST`, Jackson 3, D1, D4, micro giây, UTC, commit có `Co-Authored-By`.
 - F01 phải đã xong và nằm trong nhánh này (tạo nhánh `feature/be-f02-csv-preview` từ nhánh có F01).
 - Message lỗi không chứa giá trị ô (D13).
 - `limit` của preview: mặc định 50, trong khoảng 1–200 (D3).

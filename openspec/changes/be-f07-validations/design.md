@@ -1,6 +1,6 @@
 ## Context
 
-- Quyết định nền nằm ở `openspec/changes/be-f01-import-session/design.md` (D1–D14, API contract V0.1). File này chỉ ghi phần riêng của F07. Các điểm dẫn chiếu:
+- Quyết định nền nằm ở `openspec/changes/archive/2026-09-25-be-f01-import-session/design.md` (D1–D14, API contract V0.1). File này chỉ ghi phần riêng của F07. Các điểm dẫn chiếu:
   - D10: thứ tự rule, luật type, regex email, `unique` hai pha, rule suy ra từ schema, prune.
   - D4: `CONFIG_INVALID` và warning code.
   - D11: khoá.

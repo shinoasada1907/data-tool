@@ -8,7 +8,7 @@
 
 **Tech Stack:** Java 21, Spring Boot 4.1.1 (Web MVC), Jackson 3, JUnit Jupiter 6, AssertJ, Mockito, Testcontainers 2.0.5.
 
-**Spec:** `openspec/changes/be-f09-result-api/specs/import-result/spec.md`. Thiết kế ở `design.md` cùng thư mục (F09-D1…D5) và `openspec/changes/be-f01-import-session/design.md` (D1–D14, API contract V0.1).
+**Spec:** `openspec/changes/be-f09-result-api/specs/import-result/spec.md`. Thiết kế ở `design.md` cùng thư mục (F09-D1…D5) và `openspec/changes/archive/2026-09-25-be-f01-import-session/design.md` (D1–D14, API contract V0.1).
 
 ## Global Constraints
 

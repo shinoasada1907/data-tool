@@ -14,7 +14,7 @@
 
 **Tech Stack:** Java 21, Spring Boot 4.1.1 (Scheduling, Web MVC, Data JPA), Flyway, PostgreSQL 17, JUnit Jupiter 6, AssertJ, Mockito, Testcontainers 2.0.5.
 
-**Spec:** `openspec/changes/be-f11-integration/specs/{import-session,api-errors}/spec.md`. Thiết kế ở `design.md` cùng thư mục (F11-D1…D7) và `openspec/changes/be-f01-import-session/design.md` (D1–D14, API contract V0.1).
+**Spec:** `openspec/changes/be-f11-integration/specs/{import-session,api-errors}/spec.md`. Thiết kế ở `design.md` cùng thư mục (F11-D1…D7) và `openspec/changes/archive/2026-09-25-be-f01-import-session/design.md` (D1–D14, API contract V0.1).
 
 ## Global Constraints
 

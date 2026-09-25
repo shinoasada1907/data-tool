@@ -1,6 +1,6 @@
 ## Context
 
-- Quyết định nền nằm trong `openspec/changes/be-f01-import-session/design.md`, gồm D1–D14 và API contract V0.1. File này chỉ ghi phần riêng của F06.
+- Quyết định nền nằm trong `openspec/changes/archive/2026-09-25-be-f01-import-session/design.md`, gồm D1–D14 và API contract V0.1. File này chỉ ghi phần riêng của F06.
   - Ngữ nghĩa transformation: D10.
   - Định dạng lỗi và mã `CONFIG_INVALID`: D4.
   - Khoá theo session: D11.

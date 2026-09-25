@@ -1,6 +1,6 @@
 ## Context
 
-- Quyết định nền: `openspec/changes/be-f01-import-session/design.md` (D1–D14 và API contract V0.1). File này chỉ ghi những gì riêng của F08. Các điểm được dẫn chiếu:
+- Quyết định nền: `openspec/changes/archive/2026-09-25-be-f01-import-session/design.md` (D1–D14 và API contract V0.1). File này chỉ ghi những gì riêng của F08. Các điểm được dẫn chiếu:
   - D2: vòng đời session (`READY → PROCESSED`, `FAILED`, PUT đổi config thì xoá kết quả).
   - D7: result store.
   - D10: ngữ nghĩa pipeline.

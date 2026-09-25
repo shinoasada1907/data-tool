@@ -1,6 +1,6 @@
 ## Context
 
-- Quyết định nền nằm trong `openspec/changes/be-f01-import-session/design.md`. Các mục liên quan trực tiếp:
+- Quyết định nền nằm trong `openspec/changes/archive/2026-09-25-be-f01-import-session/design.md`. Các mục liên quan trực tiếp:
   - D2: vòng đời, gồm nhánh `FAILED` và "PUT không đổi config thì giữ `PROCESSED`".
   - D3: không CORS, FE dùng Vite proxy.
   - D4: bảng mã lỗi.

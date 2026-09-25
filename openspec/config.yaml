@@ -3,8 +3,8 @@ schema: spec-driven
 context: |
   Phạm vi: Backend của Universal Importer (apps/api). Frontend có OpenSpec riêng ở
   apps/web/openspec (change fe-import-wizard-v0-1); không lập kế hoạch FE ở đây.
-  API contract chính thức do BE chốt: openspec/changes/be-f01-import-session/design.md
-  (mục "API contract V0.1"), sau khi archive thì nằm trong openspec/specs/.
+  API contract chính thức do BE chốt: openspec/changes/archive/2026-09-25-be-f01-import-session/design.md
+  (mục "API contract V0.1"). Requirement của các change đã archive nằm trong openspec/specs/.
   Stack: Java 21, Spring Boot 4.1.1 (Web MVC, Validation, Data JPA, Flyway, Actuator),
   PostgreSQL 17, Jackson 3 (tools.jackson), JUnit Jupiter 6, Testcontainers 2.0.5, ArchUnit.
   Package: com.universalimporter.{api, application, domain, infrastructure};

@@ -1,6 +1,6 @@
 ## Context
 
-- Quyết định nền nằm trong `openspec/changes/be-f01-import-session/design.md`. Các mục liên quan trực tiếp:
+- Quyết định nền nằm trong `openspec/changes/archive/2026-09-25-be-f01-import-session/design.md`. Các mục liên quan trực tiếp:
   - D3: `message` tiếng Anh, không CORS.
   - D4: `RESULT_NOT_AVAILABLE` 409, `EXPORT_FAILED` 500.
   - D7: result store trên đĩa.

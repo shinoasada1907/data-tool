@@ -1,6 +1,6 @@
 ## Context
 
-- Nền chung: `openspec/changes/be-f01-import-session/design.md`. Change này cài đặt:
+- Nền chung: `openspec/changes/archive/2026-09-25-be-f01-import-session/design.md`. Change này cài đặt:
   - D2 (chuyển trạng thái khi PUT);
   - D3 (PUT ghi đè toàn bộ, trả `{session, warnings}`);
   - D4 (`SCHEMA_INVALID`, `SESSION_STATE_INVALID`);

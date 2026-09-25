@@ -456,4 +456,5 @@
   - Gửi file `.xls` nhận 415 với `code`.
   - Log không chứa nội dung file.
 - [x] 11.3 Tick đủ các checkbox trong file này. Chỗ nào làm khác kế hoạch thì gạch ngang và ghi LÝ DO. Commit: `docs(openspec): complete be-f01 tasks`
-- [ ] 11.4 Hỏi người dùng trước khi merge vào `main`. Sau khi merge: `openspec archive be-f01-import-session -y`, commit phần archive.
+- [x] 11.4 ~~Hỏi người dùng trước khi merge vào `main`. Sau khi merge: `openspec archive be-f01-import-session -y`, commit phần archive.~~
+  - Làm khác: người dùng đồng ý merge ngày 2026-09-25. Archive chạy trên nhánh feature **trước** khi merge (fast-forward vào `main`). **LÝ DO**: archive sau khi merge nghĩa là phải commit thẳng lên `main`, trái luật "không commit thẳng lên nhánh mặc định".
