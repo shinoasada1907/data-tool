@@ -212,7 +212,7 @@
   // GET /api/import-sessions/{id}/preview?limit (mặc định 50), @Validated + @Min(1) @Max(200)
   ```
 
-- [ ] 5.1 Viết `SourcePreviewServiceTest`. Dùng fake repository và storage của F01, cùng `FakeSourceParser` trả 3 row:
+- [x] 5.1 Viết `SourcePreviewServiceTest`. Dùng fake repository và storage của F01, cùng `FakeSourceParser` trả 3 row:
   | Case | Mong đợi |
   |---|---|
   | Session `CONFIGURING` có schema `[name,email]`, `totalRows` 3; `preview(id, 2)` | `rows` có 2 phần tử đầu; `previewLimit` 2; `totalRows` 3; `columns` lấy từ schema đã lưu |
@@ -220,7 +220,7 @@
   | Session `UPLOADED` (không có schema) | `DomainException(SESSION_STATE_INVALID)`, message `Source file has not been inspected.` |
   | Id không tồn tại | `DomainException(SESSION_NOT_FOUND)` |
   | Sau khi `preview` xong | stream do parser trả về đã được `close()` |
-- [ ] 5.2 Viết `SourcePreviewControllerTest` (`@WebMvcTest(SourcePreviewController.class)`, `@MockitoBean SourcePreviewService`):
+- [x] 5.2 Viết `SourcePreviewControllerTest` (`@WebMvcTest(SourcePreviewController.class)`, `@MockitoBean SourcePreviewService`):
   | Request | Mong đợi |
   |---|---|
   | `GET /api/import-sessions/{id}/preview` | service được gọi với `limit` 50. JSON có `$.sessionId`, `$.fileType`=`CSV`, `$.sheetName` null, `$.columns[1].name`=`email`, `$.rows[0].rowNumber`=2, `$.rows[0].values[0]`=`An`, `$.previewLimit`=50, `$.totalRows`=2 |
@@ -230,10 +230,11 @@
   | Service ném `SESSION_STATE_INVALID` | 409, `$.code`=`SESSION_STATE_INVALID` |
   | Service ném `SESSION_NOT_FOUND` | 404, `$.code`=`SESSION_NOT_FOUND` |
   | Một row có `values` `["x", null]` | JSON `$.rows[0].values[1]` là `null` (giữ đúng vị trí) |
-- [ ] 5.3 Chạy `./mvnw -q test -Dtest=SourcePreviewServiceTest,SourcePreviewControllerTest`. Mong đợi: FAIL.
-- [ ] 5.4 Cài 4 class ở phần Interfaces, theo design P8.
-- [ ] 5.5 Chạy lại lệnh ở 5.3. Mong đợi: PASS.
-- [ ] 5.6 Commit: `feat(api): source preview endpoint`
+- [x] 5.3 Chạy `./mvnw -q test -Dtest=SourcePreviewServiceTest,SourcePreviewControllerTest`. Mong đợi: FAIL.
+- [x] 5.4 Cài 4 class ở phần Interfaces, theo design P8.
+  - Làm khác: ~~`@Validated`~~ controller không có `@Validated` ở mức class, chỉ đặt `@Min(1) @Max(200)` trên tham số. **LÝ DO**: có `@Validated`, Spring kiểm qua AOP proxy và ném `ConstraintViolationException`, handler xử lý như lỗi bất ngờ nên trả 500. Không có nó, Spring MVC (6.1+) tự kiểm và ném `HandlerMethodValidationException`, thành 400 `REQUEST_INVALID`. Đã kiểm mutation: thêm `@Validated` thì `limit=0` và `limit=201` trả 500.
+- [x] 5.5 Chạy lại lệnh ở 5.3. Mong đợi: PASS.
+- [x] 5.6 Commit: `feat(api): source preview endpoint`
 
 ## 6. Integration test qua HTTP thật
 
