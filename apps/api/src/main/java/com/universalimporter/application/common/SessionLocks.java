@@ -37,6 +37,25 @@ public class SessionLocks {
         }
     }
 
+    /**
+     * Runs {@code action} under the session's lock only if the lock is free right now; never waits. For work that
+     * can simply come back later, such as the cleanup (BE-F11 D1).
+     *
+     * @return whether the action ran
+     */
+    public boolean tryRun(UUID sessionId, Runnable action) {
+        ReentrantLock lock = locks[stripe(sessionId)];
+        if (!lock.tryLock()) {
+            return false;
+        }
+        try {
+            action.run();
+            return true;
+        } finally {
+            lock.unlock();
+        }
+    }
+
     static int stripe(UUID sessionId) {
         return Math.floorMod(sessionId.hashCode(), STRIPES);
     }

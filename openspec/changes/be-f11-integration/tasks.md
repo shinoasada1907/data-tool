@@ -117,7 +117,7 @@
 
 **Files:**
 - Create: `MAIN/application/importsession/SessionCleanupService.java`, `MAIN/application/importsession/CleanupProperties.java`, `MAIN/application/importsession/CleanupReport.java`
-- Test: `TEST/application/importsession/SessionCleanupServiceTest.java`, `TEST/support/FakeSessionLocks.java`
+- Test: `TEST/application/importsession/SessionCleanupServiceTest.java`, ~~`TEST/support/FakeSessionLocks.java`~~ (dùng `SessionLocks` thật; một thread khác giữ khoá bằng latch), `TEST/application/common/SessionLocksTest.java` (thêm case `tryRun`).
 
 **Interfaces:**
 - Consumes: 3 method mới của repository và `listEntries` (task 2), `FileStorage.delete` (F01), `SessionLocks` (F08).
@@ -134,7 +134,7 @@
   }
   ```
 
-- [ ] 3.1 Viết `SessionCleanupServiceTest`. Dùng `t0 = 2026-09-25T12:00:00Z`, TTL 24h, các fake của task 2, và `FakeSessionLocks` (có tập `busy`).
+- [x] 3.1 Viết `SessionCleanupServiceTest`. Dùng `t0 = 2026-09-25T12:00:00Z`, TTL 24h, các fake của task 2, và `FakeSessionLocks` (có tập `busy`).
   | Bối cảnh | Mong đợi |
   |---|---|
   | A (`t0−25h`, có file) và B (`t0−23h`, có file) | report `(1,0,0,0)`; A không còn trong repo lẫn storage; B còn |
@@ -146,10 +146,16 @@
   | thư mục của session B (còn hạn), `lastModified` = `t0−30 ngày` | B còn (vì có trong repo) |
   | repo và storage đều rỗng | report `(0,0,0,0)` |
   | 600 session quá hạn | lần chạy này xoá 500; còn 100 |
-- [ ] 3.2 Chạy `./mvnw -q test -Dtest=SessionCleanupServiceTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 3.3 Tạo 3 class theo F11-D1 và F11-D2. Mỗi session được xử lý trong `try/catch` riêng; `log.warn("Cleanup failed for session {}", id, e)`.
-- [ ] 3.4 Chạy lại lệnh ở 3.2. Mong đợi: PASS.
-- [ ] 3.5 Commit: `feat(app): delete expired sessions and orphan storage`
+- [x] 3.2 Chạy `./mvnw -q test -Dtest=SessionCleanupServiceTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 3.3 Tạo 3 class theo F11-D1 và F11-D2. Mỗi session được xử lý trong `try/catch` riêng; `log.warn("Cleanup failed for session {}", id, e)`.
+  - **Thêm**: trong khoá, đọc lại session và chỉ xoá khi `updatedAt` vẫn trước `cutoff`.
+    - **LÝ DO**: giữa lúc liệt kê và lúc lấy được khoá, một PUT có thể vừa sửa session. Nếu không kiểm lại thì xoá mất một session đang dùng.
+    - Test: `a_session_changed_after_it_was_listed_is_kept`. Kiểm ngược: bỏ bước kiểm lại thì test đỏ.
+  - Log chỉ ghi tên class của exception, không ghi message.
+  - Thêm `SessionLocks.tryRun(UUID, Runnable)`, dùng `tryLock()`, có test: rảnh thì chạy, đang bận thì bỏ qua, lỗi thì vẫn nhả khoá.
+  - `CleanupProperties` có `@DefaultValue` (`true`, `24h`, `1h`).
+- [x] 3.4 Chạy lại lệnh ở 3.2. Mong đợi: PASS.
+- [x] 3.5 Commit: `feat(app): delete expired sessions and orphan storage`
 
 ## 4. Lịch chạy: SessionCleanupScheduler
 
