@@ -38,6 +38,22 @@ class DateFormatTransformationTest {
                 .hasMessage("Value does not match pattern dd/MM/yyyy");
     }
 
+    @ParameterizedTest
+    @CsvSource(value = {"25/12/-1990", "25/12/0000", "25/12/+19900", "25/12/19900"}, delimiter = '|')
+    void a_year_outside_1_to_9999_does_not_match(String value) {
+        assertThatThrownBy(() -> transformation.transform(value, context(FieldType.STRING, "dd/MM/yyyy", null)))
+                .isInstanceOf(TransformationFailure.class)
+                .hasMessage("Value does not match pattern dd/MM/yyyy");
+    }
+
+    @Test
+    void month_names_are_read_in_any_case() throws TransformationFailure {
+        assertThat(transformation.transform("05 JAN 2024", context(FieldType.STRING, "dd MMM yyyy", null)))
+                .isEqualTo("2024-01-05");
+        assertThat(transformation.transform("05 jan 2024", context(FieldType.STRING, "dd MMM yyyy", null)))
+                .isEqualTo("2024-01-05");
+    }
+
     @Test
     void the_input_format_is_required() {
         assertThat(transformation.validate(context(FieldType.STRING, null, null)))

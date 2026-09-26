@@ -66,6 +66,34 @@ class JsonConfigHasherTest {
     }
 
     @Test
+    void the_hashed_json_has_params_in_key_order() {
+        // Map.copyOf iterates in an order that changes from one JVM run to the next: only sorted keys keep a
+        // hash stable across restarts.
+        java.util.Map<String, String> params = new java.util.LinkedHashMap<>();
+        for (String key : List.of("h", "g", "f", "e", "d", "c", "b", "a")) {
+            params.put(key, key);
+        }
+        ImportConfiguration configuration = configuration(ID, null, true).withTransformations(
+                new TransformationConfig(List.of(new TransformationStep("name", 0, "x", params)))).configuration();
+
+        assertThat(JsonConfigHasher.canonicalJson(configuration)).contains(SORTED_PARAMS);
+    }
+
+    @Test
+    void the_hash_mapper_itself_sorts_map_keys() {
+        // Deterministic, unlike the test above: a LinkedHashMap keeps its reverse order unless the mapper sorts.
+        java.util.Map<String, String> reversed = new java.util.LinkedHashMap<>();
+        for (String key : List.of("h", "g", "f", "e", "d", "c", "b", "a")) {
+            reversed.put(key, key);
+        }
+
+        assertThat("\"params\":" + JsonConfigHasher.JSON.writeValueAsString(reversed)).isEqualTo(SORTED_PARAMS);
+    }
+
+    private static final String SORTED_PARAMS = "\"params\":{\"a\":\"a\",\"b\":\"b\",\"c\":\"c\",\"d\":\"d\","
+            + "\"e\":\"e\",\"f\":\"f\",\"g\":\"g\",\"h\":\"h\"}";
+
+    @Test
     void transformation_params_hash_the_same_whatever_their_order() {
         ImportConfiguration configuration = configuration(ID, null, true);
         java.util.Map<String, String> ab = new java.util.LinkedHashMap<>();

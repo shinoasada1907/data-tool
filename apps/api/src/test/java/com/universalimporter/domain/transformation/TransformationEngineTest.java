@@ -53,11 +53,34 @@ class TransformationEngineTest {
 
     @Test
     void a_bug_in_a_transformation_becomes_an_error_without_its_message() {
-        FieldTransformResult result = apply("x", step(0, "explode"));
+        java.util.List<String> logged = new java.util.ArrayList<>();
+        java.util.logging.Logger jul = java.util.logging.Logger.getLogger(TransformationEngine.class.getName());
+        java.util.logging.Handler capture = new java.util.logging.Handler() {
+            @Override
+            public void publish(java.util.logging.LogRecord record) {
+                logged.add(record.getMessage() + (record.getThrown() == null ? "" : " " + record.getThrown()));
+            }
 
-        assertThat(result.error())
-                .isEqualTo(new TransformationError("explode", 0, "Unexpected error while applying transformation."));
-        assertThat(result.error().message()).doesNotContain("boom");
+            @Override
+            public void flush() {
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+        jul.addHandler(capture);
+        try {
+            FieldTransformResult result = apply("secret-cell-value", step(0, "explode"));
+
+            assertThat(result.error())
+                    .isEqualTo(new TransformationError("explode", 0, "Unexpected error while applying transformation."));
+            assertThat(result.error().message()).doesNotContain("boom");
+            assertThat(logged).hasSize(1);
+            assertThat(logged.get(0)).contains("explode", "name").doesNotContain("boom", "secret-cell-value");
+        } finally {
+            jul.removeHandler(capture);
+        }
     }
 
     private FieldTransformResult apply(String value, TransformationStep... steps) {

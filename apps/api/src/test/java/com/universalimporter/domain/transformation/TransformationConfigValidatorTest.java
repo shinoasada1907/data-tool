@@ -75,6 +75,19 @@ class TransformationConfigValidatorTest {
     }
 
     @Test
+    void parameters_are_checked_even_when_the_field_does_not_exist() {
+        assertThat(validate(new TransformationStep("phone", 0, "dateFormat", Map.of("inputFormat", "MM/yyyy"))))
+                .containsExactly(item("phone", "Target field does not exist."),
+                        item("phone", "Date pattern 'MM/yyyy' must contain year, month and day."));
+    }
+
+    @Test
+    void a_step_without_target_field_is_not_reported_as_a_duplicate() {
+        assertThat(validate(step(null, 0, "trim"), step(null, 0, "trim")))
+                .containsExactly(item(null, "Target field does not exist."), item(null, "Target field does not exist."));
+    }
+
+    @Test
     void every_problem_is_reported_in_input_order() {
         assertThat(validate(step("name", 0, "replace"), step("phone", 0, "trim"))).containsExactly(
                 item("name", "Unknown transformation type 'replace'."),

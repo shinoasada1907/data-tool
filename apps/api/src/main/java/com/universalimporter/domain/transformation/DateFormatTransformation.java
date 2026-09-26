@@ -58,10 +58,18 @@ public final class DateFormatTransformation implements Transformation {
         try {
             date = LocalDate.parse(value, DatePatterns.formatter(input));
         } catch (DateTimeParseException e) {
-            // Only the pattern the user wrote: the cell value must not reach messages (design D13).
-            throw new TransformationFailure("Value does not match pattern " + input);
+            throw noMatch(input);
+        }
+        // Reading y as u (proleptic year) also accepts -1990, 0000 and +19900; a year-of-era pattern means 1-9999.
+        if (date.getYear() < 1 || date.getYear() > 9999) {
+            throw noMatch(input);
         }
         return DatePatterns.formatter(outputFormat(context)).format(date);
+    }
+
+    /** Only the pattern the user wrote: the cell value must not reach messages (design D13). */
+    private static TransformationFailure noMatch(String input) {
+        return new TransformationFailure("Value does not match pattern " + input);
     }
 
     /** The configured output format, or ISO when none was given. */

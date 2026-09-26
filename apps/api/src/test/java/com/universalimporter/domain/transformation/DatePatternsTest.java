@@ -41,6 +41,25 @@ class DatePatternsTest {
     }
 
     @Test
+    void a_two_digit_year_cannot_be_read_safely() {
+        // "yy" reads 90 as 2090: birth dates would move a century without any error.
+        assertThat(DatePatterns.checkInput("dd/MM/yy")).contains("Date pattern 'dd/MM/yy' must use a 4-digit year.");
+    }
+
+    @Test
+    void week_based_and_day_of_year_letters_are_rejected_in_both_directions() {
+        for (String pattern : new String[]{"YYYY-MM-dd", "yyyy-MM-DD", "yyyy-ww", "yyyy-MM-W", "yyyy-MM-F"}) {
+            assertThat(DatePatterns.checkInput(pattern)).as(pattern).isPresent().get().asString()
+                    .startsWith("Date pattern '" + pattern + "' uses unsupported letter");
+            assertThat(DatePatterns.checkOutput(pattern)).as(pattern).isPresent().get().asString()
+                    .startsWith("Date pattern '" + pattern + "' uses unsupported letter");
+        }
+        assertThat(DatePatterns.checkOutput("yyyy-MM-dd 'Day' DD")).get().asString()
+                .isEqualTo("Date pattern 'yyyy-MM-dd 'Day' DD' uses unsupported letter 'D'.");
+        assertThat(DatePatterns.checkOutput("'Year' yyyy-MM-dd")).isEmpty();
+    }
+
+    @Test
     void iso_is_compared_after_the_year_rewrite() {
         assertThat(DatePatterns.isIso("yyyy-MM-dd")).isTrue();
         assertThat(DatePatterns.isIso("uuuu-MM-dd")).isTrue();

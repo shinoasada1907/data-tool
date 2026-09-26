@@ -37,17 +37,18 @@ public final class TransformationConfigValidator {
                 messages.add("Order is required.");
             } else if (step.order() < 0) {
                 messages.add("Order must be >= 0.");
-            } else if (!seenOrders.add(field + "\u0000" + step.order())) {
+            } else if (field != null && !seenOrders.add(field + "\u0000" + step.order())) {
                 messages.add("Duplicate order " + step.order() + " for field '" + field + "'.");
             }
             Optional<Transformation> transformation = registry.find(step.type());
             if (transformation.isEmpty()) {
                 messages.add("Unknown transformation type '" + step.type() + "'.");
             }
-            // Parameters can only be judged for a known type on a field whose type is known.
-            if (target.isPresent() && transformation.isPresent()) {
+            // Checked even when the field is missing, so every problem comes back at once; checks that need the
+            // field type (a date field must output ISO) simply do not apply then.
+            if (transformation.isPresent()) {
                 messages.addAll(transformation.get().validate(
-                        new TransformationContext(field, target.get().type(), step.params())));
+                        new TransformationContext(field, target.map(TargetField::type).orElse(null), step.params())));
             }
             messages.forEach(message -> problems.add(new ProblemItem(field, ErrorCode.CONFIG_INVALID.name(), message)));
         }

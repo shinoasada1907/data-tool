@@ -5,6 +5,7 @@ import com.universalimporter.domain.transformation.TransformationStep;
 
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Storage format of {@link TransformationConfig} in the {@code transformations_json} column; {@code params} are
@@ -18,7 +19,9 @@ record TransformationsDocument(List<StepDocument> transformations) {
 
     static TransformationsDocument from(TransformationConfig config) {
         return new TransformationsDocument(config.transformations().stream()
-                .map(step -> new StepDocument(step.targetField(), step.order(), step.type(), step.params()))
+                // Sorted: the domain map iterates in an order that changes from one JVM run to the next.
+                .map(step -> new StepDocument(step.targetField(), step.order(), step.type(),
+                        new TreeMap<>(step.params())))
                 .toList());
     }
 

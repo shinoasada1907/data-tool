@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.SerializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
@@ -18,16 +19,21 @@ public class JsonConfigHasher implements ConfigHasher {
      * Own mapper, as for storage: the hash must not change when the API's JSON settings do, or every processed
      * session would look changed.
      */
-    private static final JsonMapper JSON = JsonMapper.builder()
+    static final JsonMapper JSON = JsonMapper.builder()
             .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
             .build();
 
     @Override
     public String hash(ImportConfiguration configuration) {
-        byte[] json = JSON.writeValueAsBytes(new HashedContent(TargetSchemaDocument.from(configuration.schema()),
+        byte[] json = canonicalJson(configuration).getBytes(StandardCharsets.UTF_8);
+        return HexFormat.of().formatHex(sha256().digest(json));
+    }
+
+    /** The exact text that is hashed. */
+    static String canonicalJson(ImportConfiguration configuration) {
+        return JSON.writeValueAsString(new HashedContent(TargetSchemaDocument.from(configuration.schema()),
                 MappingDocument.from(configuration.mapping()),
                 TransformationsDocument.from(configuration.transformations())));
-        return HexFormat.of().formatHex(sha256().digest(json));
     }
 
     private static MessageDigest sha256() {
