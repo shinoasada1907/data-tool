@@ -339,7 +339,12 @@
 
 ## 10. Kiểm tra toàn bộ và hoàn tất
 
-- [ ] 10.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm cả ArchitectureTest.
-- [ ] 10.2 Chạy app thật, dùng `curl -X PUT` gọi `/validations` với 3 body: hợp lệ, có `required` (phải nhận warning), và `email` trên field số (phải nhận 422).
+- [x] 10.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm cả ArchitectureTest.
+  - Kết quả 2026-09-26: 66 suite, 589 test, 0 failure, 0 error.
+- [x] 10.2 Chạy app thật, dùng `curl -X PUT` gọi `/validations` với 3 body: hợp lệ, có `required` (phải nhận warning), và `email` trên field số (phải nhận 422).
+  - Chạy ở cổng 8081 từ worktree BE. Kết quả:
+    - body hợp lệ → 200, rule theo thứ tự `email/unique`, `note/email`, `note/unique`;
+    - có `required` và `email` trên field kiểu email → 200, 2 warning `RULE_IMPLIED_BY_SCHEMA`, chỉ lưu `email/unique`;
+    - `email` trên `age` (number) → 422 `CONFIG_INVALID`.
 - [ ] 10.3 Tick đủ checkbox; chỗ nào làm khác kế hoạch thì gạch ngang và ghi LÝ DO. (OQ1 "chỉ báo lỗi đầu tiên" đã chốt 2026-09-25: giữ.) Commit: `docs(openspec): complete be-f07 tasks`
 - [ ] 10.4 Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f07-validations -y`.
