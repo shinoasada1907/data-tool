@@ -35,11 +35,11 @@
 **Interfaces:**
 - Produces: như design S1.
 
-- [ ] 1.1 Viết `FieldTypeTest`:
+- [x] 1.1 Viết `FieldTypeTest`:
   - `fromCode` với `string`, `number`, `boolean`, `date`, `email` → đúng enum tương ứng.
   - `fromCode` với `String`, `text`, `""`, `null` → `Optional.empty()`.
   - `code()` trả mã chữ thường.
-- [ ] 1.2 Viết `TargetSchemaTest`. Đặt `f(name, type, required, order) = new FieldSpec(...)`:
+- [x] 1.2 Viết `TargetSchemaTest`. Đặt `f(name, type, required, order) = new FieldSpec(...)`:
   | Input `define` | Mong đợi |
   |---|---|
   | `[f(" email ","email",true,5), f("name","string",false,1)]` | fields `[("name",STRING,false,0), ("email",EMAIL,true,1)]` |
@@ -55,10 +55,10 @@
   | `[f("","string",false,0), f("age","int",false,1), f("AGE","number",false,2)]` | 3 item theo đúng thứ tự: blank, unknown type, duplicate name |
 
   Mọi item có `code` = `SCHEMA_INVALID`. Exception có message `Target schema is invalid.`. Thêm các case: `fieldNames()` trả đúng tập tên; `field("email")` tìm thấy; `field("Email")` không thấy (so khớp chính xác); `empty().isEmpty()` là true.
-- [ ] 1.3 Chạy `./mvnw -q test -Dtest=FieldTypeTest,TargetSchemaTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 1.4 Cài 4 class theo design S1.
-- [ ] 1.5 Chạy lại lệnh ở 1.3. Mong đợi: PASS.
-- [ ] 1.6 Commit: `feat(domain): target schema with field name, type and order rules`
+- [x] 1.3 Chạy `./mvnw -q test -Dtest=FieldTypeTest,TargetSchemaTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 1.4 Cài 4 class theo design S1.
+- [x] 1.5 Chạy lại lệnh ở 1.3. Mong đợi: PASS.
+- [x] 1.6 Commit: `feat(domain): target schema with field name, type and order rules`
 
 ## 2. Khung cấu hình: prune và readiness
 
@@ -76,22 +76,22 @@
   public interface ConfigHasher { String hash(ImportConfiguration configuration); }
   ```
 
-- [ ] 2.1 Viết `ConfigPrunerTest`. Trong test tạo một record giả `FakeSection(Set<String> fields) implements FieldScopedSection<FakeSection>` với `sectionLabel()` là `"Mapping"`:
+- [x] 2.1 Viết `ConfigPrunerTest`. Trong test tạo một record giả `FakeSection(Set<String> fields) implements FieldScopedSection<FakeSection>` với `sectionLabel()` là `"Mapping"`:
   | Case | Mong đợi |
   |---|---|
   | `prune(FakeSection{a,b,c}, {a}, warnings)` | trả `FakeSection{a}`. `warnings` = `[("b","CONFIG_PRUNED","Mapping for this field was removed because the field no longer exists."), ("c", …)]`, xếp theo tên field |
   | `prune(FakeSection{a}, {a,b}, warnings)` | giữ nguyên; `warnings` rỗng |
   | `prune(FakeSection{Email}, {email}, warnings)` | `Email` bị bỏ, vì so khớp chính xác |
-- [ ] 2.2 Viết `ReadinessEvaluatorTest` với `ReadinessEvaluator.standard()`:
+- [x] 2.2 Viết `ReadinessEvaluatorTest` với `ReadinessEvaluator.standard()`:
   | Config | Mong đợi |
   |---|---|
   | `empty(id)` | `ready` false; issues `[(null,"SCHEMA_EMPTY","Target schema has no fields.")]` |
   | Schema có 1 field optional | `ready` true; issues rỗng |
-- [ ] 2.3 Viết `ImportConfigurationTest`: `empty(id).withSchema(schema)` → `configuration.schema()` là `schema`; `warnings` rỗng; `version` giữ nguyên `null`.
-- [ ] 2.4 Chạy `./mvnw -q test -Dtest=ConfigPrunerTest,ReadinessEvaluatorTest,ImportConfigurationTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 2.5 Cài 12 file ở phần Files.
-- [ ] 2.6 Chạy lại lệnh ở 2.4. Mong đợi: PASS. Chạy thêm `./mvnw -q test -Dtest=ArchitectureTest`: PASS.
-- [ ] 2.7 Commit: `feat(domain): configuration aggregate with auto-prune and readiness`
+- [x] 2.3 Viết `ImportConfigurationTest`: `empty(id).withSchema(schema)` → `configuration.schema()` là `schema`; `warnings` rỗng; `version` giữ nguyên `null`.
+- [x] 2.4 Chạy `./mvnw -q test -Dtest=ConfigPrunerTest,ReadinessEvaluatorTest,ImportConfigurationTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 2.5 Cài 12 file ở phần Files.
+- [x] 2.6 Chạy lại lệnh ở 2.4. Mong đợi: PASS. Chạy thêm `./mvnw -q test -Dtest=ArchitectureTest`: PASS.
+- [x] 2.7 Commit: `feat(domain): configuration aggregate with auto-prune and readiness`
 
 ## 3. Persistence cấu hình (Flyway V3) và `JsonConfigHasher`
 
@@ -111,25 +111,29 @@
   @Repository public class JpaImportConfigurationRepository implements ImportConfigurationRepository { … }
   @Component public class JsonConfigHasher implements ConfigHasher { public JsonConfigHasher(JsonMapper jsonMapper); }
   ```
+  - ~~`public JsonConfigHasher(JsonMapper jsonMapper)`~~ → constructor không tham số, hasher tự dựng `JsonMapper` riêng (bật `ORDER_MAP_ENTRIES_BY_KEYS`). **LÝ DO:** Spring sẽ tiêm vào `JsonMapper` của API. Khi đó chỉ cần đổi cấu hình JSON của API là mọi hash đổi theo, và mọi session `PROCESSED` sẽ bị coi là cấu hình đã đổi. Đây cũng là lý do D8 bắt các repository dùng mapper riêng.
+  - ~~`public record TargetSchemaDocument`~~ → record package-private. **LÝ DO:** giống `SourceSchemaDocument` của F02; chỉ adapter và hasher cùng package dùng nó.
 
-- [ ] 3.1 Viết `JpaImportConfigurationRepositoryTest` (`@DataJpaTest`, `replace = NONE`, `@Import({TestcontainersConfiguration.class, JpaImportConfigurationRepository.class, JpaImportSessionRepository.class})`). Trước mỗi case, lưu một session thật để có khoá ngoại.
+- [x] 3.1 Viết `JpaImportConfigurationRepositoryTest` (`@DataJpaTest`, `replace = NONE`, `@Import({TestcontainersConfiguration.class, JpaImportConfigurationRepository.class, JpaImportSessionRepository.class})`). Trước mỗi case, lưu một session thật để có khoá ngoại.
   | Case | Mong đợi |
   |---|---|
   | `save(empty(id).withSchema(schema[name:string, email:email required]).configuration(), t0)` rồi `findBySessionId(id)` | schema đọc ra bằng bản đã lưu; `version` 0 |
   | `findBySessionId(randomUUID)` | `Optional.empty()` |
   | Lưu lần 2 với schema khác, dùng bản vừa đọc ra | `version` 1; schema mới |
   | `save` cho `sessionId` không có trong `import_session` | ném exception về khoá ngoại (`DataIntegrityViolationException`) |
-  | Sau lần lưu đầu, đọc thẳng cột `mapping_json` bằng `JdbcTemplate` | `{"mappings": []}` (giá trị mặc định) |
-- [ ] 3.2 Viết `JsonConfigHasherTest` với `JsonMapper` thật (`JsonMapper.builder().build()`):
+  | Sau lần lưu đầu, đọc thẳng cột `mapping_json` bằng ~~`JdbcTemplate`~~ native query của `TestEntityManager` | `{"mappings": []}` (giá trị mặc định) |
+
+  **LÝ DO** đổi `JdbcTemplate`: dùng cùng cách với `JpaImportSessionRepositoryTest` của F02, để đọc được dữ liệu chưa commit trong cùng transaction của test. Case này kiểm thêm hai cột `transformations_json`, `validations_json`, và kiểm `target_schema_json` là object JSON chứ không phải chuỗi JSON.
+- [x] 3.2 Viết `JsonConfigHasherTest` với `JsonMapper` thật (`JsonMapper.builder().build()`):
   | Case | Mong đợi |
   |---|---|
   | Hash cùng một cấu hình hai lần | hai chuỗi giống nhau; dài 64; khớp regex `[0-9a-f]{64}` |
   | Hai cấu hình chỉ khác `required` của một field | hai hash khác nhau |
   | Hai cấu hình cùng nội dung nhưng khác `sessionId` và `version` | hai hash giống nhau |
-- [ ] 3.3 Chạy `./mvnw -q test -Dtest=JpaImportConfigurationRepositoryTest,JsonConfigHasherTest`. Mong đợi: FAIL.
-- [ ] 3.4 Cài migration, entity, document, adapter và hasher. Cột JSON map theo cách F02 đã chốt (P7 hoặc phương án dự phòng, xem tasks.md của F02).
-- [ ] 3.5 Chạy lại lệnh ở 3.3. Mong đợi: PASS.
-- [ ] 3.6 Commit: `feat(infra): persist import configuration (Flyway V3) and hash it`
+- [x] 3.3 Chạy `./mvnw -q test -Dtest=JpaImportConfigurationRepositoryTest,JsonConfigHasherTest`. Mong đợi: FAIL.
+- [x] 3.4 Cài migration, entity, document, adapter và hasher. Cột JSON map theo cách F02 đã chốt (P7 hoặc phương án dự phòng, xem tasks.md của F02).
+- [x] 3.5 Chạy lại lệnh ở 3.3. Mong đợi: PASS.
+- [x] 3.6 Commit: `feat(infra): persist import configuration (Flyway V3) and hash it`
 
 ## 4. Khoá theo session
 
@@ -140,17 +144,17 @@
 **Interfaces:**
 - Produces: `@Component public class SessionLocks { public <T> T withLock(UUID sessionId, Supplier<T> action); }`
 
-- [ ] 4.1 Viết `SessionLocksTest`:
+- [x] 4.1 Viết `SessionLocksTest`:
   | Case | Mong đợi |
   |---|---|
   | Hai thread cùng `withLock(id, …)`, mỗi action ngủ 100ms và ghi thời điểm bắt đầu/kết thúc | hai khoảng thời gian không chồng nhau |
   | Hai thread với hai id khác nhau, dùng `CountDownLatch` để cả hai action chờ nhau | cả hai hoàn tất trong 2 giây (không bị khoá lẫn nhau) |
   | Action ném `RuntimeException` | exception được ném lại; `withLock(id, …)` lần sau vẫn chạy được (khoá đã nhả) |
   | `withLock(id, () -> withLock(id, () -> 1))` | trả `1` (khoá reentrant) |
-- [ ] 4.2 Chạy `./mvnw -q test -Dtest=SessionLocksTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 4.3 Cài bằng `ConcurrentHashMap<UUID, ReentrantLock>`, `lock()` rồi `finally unlock()`.
-- [ ] 4.4 Chạy lại lệnh ở 4.2. Mong đợi: PASS.
-- [ ] 4.5 Commit: `feat(app): per-session write locks`
+- [x] 4.2 Chạy `./mvnw -q test -Dtest=SessionLocksTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 4.3 Cài bằng ~~`ConcurrentHashMap<UUID, ReentrantLock>`~~ bảng khoá cố định 1024 ô (đổi sau review, **LÝ DO** ở design S5), `lock()` rồi `finally unlock()`.
+- [x] 4.4 Chạy lại lệnh ở 4.2. Mong đợi: PASS.
+- [x] 4.5 Commit: `feat(app): per-session write locks`
 
 ## 5. Luồng cập nhật cấu hình và `updateSchema`
 
@@ -175,7 +179,7 @@
   ```
 - Test dùng `TransactionTemplate` với một `PlatformTransactionManager` giả (chỉ gọi callback) và `ConfigHasher` giả (`c -> c.schema().toString()`).
 
-- [ ] 5.1 Viết `ConfigurationServiceTest`:
+- [x] 5.1 Viết `ConfigurationServiceTest`:
   | Case | Mong đợi |
   |---|---|
   | Session `CONFIGURING`, `updateSchema(id, [f("note","string",false,0)])` | `session.status` `READY`; `readiness.ready` true; `warnings` rỗng; repository cấu hình có schema mới |
@@ -186,14 +190,15 @@
   | Session `PROCESSED`, cấu hình đang có schema S, `updateSchema` với đúng S | `session.status` vẫn `PROCESSED`; `updatedAt` không đổi |
   | Session `PROCESSED`, `updateSchema` với schema khác | `session.status` `READY` |
   | Sau mỗi lần gọi | action chạy bên trong `SessionLocks.withLock(id, …)` (dùng một `SessionLocks` giả để ghi lại) |
-- [ ] 5.2 Sửa `ImportSessionServiceTest`:
+- [x] 5.2 Sửa `ImportSessionServiceTest`:
   - `upload` hợp lệ → `SessionDetails` có `configuration.schema().isEmpty()` true; `readiness` có issue `SCHEMA_EMPTY`.
   - `details(id)` sau `updateSchema` → trả cấu hình đã lưu.
   - `details(randomUUID)` → `SESSION_NOT_FOUND`.
-- [ ] 5.3 Chạy `./mvnw -q test -Dtest=ConfigurationServiceTest,ImportSessionServiceTest`. Mong đợi: FAIL.
-- [ ] 5.4 Cài theo design S6. `SessionDetails` được lắp từ `session`, `configurations.findBySessionId(...).orElse(empty)` và `ReadinessEvaluator.standard().evaluate(...)`.
-- [ ] 5.5 Chạy lại lệnh ở 5.3. Mong đợi: PASS.
-- [ ] 5.6 Commit: `feat(app): shared configuration update flow and PUT schema use case`
+- [x] 5.3 Chạy `./mvnw -q test -Dtest=ConfigurationServiceTest,ImportSessionServiceTest`. Mong đợi: FAIL.
+- [x] 5.4 Cài theo design S6. `SessionDetails` được lắp từ `session`, `configurations.findBySessionId(...).orElse(empty)` và `ReadinessEvaluator.standard().evaluate(...)`.
+  - Làm thêm ngoài kế hoạch: `ImportSessionController.upload` và stub `upload` trong `ImportSessionControllerTest` được sửa tối thiểu (`.session()`, trả `SessionDetails`) ngay ở task này. `get(UUID)` được giữ lại tới task 6. **LÝ DO:** `upload` đổi kiểu trả về. Maven compile toàn bộ test một lượt, nên không sửa thì không chạy được test của task 5.
+- [x] 5.5 Chạy lại lệnh ở 5.3. Mong đợi: PASS.
+- [x] 5.6 Commit: `feat(app): shared configuration update flow and PUT schema use case`
 
 ## 6. API: PUT /schema; session có thêm config và readiness
 
@@ -217,7 +222,7 @@
   // PUT /api/import-sessions/{id}/schema → 200 ConfigUpdateResponseDto
   ```
 
-- [ ] 6.1 Viết `SchemaControllerTest` (`@WebMvcTest(SchemaController.class)`, `@MockitoBean ConfigurationService`):
+- [x] 6.1 Viết `SchemaControllerTest` (`@WebMvcTest(SchemaController.class)`, `@MockitoBean ConfigurationService`):
   | Request | Stub | Mong đợi |
   |---|---|---|
   | PUT `{"fields":[{"name":"email","type":"email","required":true,"order":0}]}` | trả kết quả `READY` | 200; `$.session.status` `READY`; `$.session.config.schema.fields[0].name` `email`; `$.session.readiness.ready` true; `$.warnings` `[]`. Service nhận đúng `FieldSpec("email","email",true,0)` |
@@ -228,20 +233,22 @@
   | PUT hợp lệ | ném `SESSION_NOT_FOUND` | 404; `$.code` `SESSION_NOT_FOUND` |
   | PUT hợp lệ | ném `SESSION_STATE_INVALID` | 409; `$.code` `SESSION_STATE_INVALID` |
   | PUT `{"fields":[{"name":"a","type":"string","order":0}]}` (không có `required`) | trả kết quả bất kỳ | service nhận `required` = false |
-- [ ] 6.2 Sửa `ImportSessionControllerTest`:
+- [x] 6.2 Sửa `ImportSessionControllerTest`:
   - upload và `GET /{id}` trả `$.config.schema.fields` (mảng), `$.readiness.ready`, `$.readiness.issues[0].code` `SCHEMA_EMPTY`;
   - `GET` với id không tồn tại vẫn trả 404 `SESSION_NOT_FOUND`.
-- [ ] 6.3 Chạy `./mvnw -q test -Dtest=SchemaControllerTest,ImportSessionControllerTest`. Mong đợi: FAIL.
-- [ ] 6.4 Cài các DTO và controller. Sửa `ImportSessionDto.from(SessionDetails)` và `ImportSessionController`.
-- [ ] 6.5 Chạy lại lệnh ở 6.3. Mong đợi: PASS.
-- [ ] 6.6 Commit: `feat(api): PUT schema endpoint; sessions expose config and readiness`
+- [x] 6.3 Chạy `./mvnw -q test -Dtest=SchemaControllerTest,ImportSessionControllerTest`. Mong đợi: FAIL.
+- [x] 6.4 Cài các DTO và controller. Sửa `ImportSessionDto.from(SessionDetails)` và `ImportSessionController`.
+  - ~~`TargetFieldDto(String name, String type, boolean required, Integer order)`~~ → `Boolean required`; `toSpecs()` coi `null` là `false`. **LÝ DO:** Jackson 3 mặc định bật `FAIL_ON_NULL_FOR_PRIMITIVES`, nên với `boolean` thì body thiếu `required` bị 400 `REQUEST_INVALID`, trái spec ("thiếu `required` thì mặc định `false`"). Case cuối của 6.1 bắt được lỗi này. `"required": "yes"` vẫn là 400.
+  - Làm thêm: `SchemaControllerTest` có case `{"fields":[null]}` → 400; `ApiDocsIntegrationTest` kiểm thêm path `/api/import-sessions/{id}/schema` (spec api-docs: tài liệu liệt kê mọi endpoint hiện có).
+- [x] 6.5 Chạy lại lệnh ở 6.3. Mong đợi: PASS.
+- [x] 6.6 Commit: `feat(api): PUT schema endpoint; sessions expose config and readiness`
 
 ## 7. Integration test qua HTTP thật
 
 **Files:**
 - Test: `TEST/api/schema/SchemaIntegrationTest.java` (setup như các integration test trước)
 
-- [ ] 7.1 Viết các case. Mọi case bắt đầu bằng upload `customers.csv` = `name,email\nAn,an@x.com\n`, trừ khi có ghi khác.
+- [x] 7.1 Viết các case. Mọi case bắt đầu bằng upload `customers.csv` = `name,email\nAn,an@x.com\n`, trừ khi có ghi khác.
   | Case | Mong đợi |
   |---|---|
   | Upload rồi GET | `readiness.issues[0].code` `SCHEMA_EMPTY`; `status` `CONFIGURING` |
@@ -249,15 +256,34 @@
   | PUT schema có `Email` và `email` | 422; `errors[0].message` `Duplicate field name.`; GET cho thấy schema cũ không đổi |
   | PUT schema cho UUID chưa từng tạo | 404; `code` `SESSION_NOT_FOUND` |
   | Hai PUT schema đồng thời (hai thread, schema `a` và schema `b`) | cả hai 200. GET trả schema khớp response hoàn tất sau |
-- [ ] 7.2 Chạy `./mvnw -q test -Dtest=SchemaIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, không nới lỏng test.
-- [ ] 7.3 Commit: `test(api): target schema over real HTTP`
+- [x] 7.2 Chạy `./mvnw -q test -Dtest=SchemaIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, không nới lỏng test.
+- [x] 7.3 Commit: `test(api): target schema over real HTTP`
 
 ## 8. Kiểm tra toàn bộ và hoàn tất
 
-- [ ] 8.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm ArchitectureTest.
-- [ ] 8.2 Chạy app thật và thử bằng `curl`:
+- [x] 8.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm ArchitectureTest.
+  - Kết quả 2026-09-26: 38 suite, 312 test, 0 failure, 0 error.
+  - Kiểm ngược: tạm bỏ `lock()` trong `SessionLocks` thì case PUT đồng thời của `SchemaIntegrationTest` fail (một request 500). Vậy test đó thật sự kiểm được khoá.
+- [x] 8.2 Chạy app thật và thử bằng `curl`:
   - upload một CSV;
   - PUT schema hợp lệ, rồi PUT lại với tên trùng;
   - GET session, xem `config` và `readiness`.
-- [ ] 8.3 Tick checkbox, ghi LÝ DO cho mọi chỗ làm khác kế hoạch. Commit: `docs(openspec): complete be-f04 tasks`
-- [ ] 8.4 Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f04-target-schema -y`.
+  - Chạy ở cổng 8081 từ worktree BE, để không đụng app 8080 của người dùng. Flyway áp V3 lên DB chung. Kết quả:
+    - upload trả `fields: []` kèm `SCHEMA_EMPTY`;
+    - PUT `" Email "` (order 5) và `name` (order 1) → 200 `READY`, fields `[name/0, Email/1]`;
+    - PUT trùng tên → 422, liệt kê đủ lỗi;
+    - GET vẫn thấy schema cũ.
+- [x] 8.2b (thêm) Review bằng agent `senior-reviewer` trên `dev...feature/be-f04-target-schema`: không có blocker. Đã sửa:
+  - **Ép kiểu JSON:** Jackson 3 mặc định tự đổi `"required":"true"` thành true, `"order":"1"` hay `1.5` thành 1, và `"name":123` thành `"123"`, trái spec "sai kiểu JSON → 400". Đã thêm `api.common.StrictJsonConfig`, áp chung cho mọi body JSON của API; storage vẫn dùng mapper riêng. Test: 6 case trong `SchemaControllerTest`, 1 case trong `SchemaIntegrationTest`.
+  - **`SessionLocks`:** ~~`ConcurrentHashMap<UUID, ReentrantLock>` (task 4.3)~~ → bảng khoá cố định 1024 ô. **LÝ DO:** ghi ở design S5.
+  - **`ImportSessionService.details`:** chạy trong một transaction chỉ đọc, mức `REPEATABLE_READ`. **LÝ DO:** hai câu SELECT phải cùng một snapshot, nếu không GET chen giữa lúc PUT commit có thể trả `status: CONFIGURING` cùng `readiness.ready: true`.
+  - **Test hash qua DB thật:** thêm `JpaImportConfigurationRepositoryTest.a_stored_schema_hashes_like_the_same_schema_defined_again`. Nó giữ cho session `PROCESSED` không bị lật trạng thái khi client gửi lại đúng schema cũ (F08 dựa vào điều này).
+  - Để lại, chưa làm, vì cần quyết định spec hoặc thuộc feature sau:
+    - không có timeout cho khoá và transaction;
+    - lỗi optimistic lock / trùng khoá chính vẫn ra 500 (chỉ xảy ra khi chạy nhiều instance, hoặc code ghi mà bỏ qua khoá);
+    - chưa giới hạn số field hay kích thước body JSON;
+    - BE chưa chuẩn hoá NFC và chưa coi NBSP là khoảng trắng (FE đã làm cả hai trước khi gửi);
+    - chưa có test rollback khi đã ghi được một phần trên DB thật;
+    - `JpaImportSessionRepository` UPDATE lại cột `source_schema` ở mỗi lần PUT, vì chuỗi jsonb đọc về khác chuỗi Jackson ghi vào. Vô hại nhưng làm tăng `version` của session.
+- [x] 8.3 Tick checkbox, ghi LÝ DO cho mọi chỗ làm khác kế hoạch. Commit: `docs(openspec): complete be-f04 tasks`
+- [x] 8.4 ~~Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f04-target-schema -y`.~~ → `openspec archive be-f04-target-schema -y` trên nhánh feature, rồi tự merge vào `dev` và xoá nhánh. **LÝ DO:** luật nhánh người dùng chốt 2026-09-26: Claude làm trên `feature/*`, xong thì tự merge vào `dev` không cần hỏi. Người dùng check và test trên `dev` rồi tự merge `dev` → `main`. Archive **trước** khi merge để không phải commit thẳng lên `dev`.

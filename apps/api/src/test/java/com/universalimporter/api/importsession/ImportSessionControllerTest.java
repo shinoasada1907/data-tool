@@ -1,6 +1,8 @@
 package com.universalimporter.api.importsession;
 
 import com.universalimporter.application.importsession.ImportSessionService;
+import com.universalimporter.application.importsession.SessionDetails;
+import com.universalimporter.domain.config.ImportConfiguration;
 import com.universalimporter.domain.common.DomainException;
 import com.universalimporter.domain.common.ErrorCode;
 import com.universalimporter.domain.importsession.ImportSession;
@@ -21,6 +23,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -38,6 +41,8 @@ class ImportSessionControllerTest {
     private static final Instant T0 = Instant.parse("2026-09-25T10:00:00Z");
     private static final ImportSession SESSION =
             ImportSession.create(ID, new SourceFile("customers.csv", SourceFileType.CSV, 7), T0);
+    /** A session that has no configuration yet, as after upload. */
+    private static final SessionDetails DETAILS = SessionDetails.of(SESSION, ImportConfiguration.empty(ID));
 
     @Autowired
     MockMvc mockMvc;
@@ -47,7 +52,7 @@ class ImportSessionControllerTest {
 
     @Test
     void upload_passes_the_file_to_the_service_and_answers_201_with_location() throws Exception {
-        when(service.upload(eq("customers.csv"), any())).thenReturn(SESSION);
+        when(service.upload(eq("customers.csv"), any())).thenReturn(DETAILS);
 
         mockMvc.perform(multipart("/api/import-sessions")
                         .file(new MockMultipartFile("file", "customers.csv", "text/csv", bytes("a,b\n1,2"))))
@@ -59,7 +64,13 @@ class ImportSessionControllerTest {
                 .andExpect(jsonPath("$.fileType").value("CSV"))
                 .andExpect(jsonPath("$.sizeBytes").value(7))
                 .andExpect(jsonPath("$.createdAt").value("2026-09-25T10:00:00Z"))
-                .andExpect(jsonPath("$.updatedAt").value("2026-09-25T10:00:00Z"));
+                .andExpect(jsonPath("$.updatedAt").value("2026-09-25T10:00:00Z"))
+                .andExpect(jsonPath("$.config.schema.fields").isArray())
+                .andExpect(jsonPath("$.config.schema.fields").isEmpty())
+                .andExpect(jsonPath("$.readiness.ready").value(false))
+                .andExpect(jsonPath("$.readiness.issues[0].field").value(nullValue()))
+                .andExpect(jsonPath("$.readiness.issues[0].code").value("SCHEMA_EMPTY"))
+                .andExpect(jsonPath("$.readiness.issues[0].message").value("Target schema has no fields."));
 
         ArgumentCaptor<InputStreamSource> content = ArgumentCaptor.forClass(InputStreamSource.class);
         verify(service).upload(eq("customers.csv"), content.capture());
@@ -77,20 +88,23 @@ class ImportSessionControllerTest {
     }
 
     @Test
-    void get_returns_the_session() throws Exception {
-        when(service.get(ID)).thenReturn(SESSION);
+    void get_returns_the_session_with_its_configuration_and_readiness() throws Exception {
+        when(service.details(ID)).thenReturn(DETAILS);
 
         mockMvc.perform(get("/api/import-sessions/{id}", ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(ID.toString()))
                 .andExpect(jsonPath("$.status").value("UPLOADED"))
                 .andExpect(jsonPath("$.fileType").value("CSV"))
-                .andExpect(jsonPath("$.sizeBytes").value(7));
+                .andExpect(jsonPath("$.sizeBytes").value(7))
+                .andExpect(jsonPath("$.config.schema.fields").isArray())
+                .andExpect(jsonPath("$.readiness.ready").value(false))
+                .andExpect(jsonPath("$.readiness.issues[0].code").value("SCHEMA_EMPTY"));
     }
 
     @Test
     void get_of_an_unknown_session_is_404_session_not_found() throws Exception {
-        when(service.get(ID)).thenThrow(new DomainException(ErrorCode.SESSION_NOT_FOUND, "Import session not found."));
+        when(service.details(ID)).thenThrow(new DomainException(ErrorCode.SESSION_NOT_FOUND, "Import session not found."));
 
         mockMvc.perform(get("/api/import-sessions/{id}", ID))
                 .andExpect(status().isNotFound())
