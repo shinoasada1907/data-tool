@@ -1,5 +1,8 @@
-## ADDED Requirements
+# import-result Specification
 
+## Purpose
+Cho client xem kết quả xử lý của session theo trang (`GET /result`): row hợp lệ hoặc row lỗi, lọc row lỗi theo field và mã lỗi, kèm summary toàn bộ; chỉ trả khi session đã process và kết quả còn khớp config hiện tại.
+## Requirements
 ### Requirement: Xem kết quả xử lý theo trang
 Hệ thống SHALL trả kết quả xử lý của session qua `GET /api/import-sessions/{id}/result` dưới dạng `PipelineResultDto { summary, view, page { number, size, totalElements, totalPages }, rows[] }`.
 - Mỗi phần tử của `rows` có dạng `{ rowNumber, valid, values, errors }`.
@@ -80,6 +83,7 @@ Row khớp SHALL được trả kèm đầy đủ `errors[]` của nó. `totalEl
 `values` của mỗi row SHALL là một object có key là tên target field, theo thứ tự schema.
 - Với row hợp lệ, giá trị SHALL đã được ép kiểu: `number` là JSON number, ghi dạng plain, không dùng số mũ; `boolean` là `true`/`false`; `date` là chuỗi `yyyy-MM-dd`; giá trị rỗng là `null`.
 - Với row lỗi, giá trị SHALL là chuỗi sau transformation, hoặc `null` ở field có transformation thất bại.
+- Số SHALL được trả đúng từng chữ số và giữ scale của giá trị đã lưu. Client cần hơn 15 chữ số có nghĩa phải parse không mất độ chính xác.
 - Mỗi phần tử của `errors[]` SHALL có đủ `rowNumber`, `fieldName`, `stage`, `rule`, `step`, `code`, `message`, `sourceValue`.
 
 #### Scenario: Row hợp lệ đã ép kiểu
@@ -131,3 +135,4 @@ Session không tồn tại SHALL trả `404` với `code` là `SESSION_NOT_FOUND
 - **WHEN** kết quả có `total` 5, `valid` 2, `invalid` 3, với các lỗi `VALIDATION_EMAIL` 1, `TRANSFORMATION_FAILED` 1, `VALIDATION_TYPE` 1, `VALIDATION_UNIQUE` 1; và client gọi `GET /result?view=invalid&code=VALIDATION_TYPE&size=1`
 - **THEN** `summary` có `total` 5, `valid` 2, `invalid` 3, `status` là `PROCESSED`
 - **AND** `errorCountsByCode` là `{VALIDATION_EMAIL: 1, TRANSFORMATION_FAILED: 1, VALIDATION_TYPE: 1, VALIDATION_UNIQUE: 1}`
+

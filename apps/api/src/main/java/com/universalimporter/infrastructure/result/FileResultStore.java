@@ -1,8 +1,11 @@
 package com.universalimporter.infrastructure.result;
 
+import com.universalimporter.domain.common.RowErrorCode;
+import com.universalimporter.domain.pipeline.ErrorStage;
 import com.universalimporter.domain.pipeline.ImportError;
 import com.universalimporter.domain.pipeline.ResultStore;
 import com.universalimporter.domain.pipeline.ResultSummary;
+import com.universalimporter.domain.pipeline.ResultView;
 import com.universalimporter.domain.pipeline.ResultWriter;
 import com.universalimporter.domain.pipeline.RowResult;
 import com.universalimporter.infrastructure.storage.StorageProperties;
@@ -10,26 +13,33 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
 import tools.jackson.core.StreamWriteFeature;
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AccessDeniedException;
+import java.nio.file.FileSystemException;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.nio.file.attribute.FileTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 /**
@@ -38,10 +48,13 @@ import java.util.stream.Stream;
  * dates {@code yyyy-MM-dd}, keys in schema order. A run writes into {@code result.tmp-{uuid}/}; a commit swaps it
  * in with renames, so a reader sees either the old result, no result for a moment, or the new one, never a
  * half-written one. A swap that fails midway puts the old result back; whatever an interrupted run leaves behind
- * ({@code result.tmp-*}, {@code result.old-*}, {@code result.del-*}) is cleared by the next {@link #begin}.
+ * ({@code result.tmp-*}, {@code result.old-*}, {@code result.del-*}, {@code result.read-*}) is cleared by the
+ * next {@link #begin}.
  * <p>
  * Windows refuses a rename while another process (an indexer, an antivirus) briefly holds a file inside; such a
- * refusal is retried a few times before it counts as a failure.
+ * refusal is retried a few times before it counts as a failure. Windows also refuses to rename a directory while a
+ * file inside it is open, so readers never open a file inside {@code result/}: each opens a hard link made beside
+ * it, and removes the link at once (see {@link #readRows}).
  */
 @Component
 public class FileResultStore implements ResultStore {
@@ -53,6 +66,7 @@ public class FileResultStore implements ResultStore {
     private static final String TEMP = "result.tmp-";
     private static final String OLD = "result.old-";
     private static final String DELETING = "result.del-";
+    private static final String READING = "result.read-";
     private static final int MOVE_ATTEMPTS = 5;
 
     private static final Logger log = LoggerFactory.getLogger(FileResultStore.class);
@@ -63,9 +77,13 @@ public class FileResultStore implements ResultStore {
         void move(Path from, Path to) throws IOException;
     }
 
-    /** Own mapper rather than the application's: the stored format must not follow API JSON settings (as D8). */
+    /**
+     * Own mapper rather than the application's: the stored format must not follow API JSON settings (as D8).
+     * Decimals are read back as BigDecimal, never through a double, so {@code -3.50} stays {@code -3.50}.
+     */
     private static final JsonMapper JSON = JsonMapper.builder()
             .enable(StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN)
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
             .build();
 
     private final Path root;
@@ -115,6 +133,30 @@ public class FileResultStore implements ResultStore {
     }
 
     /**
+     * Reads one line at a time, and parses only the lines after {@code skip}. The reader is detached: it opens a
+     * hard link to the file (a copy where the file system has no hard links) and removes that link at once. The
+     * open file stays readable, while {@code result/} holds no open file and can be renamed or deleted.
+     */
+    @Override
+    public Stream<RowResult> readRows(UUID sessionId, ResultView view, long skip) {
+        Path sessionDir = sessionDir(sessionId);
+        Path file = sessionDir.resolve(RESULT).resolve(view == ResultView.VALID ? VALID : INVALID);
+        BufferedReader reader = openDetached(sessionId, sessionDir, file);
+        boolean valid = view == ResultView.VALID;
+        AtomicLong lineNumber = new AtomicLong(skip);
+        return reader.lines()
+                .skip(skip)
+                .map(line -> toRow(sessionId, lineNumber.incrementAndGet(), line, valid))
+                .onClose(() -> {
+                    try {
+                        reader.close();
+                    } catch (IOException e) {
+                        throw new UncheckedIOException("Cannot close the result of session " + sessionId, e);
+                    }
+                });
+    }
+
+    /**
      * Renames the result aside first, so it is gone for readers at once, then removes the files. Only the rename
      * must succeed: files that cannot be removed yet are cleared by the next {@link #begin}.
      */
@@ -135,6 +177,34 @@ public class FileResultStore implements ResultStore {
 
     private Path sessionDir(UUID sessionId) {
         return root.resolve(sessionId.toString());
+    }
+
+    private static BufferedReader openDetached(UUID sessionId, Path sessionDir, Path file) {
+        if (Files.notExists(file)) {
+            throw new UncheckedIOException("No result for session " + sessionId, new NoSuchFileException(file.toString()));
+        }
+        Path handle = sessionDir.resolve(READING + UUID.randomUUID());
+        try {
+            linkOrCopy(file, handle);
+            BufferedReader reader = Files.newBufferedReader(handle, StandardCharsets.UTF_8);
+            // The open reader keeps the content: nothing is left behind, even if the process dies while reading.
+            deleteQuietly(handle);
+            return reader;
+        } catch (IOException e) {
+            deleteQuietly(handle);
+            throw new UncheckedIOException("Cannot read the result of session " + sessionId, e);
+        }
+    }
+
+    private static void linkOrCopy(Path file, Path handle) throws IOException {
+        try {
+            Files.createLink(handle, file);
+        } catch (NoSuchFileException e) {
+            throw e;
+        } catch (UnsupportedOperationException | FileSystemException e) {
+            // A file system without hard links: a copy is slower but just as detached.
+            Files.copy(file, handle);
+        }
     }
 
     /**
@@ -158,7 +228,7 @@ public class FileResultStore implements ResultStore {
             return;
         }
         try {
-            for (String prefix : List.of(TEMP, OLD, DELETING)) {
+            for (String prefix : List.of(TEMP, OLD, DELETING, READING)) {
                 for (Path leftover : entries(sessionDir, prefix)) {
                     deleteQuietly(leftover);
                 }
@@ -337,6 +407,54 @@ public class FileResultStore implements ResultStore {
         return new ResultSummary(json.get("total").asLong(), json.get("valid").asLong(), json.get("invalid").asLong(),
                 counts(json.get("errorCountsByCode")), counts(json.get("errorCountsByField")),
                 Instant.parse(json.get("processedAt").asString()), json.get("configHash").asString());
+    }
+
+    /** A line that cannot be parsed is reported by its number only: Jackson's message would quote the cell (D13). */
+    private static RowResult toRow(UUID sessionId, long lineNumber, String line, boolean valid) {
+        try {
+            return toRow(JSON.readTree(line), valid);
+        } catch (JacksonException | IllegalArgumentException | NullPointerException e) {
+            throw new IllegalStateException("Result of session " + sessionId + " is unreadable at line " + lineNumber + ".");
+        }
+    }
+
+    private static RowResult toRow(JsonNode json, boolean valid) {
+        Map<String, Object> values = new LinkedHashMap<>();
+        json.get("values").properties().forEach(entry -> values.put(entry.getKey(), plain(entry.getValue())));
+        List<ImportError> errors = new ArrayList<>();
+        JsonNode errorNodes = json.get("errors");
+        if (errorNodes != null) {
+            for (JsonNode error : errorNodes) {
+                errors.add(toError(error));
+            }
+        }
+        return new RowResult(json.get("rowNumber").asInt(), valid, values, errors);
+    }
+
+    private static Object plain(JsonNode value) {
+        if (value.isNull()) {
+            return null;
+        }
+        if (value.isNumber()) {
+            return value.decimalValue();
+        }
+        if (value.isBoolean()) {
+            return value.booleanValue();
+        }
+        return value.asString();
+    }
+
+    private static ImportError toError(JsonNode json) {
+        JsonNode step = json.get("step");
+        return new ImportError(json.get("rowNumber").asInt(), text(json, "fieldName"),
+                ErrorStage.valueOf(json.get("stage").asString()), text(json, "rule"),
+                step == null || step.isNull() ? null : step.asInt(), RowErrorCode.valueOf(json.get("code").asString()),
+                text(json, "message"), text(json, "sourceValue"));
+    }
+
+    private static String text(JsonNode json, String property) {
+        JsonNode value = json.get(property);
+        return value == null || value.isNull() ? null : value.asString();
     }
 
     private static Map<String, Long> counts(JsonNode json) {

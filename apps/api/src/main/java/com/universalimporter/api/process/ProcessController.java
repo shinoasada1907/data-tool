@@ -25,8 +25,10 @@ public class ProcessController {
             description = "Maps, transforms and validates every row of the file, stores the result and moves the "
                     + "session to PROCESSED. Synchronous; calling it again re-runs and replaces the result. Errors: "
                     + "404 SESSION_NOT_FOUND, 409 SESSION_NOT_READY (readiness issues in errors), 409 "
-                    + "SESSION_STATE_INVALID (session failed), 422 FILE_PARSE_ERROR and 500 INTERNAL_ERROR when the "
-                    + "file cannot be read; both of those fail the session for good.")
+                    + "SESSION_STATE_INVALID (session failed), 422 FILE_PARSE_ERROR (file broken since upload; fails "
+                    + "the session for good), 500 INTERNAL_ERROR. A 500 fails the session only when the file itself "
+                    + "cannot be read; when the result cannot be stored the session and its previous result are "
+                    + "unchanged, so read the session again to tell.")
     @PostMapping("/{id}/process")
     PipelineSummaryDto process(@PathVariable UUID id) {
         return PipelineSummaryDto.from(service.process(id));
