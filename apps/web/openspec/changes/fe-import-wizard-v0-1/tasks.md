@@ -504,4 +504,17 @@
     - Đổi "Họ tên" sang giá trị cố định `Khách lẻ`, bỏ map "Ngày sinh" (hiện cảnh báo "Chưa map (field không bắt buộc)"), rồi bấm "Tiếp": `PUT /mapping` trả `200`, body có 5 phần tử theo thứ tự schema (không có "Ngày sinh"). Wizard sang bước Biến đổi & kiểm tra, bước Mapping "đã xong".
     - `GET /api/import-sessions/{id}`: `status = READY`, `readiness.ready = true`, `config.mapping` khớp đúng body đã gửi.
     - Console không có lỗi.
+  - **FE-F06–F09 (2026-09-27)**, BE `dev` `18f71f1` (có BE-F06 đến BE-F09) chạy ở 8081 từ worktree FE, Vite 5175 qua proxy, Chrome headless. File `customers-sample.csv` (fixture pipeline của BE, 6 dòng):
+    - Schema: `Email` kiểu `email`, `Tuổi` kiểu `number`, `Ngày sinh` kiểu `date`, `Họ tên` bắt buộc. Rules: `Họ tên` trim; `Ngày sinh` dateFormat `dd/MM/yyyy` (đầu ra khoá `yyyy-MM-dd`); `Email` unique.
+    - "Chạy xử lý": status "Đang xử lý…", rồi PUT transformations, PUT validations, POST process đều `200`, sang bước Kết quả sau khoảng 0,75 giây. Focus ở tiêu đề bước.
+    - Tóm tắt: Tổng 6, Hợp lệ 3, Lỗi 3. Tab "Lỗi (3)" chọn sẵn, cột đúng thứ tự schema.
+    - Dòng lỗi 3, 4, 6, khớp đúng kết quả BE tự kiểm:
+      - dòng 3 có 3 lỗi: `VALIDATION_EMAIL`, `VALIDATION_TYPE`, và `TRANSFORMATION_FAILED` "biến đổi dateFormat ở bước 1" với giá trị nguồn `31/02/1990`, ô của field hiện gạch ngang;
+      - dòng 4 thiếu `Họ tên` bắt buộc;
+      - dòng 6 sai kiểu `Tuổi`.
+    - Tab Hợp lệ: dòng 2, 5, 7, giá trị đã ép kiểu (`30`, `1990-12-25`), ô trống hiện gạch ngang.
+    - Bộ lọc: field theo thứ tự schema kèm số lỗi; mã lỗi có nhãn tiếng Việt. Lọc `VALIDATION_TYPE` ra dòng 3 và 6.
+    - Kết quả cũ: sửa rule rồi bấm stepper sang Kết quả. Hiện cảnh báo và "Chạy lại"; tab kia và bộ lọc bị khoá; bước Biến đổi & kiểm tra mất dấu "đã xong". "Chạy lại" chỉ gửi PUT validations và process, rồi tải trang đầu; focus về tiêu đề.
+    - Console không có lỗi hay cảnh báo.
+    - Chưa kiểm: file đủ lớn để có nhiều trang (sample chỉ 6 dòng); phân trang và lỗi 5xx đã có test với MSW.
 - [ ] 13.5 `pnpm test`, `pnpm lint`, `pnpm build` đều xanh; đối chiếu từng mục "Done when" phía FE của F01–F11 trong Notion.
