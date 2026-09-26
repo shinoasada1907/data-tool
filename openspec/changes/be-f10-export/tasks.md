@@ -46,10 +46,22 @@
   - `ImportSessionRepository` (F01)
   - `FakeResultStore`, `ImportFlowClient` (TEST/support, từ F09)
 
-- [ ] 1.1 Đọc code F02, F04, F08, F09 đã merge. So tên và chữ ký với phần Consumes. Chỗ nào khác thì sửa design.md và file này theo tên thật (gạch dòng cũ, ghi LÝ DO).
-- [ ] 1.2 Xác nhận hai điều kiện:
+- [x] 1.1 Đọc code F02, F04, F08, F09 đã merge. So tên và chữ ký với phần Consumes. Chỗ nào khác thì sửa design.md và file này theo tên thật (gạch dòng cũ, ghi LÝ DO).
+  - Kết quả đối chiếu:
+    - ~~`ResultQueryService.requireCurrentSummary(UUID)`~~ → `ResultQueryService.openCurrent(UUID, ResultView)`, trả `CurrentResult(summary, configuration, rows)`.
+      - **LÝ DO**: review F09 bỏ API "kiểm rồi mới đọc" hai bước, vì giữa hai bước kết quả có thể bị thay (TOCTOU).
+      - `openCurrent` kiểm và mở row trong một bước dưới khoá, và trả stream **tách rời**. Stream này đọc được sau khi nhả khoá, không bị ảnh hưởng và cũng không chặn lần process hay lần đổi config kế tiếp. Nhờ vậy việc stream một file tải lâu không giữ khoá (review F09, MAJOR 1c).
+    - ~~`TargetSchemaProvider#currentFields`~~ → `current.configuration().schema().fields()` (`List<TargetField>`).
+      - **LÝ DO**: không có provider này. Schema lấy từ đúng config đã sinh ra kết quả, nên luôn khớp với các row đang đọc.
+    - `TargetField(name, FieldType type, required, order)` và `FieldType { STRING, NUMBER, BOOLEAN, DATE, EMAIL }` đúng như giả định.
+    - `ImportError.stage`/`code` là enum (`ErrorStage`, `RowErrorCode`), không phải `String`; writer ghi bằng `name()`.
+    - `ResultStore.readRows(id, view, skip)` có thêm tham số `skip`; export luôn đọc từ 0 (qua `openCurrent`).
+    - ~~`FakeResultStore`, `ImportFlowClient`~~ → `support/InMemoryResultStore`, `support/HttpTestClient` (F08/F09 đã có). `HttpTestClient` thêm `download(path)` để đọc body dạng byte (kiểm BOM).
+    - Tên file gốc: `ImportSession.sourceFile().originalFileName()`.
+- [x] 1.2 Xác nhận hai điều kiện:
   - `pom.xml` có `commons-csv`. Nếu thiếu, thêm `org.apache.commons:commons-csv` với version ghi rõ, và ghi LÝ DO.
   - Mapper JSON đã bật `WRITE_BIGDECIMAL_AS_PLAIN` (be-f09 task 1).
+  - Kết quả: `commons-csv` 1.14.1 đã có (F02). `api/common/PlainNumberJsonConfig` (F09) bật `WRITE_BIGDECIMAL_AS_PLAIN` cho mapper của app.
 
 ## 2. Domain: CsvFormulaGuard và ExportFileName
 

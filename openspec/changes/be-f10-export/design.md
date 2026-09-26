@@ -17,6 +17,13 @@
 
 ### Giả định về các change khác (đối chiếu ở task 1 trước khi code)
 
+> **Đã đối chiếu (task 1.1)**: tên thật khác giả định dưới đây.
+> - Export dùng `ResultQueryService.openCurrent(id, view)`. Hàm này kiểm (F09-D4) và mở stream row tách rời trong một bước dưới khoá, trả `CurrentResult(summary, configuration, rows)`.
+> - Schema là `configuration.schema().fields()`.
+> - `ImportError.stage`/`code` là enum.
+>
+> Khối code dưới đây giữ nguyên làm lịch sử.
+
 ```java
 // be-f08 (giống giả định của be-f09)
 public interface ResultStore { Stream<RowResult> readRows(UUID sessionId, ResultView view); /* … */ }
@@ -110,7 +117,9 @@ List<TargetField> currentFields(UUID sessionId);   // trong tasks này gọi là
 - [Lỗi giữa chừng khi stream không đổi được status] → Kiểm và mở nguồn trước (F10-D1). Lỗi giữa chừng chỉ còn là lỗi IO hiếm gặp, và được ghi log.
 - [Tiền tố `'` làm đổi dữ liệu với consumer không phải bảng tính, ví dụ số điện thoại `+84…` trong cột string] → Đây là đánh đổi OWASP đã chấp nhận ở D13. Bản JSON không bị đổi.
 - [Tên của F08, F09, F04 khác giả định] → Task 1 đối chiếu trước khi code.
-- [Export đang đọc file đúng lúc PUT xoá `result/` trên Windows] → Cùng rủi ro đã ghi ở be-f09; F08 quyết định cách xoá.
+- ~~[Export đang đọc file đúng lúc PUT xoá `result/` trên Windows] → Cùng rủi ro đã ghi ở be-f09; F08 quyết định cách xoá.~~ Đã giải quyết:
+  - Stream của `openCurrent` là stream tách rời (hard link được xoá ngay khi mở), nên không chặn việc đổi tên hay xoá `result/`.
+  - Export tải lâu cũng không giữ khoá session.
 
 ## Migration Plan
 
