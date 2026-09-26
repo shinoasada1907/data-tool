@@ -12,6 +12,12 @@
 
 Task 1 của tasks.md đối chiếu các giả định dưới đây với code đã merge.
 
+> **Đã đối chiếu (2026-09-26):** bảng kết quả ở task 1 của `tasks.md`.
+> - ~~`SessionConfiguration`~~ → `ImportConfiguration`.
+> - Mapping đi qua `RowMapper` của F05 (thêm `mapField`).
+> - `UniqueTracker` dùng `beginRow`/`commitRow()`/`discardRow()`.
+> - Controller đặt ở `api.process`.
+
 - **F02/F03** (nguồn):
   - `SourceParser` có `boolean supports(SourceFileType)` và `Stream<ImportRow> read(InputStream)`. Stream đã bỏ dòng trống (D9).
   - `ImportRow` có `rowNumber` và giá trị theo `index` cột.

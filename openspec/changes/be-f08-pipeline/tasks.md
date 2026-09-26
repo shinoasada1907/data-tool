@@ -33,14 +33,32 @@
 
 ## 1. Đối chiếu giả định với code F02–F07 đã merge
 
-- [ ] 1.1 Ghi lại tên thật của:
+- [x] 1.1 Ghi lại tên thật của:
   - `SourceParser`, `ImportRow`, cách chọn parser theo `SourceFileType`, `SourceSchema`;
   - aggregate config, bộ tính readiness, khoá session, hàm `configHash`, hàm cập nhật dùng chung của F04;
   - registry `MappingStrategy`, `MappingConfig` (F05);
   - `TransformationEngine`, `TransformationConfig`, `RowErrorCode` (F06);
   - `FieldValidator`, `UniqueTracker`, `ValidationConfig` (F07).
-- [ ] 1.2 Tên nào khác `design.md` ("Giả định về F02–F07") thì sửa `design.md` và các task dưới: gạch tên cũ, ghi LÝ DO.
-- [ ] 1.3 Commit (nếu có sửa): `docs(openspec): align be-f08 plan with merged F02-F07 names`
+- [x] 1.2 Tên nào khác `design.md` ("Giả định về F02–F07") thì sửa `design.md` và các task dưới: gạch tên cũ, ghi LÝ DO.
+- [x] 1.3 Commit (nếu có sửa): `docs(openspec): align be-f08 plan with merged F02-F07 names`
+
+**Kết quả đối chiếu (2026-09-26, code `dev` @ 003928d):**
+
+| Giả định | Tên thật / cách làm | Ảnh hưởng tới F08 |
+|---|---|---|
+| `SourceParser`, chọn parser theo type | `domain.source.SourceParser` (`supports`, `inspect`, `read`); chọn bằng `application.importsession.SourceParsers.find(type)` | `ProcessService` dùng `SourceParsers` |
+| `ImportRow` | `ImportRow(long rowNumber, List<String> values)`, ô trống là `null` | `rowNumber` ép sang `int` bằng `Math.toIntExact` (file ≤ 20MB) |
+| Session file | `LocalFileStorage`: `{root}/{id}/source.bin`; root là `StorageProperties.dir` | `FileResultStore` ghi vào `{root}/{id}/result/` |
+| ~~`SessionConfiguration`~~ | `ImportConfiguration(sessionId, schema, mapping, transformations, validations, version)` | `PipelineConfig` lấy từ đây |
+| Readiness | `ReadinessEvaluator.standard().evaluate(config)` → `Readiness(ready, issues)` | Không |
+| `configHash` | Port `domain.config.ConfigHasher` (`JsonConfigHasher`) | Không |
+| Hàm cập nhật chung (P7) | `ConfigurationService.update(...)` đã chừa chỗ "F08: … result/ is deleted here" | Xoá kết quả **sau khi transaction commit**, vẫn trong khoá (xem task 5) |
+| ~~`MappingStrategy.map(row, mapping)` gọi từng field~~ | F05 có `RowMapper.of(schema, mapping, source, strategies).map(row)`: đổi tên cột → index một lần mỗi job | Thêm `RowMapper.mapField(row, fieldIndex)` để bắt lỗi từng field (P2); `MappingStrategies` có constructor public để test tiêm strategy lỗi |
+| `TransformationEngine`, `stepsFor` | Đúng như giả định (F06) | Gom step theo field **một lần mỗi job** (việc F06 để lại) |
+| `FieldValidator`, `UniqueTracker` | F07, sau review: `tracker.beginRow(n)` rồi `commitRow()`/`discardRow()`; `validate(field, rules, value, int row, tracker)` | Pipeline bao mỗi row bằng `beginRow` |
+| ~~`MAIN/api/importsession/ProcessController`~~ | Controller mới đặt theo chức năng (`api.schema`, `api.mapping`…) | `api.process` |
+| ~~`TEST/application/importsession/ConfigChangeInvalidatesResultTest`~~ | Test service cấu hình ở `application.configuration` | Đặt tại đó |
+| Việc F06/F07 để lại cho F08 | `DatePatterns.formatter` compile mỗi ô; engine và validator log WARN mỗi ô khi có bug | Cache formatter có giới hạn; log bug theo kiểu giới hạn (xem task 2) |
 
 ## 2. Pipeline trong domain
 
