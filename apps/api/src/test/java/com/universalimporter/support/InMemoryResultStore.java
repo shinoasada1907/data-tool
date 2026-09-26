@@ -24,6 +24,19 @@ public class InMemoryResultStore implements ResultStore {
     private int begun;
     private int open;
     private boolean failWrites;
+    private final java.util.concurrent.atomic.AtomicInteger concurrent = new java.util.concurrent.atomic.AtomicInteger();
+    private final java.util.concurrent.atomic.AtomicInteger maxConcurrent = new java.util.concurrent.atomic.AtomicInteger();
+    private long commitDelayMillis;
+
+    /** Makes each commit take this long, to widen the window in which two runs could overlap. */
+    public void slowCommits(long millis) {
+        this.commitDelayMillis = millis;
+    }
+
+    /** The most writers that were open at the same time. */
+    public int maxConcurrentWriters() {
+        return maxConcurrent.get();
+    }
 
     /** Every write fails from now on, as on a full disk. */
     public void failWrites() {
@@ -48,9 +61,10 @@ public class InMemoryResultStore implements ResultStore {
     }
 
     @Override
-    public ResultWriter begin(UUID sessionId) {
+    public synchronized ResultWriter begin(UUID sessionId) {
         begun++;
         open++;
+        maxConcurrent.accumulateAndGet(concurrent.incrementAndGet(), Math::max);
         List<RowResult> rows = new ArrayList<>();
         return new ResultWriter() {
             private boolean closed;
@@ -65,14 +79,24 @@ public class InMemoryResultStore implements ResultStore {
 
             @Override
             public void commit(ResultSummary summary) {
-                results.put(sessionId, new Stored(summary, List.copyOf(rows)));
+                try {
+                    Thread.sleep(commitDelayMillis);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                synchronized (InMemoryResultStore.this) {
+                    results.put(sessionId, new Stored(summary, List.copyOf(rows)));
+                }
             }
 
             @Override
             public void close() {
                 if (!closed) {
                     closed = true;
-                    open--;
+                    concurrent.decrementAndGet();
+                    synchronized (InMemoryResultStore.this) {
+                        open--;
+                    }
                 }
             }
         };

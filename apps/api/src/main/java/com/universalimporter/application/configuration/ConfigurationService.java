@@ -23,6 +23,8 @@ import com.universalimporter.domain.transformation.TransformationConfigValidator
 import com.universalimporter.domain.validation.ValidationConfig;
 import com.universalimporter.domain.validation.ValidationConfigCheck;
 import com.universalimporter.domain.validation.ValidationConfigValidator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -36,6 +38,8 @@ import java.util.function.BiFunction;
 /** The configuration PUTs. They all share one update flow (design S6); each passes its own change. */
 @Service
 public class ConfigurationService {
+
+    private static final Logger log = LoggerFactory.getLogger(ConfigurationService.class);
 
     private final ImportSessionRepository sessions;
     private final ImportConfigurationRepository configurations;
@@ -108,16 +112,22 @@ public class ConfigurationService {
      * The lock wraps the transaction, so the next write on this session sees this one committed. A rejected
      * change rolls back, leaving both the session and its configuration as they were.
      * <p>
-     * A real change to a processed session makes its result stale: the result is deleted once the change has
-     * committed, still inside the lock (BE-F08 P7). Deleting before the commit could lose a result that stays
-     * valid if the commit then fails.
+     * A real change makes any stored result stale: it is deleted once the change has committed, still inside the
+     * lock (BE-F08 P7). Deleting before the commit could lose a result that stays valid if the commit then fails.
+     * Whatever the status: a result may outlive the PROCESSED status, a run that could not save its session say.
+     * The deletion is best effort, as the change is already committed: a result that stays behind is never served,
+     * since its configuration hash no longer matches (BE-F09).
      */
     private ConfigUpdateResult update(UUID sessionId,
                                       BiFunction<ImportSession, ImportConfiguration, ConfigChange> mutation) {
         return locks.withLock(sessionId, () -> {
             Outcome outcome = transactions.execute(status -> applyAndSave(sessionId, mutation));
             if (outcome.staleResult()) {
-                results.delete(sessionId);
+                try {
+                    results.delete(sessionId);
+                } catch (RuntimeException e) {
+                    log.warn("Stale result of session {} could not be deleted: {}", sessionId, e.getClass().getName());
+                }
             }
             return outcome.result();
         });
@@ -136,7 +146,7 @@ public class ConfigurationService {
         Readiness newReadiness = readiness.evaluate(change.configuration());
         Instant now = now();
         // Re-sending the configuration a processed session already has keeps its result valid.
-        boolean staleResult = session.status() == SessionStatus.PROCESSED && changed;
+        boolean staleResult = changed;
         if (session.status() != SessionStatus.PROCESSED || changed) {
             session.transitionTo(newReadiness.ready() ? SessionStatus.READY : SessionStatus.CONFIGURING, now);
         }

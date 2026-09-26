@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.AccessDeniedException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -21,9 +23,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 class FileResultStoreTest {
 
@@ -127,6 +132,117 @@ class FileResultStoreTest {
         assertThat(Files.exists(root.resolve(ID + "/source.bin"))).isTrue();
     }
 
+    @Test
+    void a_failed_swap_puts_the_previous_result_back() throws IOException {
+        commit(store(), "old");
+        FileResultStore failing = new FileResultStore(new StorageProperties(root), (from, to) -> {
+            if (from.getFileName().toString().startsWith("result.tmp-")) {
+                throw new IOException("rename refused");
+            }
+            Files.move(from, to);
+        });
+
+        try (ResultWriter writer = failing.begin(ID)) {
+            writer.accept(new RowResult(2, true, values("name", "new"), List.of()));
+            assertThat(catchThrowableOfType(UncheckedIOException.class, () -> writer.commit(summary("new")))).isNotNull();
+        }
+
+        assertThat(read("result/valid.ndjson")).contains("\"old\"");
+        assertThat(failing.findSummary(ID)).get().extracting(ResultSummary::configHash).isEqualTo("old");
+        assertThat(leftovers()).isEmpty();
+    }
+
+    @Test
+    void a_rename_denied_for_a_moment_is_retried() throws IOException {
+        commit(store(), "old");
+        AtomicInteger denials = new AtomicInteger();
+        FileResultStore busy = new FileResultStore(new StorageProperties(root), (from, to) -> {
+            if (denials.getAndIncrement() < 2) {
+                throw new AccessDeniedException(from.toString());
+            }
+            Files.move(from, to);
+        });
+
+        commit(busy, "new");
+
+        assertThat(busy.findSummary(ID)).get().extracting(ResultSummary::configHash).isEqualTo("new");
+        assertThat(leftovers()).isEmpty();
+    }
+
+    @Test
+    void the_previous_result_of_an_interrupted_commit_is_restored_and_leftovers_removed() throws IOException {
+        commit(store(), "old");
+        Path sessionDir = root.resolve(ID.toString());
+        Files.move(sessionDir.resolve("result"), sessionDir.resolve("result.old-crashed"));
+        Files.createDirectories(sessionDir.resolve("result.tmp-crashed"));
+        Files.writeString(sessionDir.resolve("result.tmp-crashed/valid.ndjson"), "partial");
+
+        FileResultStore store = store();
+        store.begin(ID).close();
+
+        assertThat(store.findSummary(ID)).get().extracting(ResultSummary::configHash).isEqualTo("old");
+        assertThat(leftovers()).isEmpty();
+    }
+
+    @Test
+    void leftovers_beside_a_current_result_are_removed() throws IOException {
+        commit(store(), "current");
+        Path sessionDir = root.resolve(ID.toString());
+        Files.createDirectories(sessionDir.resolve("result.old-stale"));
+        Files.createDirectories(sessionDir.resolve("result.del-stale"));
+        Files.createDirectories(sessionDir.resolve("result.tmp-stale"));
+
+        FileResultStore store = store();
+        store.begin(ID).close();
+
+        assertThat(store.findSummary(ID)).get().extracting(ResultSummary::configHash).isEqualTo("current");
+        assertThat(leftovers()).isEmpty();
+    }
+
+    @Test
+    void delete_moves_the_result_aside_before_removing_it() throws IOException {
+        commit(store(), "h");
+        List<String> moves = new ArrayList<>();
+        FileResultStore store = new FileResultStore(new StorageProperties(root), (from, to) -> {
+            moves.add(from.getFileName() + " -> " + to.getFileName());
+            Files.move(from, to);
+        });
+
+        store.delete(ID);
+
+        assertThat(moves).singleElement().asString().startsWith("result -> result.del-");
+        assertThat(store.findSummary(ID)).isEmpty();
+        assertThat(leftovers()).isEmpty();
+    }
+
+    @Test
+    void a_result_being_deleted_is_not_found() throws IOException {
+        commit(store(), "h");
+        Path sessionDir = root.resolve(ID.toString());
+        Files.move(sessionDir.resolve("result"), sessionDir.resolve("result.del-stuck"));
+
+        assertThat(store().findSummary(ID)).isEmpty();
+    }
+
+    @Test
+    void an_unreadable_summary_counts_as_no_result() throws IOException {
+        Path summary = root.resolve(ID + "/result/summary.json");
+        Files.createDirectories(summary.getParent());
+
+        Files.writeString(summary, "{}");
+        assertThat(store().findSummary(ID)).isEmpty();
+
+        Files.writeString(summary, "not json");
+        assertThat(store().findSummary(ID)).isEmpty();
+    }
+
+    private static void commit(FileResultStore store, String hash) {
+        try (ResultWriter writer = store.begin(ID)) {
+            writer.accept(new RowResult(2, true, values("name", hash), List.of()));
+            writer.commit(summary(hash));
+        }
+    }
+
     private static ResultSummary summary(String hash) {
         Map<String, Long> byCode = new LinkedHashMap<>();
         byCode.put("VALIDATION_TYPE", 1L);
@@ -154,7 +270,8 @@ class FileResultStoreTest {
         }
         try (Stream<Path> entries = Files.list(dir)) {
             return entries.map(path -> path.getFileName().toString())
-                    .filter(name -> name.startsWith("result.tmp-") || name.startsWith("result.old-"))
+                    .filter(name -> name.startsWith("result.tmp-") || name.startsWith("result.old-")
+                            || name.startsWith("result.del-"))
                     .toList();
         }
     }

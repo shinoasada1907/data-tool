@@ -6,6 +6,9 @@ import com.universalimporter.domain.pipeline.ResultSummary;
 import com.universalimporter.domain.pipeline.ResultWriter;
 import com.universalimporter.domain.pipeline.RowResult;
 import com.universalimporter.infrastructure.storage.StorageProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.StreamWriteFeature;
 import tools.jackson.databind.JsonNode;
@@ -15,10 +18,12 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.nio.file.attribute.FileTime;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,7 +37,11 @@ import java.util.stream.Stream;
  * {@code invalid.ndjson} and {@code summary.json}, UTF-8 without BOM, lines ended by {@code \n}, numbers plain,
  * dates {@code yyyy-MM-dd}, keys in schema order. A run writes into {@code result.tmp-{uuid}/}; a commit swaps it
  * in with renames, so a reader sees either the old result, no result for a moment, or the new one, never a
- * half-written one.
+ * half-written one. A swap that fails midway puts the old result back; whatever an interrupted run leaves behind
+ * ({@code result.tmp-*}, {@code result.old-*}, {@code result.del-*}) is cleared by the next {@link #begin}.
+ * <p>
+ * Windows refuses a rename while another process (an indexer, an antivirus) briefly holds a file inside; such a
+ * refusal is retried a few times before it counts as a failure.
  */
 @Component
 public class FileResultStore implements ResultStore {
@@ -41,6 +50,18 @@ public class FileResultStore implements ResultStore {
     static final String VALID = "valid.ndjson";
     static final String INVALID = "invalid.ndjson";
     static final String SUMMARY = "summary.json";
+    private static final String TEMP = "result.tmp-";
+    private static final String OLD = "result.old-";
+    private static final String DELETING = "result.del-";
+    private static final int MOVE_ATTEMPTS = 5;
+
+    private static final Logger log = LoggerFactory.getLogger(FileResultStore.class);
+
+    /** A rename; a seam so tests can make one fail. */
+    @FunctionalInterface
+    interface Moves {
+        void move(Path from, Path to) throws IOException;
+    }
 
     /** Own mapper rather than the application's: the stored format must not follow API JSON settings (as D8). */
     private static final JsonMapper JSON = JsonMapper.builder()
@@ -48,9 +69,16 @@ public class FileResultStore implements ResultStore {
             .build();
 
     private final Path root;
+    private final Moves moves;
 
+    @Autowired
     public FileResultStore(StorageProperties properties) {
+        this(properties, (from, to) -> Files.move(from, to));
+    }
+
+    FileResultStore(StorageProperties properties, Moves moves) {
         this.root = properties.dir().toAbsolutePath().normalize();
+        this.moves = moves;
     }
 
     @Override
@@ -58,46 +86,123 @@ public class FileResultStore implements ResultStore {
         Path sessionDir = sessionDir(sessionId);
         try {
             Files.createDirectories(sessionDir);
-            return new FileResultWriter(sessionDir, Files.createDirectory(sessionDir.resolve("result.tmp-" + UUID.randomUUID())));
+            recover(sessionDir);
+            return new FileResultWriter(sessionDir, Files.createDirectory(sessionDir.resolve(TEMP + UUID.randomUUID())));
         } catch (IOException e) {
             throw new UncheckedIOException("Cannot start the result of session " + sessionId, e);
         }
     }
 
+    /** An unreadable summary counts as no result: the session is simply processed again. */
     @Override
     public Optional<ResultSummary> findSummary(UUID sessionId) {
         Path file = sessionDir(sessionId).resolve(RESULT).resolve(SUMMARY);
         if (Files.notExists(file)) {
             return Optional.empty();
         }
+        String text;
         try {
-            return Optional.of(toSummary(JSON.readTree(Files.readString(file, StandardCharsets.UTF_8))));
+            text = Files.readString(file, StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new UncheckedIOException("Cannot read the result summary of session " + sessionId, e);
         }
+        try {
+            return Optional.of(toSummary(JSON.readTree(text)));
+        } catch (RuntimeException e) {
+            log.warn("Result summary of session {} is unreadable and is ignored: {}", sessionId, e.getClass().getName());
+            return Optional.empty();
+        }
     }
 
+    /**
+     * Renames the result aside first, so it is gone for readers at once, then removes the files. Only the rename
+     * must succeed: files that cannot be removed yet are cleared by the next {@link #begin}.
+     */
     @Override
     public void delete(UUID sessionId) {
         Path sessionDir = sessionDir(sessionId);
-        if (Files.notExists(sessionDir)) {
-            return;
+        Path result = sessionDir.resolve(RESULT);
+        if (Files.exists(result)) {
+            try {
+                move(result, sessionDir.resolve(DELETING + UUID.randomUUID()));
+            } catch (IOException e) {
+                throw new UncheckedIOException("Cannot delete the result of session " + sessionId, e);
+            }
         }
         // Also any leftover of an interrupted run; writes on a session never overlap (design D11).
-        try (Stream<Path> entries = Files.list(sessionDir)) {
-            for (Path entry : entries.filter(path -> path.getFileName().toString().startsWith(RESULT)).toList()) {
-                deleteTree(entry);
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException("Cannot delete the result of session " + sessionId, e);
-        }
+        deleteLeftovers(sessionDir);
     }
 
     private Path sessionDir(UUID sessionId) {
         return root.resolve(sessionId.toString());
     }
 
-    private static final class FileResultWriter implements ResultWriter {
+    /**
+     * Puts back the previous result of a commit interrupted between its two renames, then clears leftovers. Runs
+     * under the session lock, so no other run is writing here.
+     */
+    private void recover(Path sessionDir) throws IOException {
+        Path result = sessionDir.resolve(RESULT);
+        if (Files.notExists(result)) {
+            Optional<Path> previous = entries(sessionDir, OLD).stream().max(Comparator.comparing(FileResultStore::modified));
+            if (previous.isPresent()) {
+                move(previous.get(), result);
+                log.warn("Restored the result of session {} left aside by an interrupted run", sessionDir.getFileName());
+            }
+        }
+        deleteLeftovers(sessionDir);
+    }
+
+    private void deleteLeftovers(Path sessionDir) {
+        if (Files.notExists(sessionDir)) {
+            return;
+        }
+        try {
+            for (String prefix : List.of(TEMP, OLD, DELETING)) {
+                for (Path leftover : entries(sessionDir, prefix)) {
+                    deleteQuietly(leftover);
+                }
+            }
+        } catch (IOException e) {
+            log.warn("Cannot list the leftovers of session {}: {}", sessionDir.getFileName(), e.getClass().getName());
+        }
+    }
+
+    private static List<Path> entries(Path sessionDir, String prefix) throws IOException {
+        try (Stream<Path> entries = Files.list(sessionDir)) {
+            return entries.filter(path -> path.getFileName().toString().startsWith(prefix)).toList();
+        }
+    }
+
+    private static FileTime modified(Path path) {
+        try {
+            return Files.getLastModifiedTime(path);
+        } catch (IOException e) {
+            return FileTime.fromMillis(0);
+        }
+    }
+
+    /** Retries a refused rename a few times, with a short pause that grows each time. */
+    private void move(Path from, Path to) throws IOException {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                moves.move(from, to);
+                return;
+            } catch (AccessDeniedException e) {
+                if (attempt == MOVE_ATTEMPTS) {
+                    throw e;
+                }
+                try {
+                    Thread.sleep(20L * attempt);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+            }
+        }
+    }
+
+    private final class FileResultWriter implements ResultWriter {
 
         private final Path sessionDir;
         private final Path tempDir;
@@ -134,28 +239,45 @@ public class FileResultStore implements ResultStore {
                 Path result = sessionDir.resolve(RESULT);
                 Path old = null;
                 if (Files.exists(result)) {
-                    old = sessionDir.resolve("result.old-" + UUID.randomUUID());
-                    Files.move(result, old);
+                    old = sessionDir.resolve(OLD + UUID.randomUUID());
+                    move(result, old);
                 }
-                Files.move(tempDir, result);
+                try {
+                    move(tempDir, result);
+                } catch (IOException e) {
+                    if (old != null) {
+                        restore(old, result, e);
+                    }
+                    throw e;
+                }
                 committed = true;
                 if (old != null) {
-                    deleteTree(old);
+                    deleteQuietly(old);
                 }
             } catch (IOException e) {
                 throw new UncheckedIOException("Cannot store the result", e);
             }
         }
 
+        /** Never throws: an unfinished result that cannot be removed now is cleared by the next begin. */
         @Override
         public void close() {
             try {
                 closeWriters();
-                if (!committed) {
-                    deleteTree(tempDir);
-                }
             } catch (IOException e) {
-                throw new UncheckedIOException("Cannot clean up an unfinished result", e);
+                log.warn("Cannot close the result files in {}: {}", tempDir, e.getClass().getName());
+            }
+            if (!committed) {
+                deleteQuietly(tempDir);
+            }
+        }
+
+        private void restore(Path old, Path result, IOException failure) {
+            try {
+                move(old, result);
+            } catch (IOException e) {
+                failure.addSuppressed(e);
+                log.error("Cannot put back the previous result from {}; the next run restores it", old, e);
             }
         }
 
@@ -223,6 +345,15 @@ public class FileResultStore implements ResultStore {
         return counts;
     }
 
+    /** Best effort: what cannot be removed now is removed by a later {@link #begin} or {@link #delete}. */
+    private static void deleteQuietly(Path path) {
+        try {
+            deleteTree(path);
+        } catch (IOException | UncheckedIOException e) {
+            log.warn("Cannot remove {} yet: {}", path, e.getClass().getName());
+        }
+    }
+
     private static void deleteTree(Path path) throws IOException {
         if (Files.notExists(path)) {
             return;
@@ -230,7 +361,7 @@ public class FileResultStore implements ResultStore {
         try (Stream<Path> walk = Files.walk(path)) {
             List<Path> deepestFirst = walk.sorted(Comparator.reverseOrder()).toList();
             for (Path entry : deepestFirst) {
-                Files.delete(entry);
+                Files.deleteIfExists(entry);
             }
         }
     }

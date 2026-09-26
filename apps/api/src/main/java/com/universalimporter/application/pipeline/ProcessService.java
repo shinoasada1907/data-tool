@@ -19,6 +19,7 @@ import com.universalimporter.domain.pipeline.PipelineSummary;
 import com.universalimporter.domain.pipeline.ResultStore;
 import com.universalimporter.domain.pipeline.ResultSummary;
 import com.universalimporter.domain.pipeline.ResultWriter;
+import com.universalimporter.domain.pipeline.RowResultSink;
 import com.universalimporter.domain.source.ImportRow;
 import com.universalimporter.domain.source.SourceParser;
 import org.slf4j.Logger;
@@ -70,9 +71,10 @@ public class ProcessService {
 
     /**
      * @throws DomainException {@code SESSION_NOT_FOUND}, {@code SESSION_STATE_INVALID} (failed session),
-     *                         {@code SESSION_NOT_READY} (with the readiness issues), {@code FILE_PARSE_ERROR} or
-     *                         {@code INTERNAL_ERROR}; the last two when reading the source fails, which fails the
-     *                         session for good (design D2)
+     *                         {@code SESSION_NOT_READY} (with the readiness issues), the parser's own error (such as
+     *                         {@code FILE_PARSE_ERROR}) or {@code INTERNAL_ERROR}. A source that cannot be read to
+     *                         the end fails the session for good (design D2); a result that cannot be stored leaves
+     *                         the session and its previous result as they were.
      */
     public PipelineSummaryView process(UUID sessionId) {
         return locks.withLock(sessionId, () -> run(sessionId));
@@ -100,27 +102,21 @@ public class ProcessService {
                 .orElseThrow(() -> new IllegalStateException("No parser for " + session.sourceFile().fileType()));
         String configHash = hasher.hash(configuration);
         Instant now = now();
+        if (session.status() == SessionStatus.CONFIGURING) {
+            // Only when statuses predate a readiness rule. Both PROCESSED and FAILED are reached through READY.
+            session.transitionTo(SessionStatus.READY, now);
+        }
 
         ResultSummary summary;
         try {
             summary = execute(sessionId, parser, pipelineConfig, now, configHash);
-        } catch (DomainException e) {
-            if (e.code() == ErrorCode.FILE_PARSE_ERROR) {
-                fail(session, now);
-            }
-            throw e;
-        } catch (UncheckedIOException e) {
-            log.warn("Source file of session {} could not be read: {}", sessionId, e.getCause().getClass().getName());
+        } catch (SourceFailure e) {
             fail(session, now);
-            throw new DomainException(ErrorCode.INTERNAL_ERROR, "Source file could not be read.");
+            throw e.reported();
         } catch (ResultWriteFailure e) {
             // The store, not the file, failed (a full disk, say): the session and any earlier result stay as they were.
             log.error("Result of session {} could not be stored", sessionId, e.getCause());
             throw new DomainException(ErrorCode.INTERNAL_ERROR, "The result could not be stored.");
-        }
-        if (session.status() == SessionStatus.CONFIGURING) {
-            // Only when statuses predate a readiness rule; PROCESSED is reached through READY.
-            session.transitionTo(SessionStatus.READY, now);
         }
         session.transitionTo(SessionStatus.PROCESSED, now);
         ImportSession saved = sessions.save(session);
@@ -129,13 +125,17 @@ public class ProcessService {
         return new PipelineSummaryView(sessionId, saved.status(), summary);
     }
 
-    /** Reading the source may throw FILE_PARSE_ERROR or UncheckedIOException; storing wraps its own failures. */
+    /**
+     * Three phases, so a failure is blamed on the right party: the result is begun, the whole source is read into
+     * it, and only once the source is closed is the result committed.
+     *
+     * @throws SourceFailure      the source could not be read to the end
+     * @throws ResultWriteFailure the result could not be written or put in place
+     */
     private ResultSummary execute(UUID sessionId, SourceParser parser, PipelineConfig config, Instant now,
                                   String configHash) {
-        try (InputStream in = storage.open(sessionId);
-             Stream<ImportRow> rows = parser.read(in);
-             ResultWriter writer = beginResult(sessionId)) {
-            PipelineSummary summary = pipeline.execute(rows, config, row -> {
+        try (ResultWriter writer = beginResult(sessionId)) {
+            PipelineSummary summary = readThrough(sessionId, parser, config, row -> {
                 try {
                     writer.accept(row);
                 } catch (UncheckedIOException e) {
@@ -149,9 +149,31 @@ public class ProcessService {
                 throw new ResultWriteFailure(e);
             }
             return result;
-        } catch (IOException e) {
-            throw new UncheckedIOException("Cannot close the source file", e);
         }
+    }
+
+    /**
+     * Runs the pipeline over every row of the source. Once the last row is read the run is complete, so a failure
+     * to close the file afterwards (a temporary copy still locked, say) is only logged.
+     */
+    private PipelineSummary readThrough(UUID sessionId, SourceParser parser, PipelineConfig config, RowResultSink sink) {
+        PipelineSummary summary = null;
+        try (InputStream in = storage.open(sessionId); Stream<ImportRow> rows = parser.read(in)) {
+            summary = pipeline.execute(rows, config, sink);
+        } catch (ResultWriteFailure e) {
+            throw e;
+        } catch (IOException | RuntimeException e) {
+            if (summary != null) {
+                log.warn("Source file of session {} was read but could not be closed: {}", sessionId,
+                        e.getClass().getName());
+            } else if (e instanceof DomainException || e instanceof IOException || e instanceof UncheckedIOException) {
+                throw new SourceFailure(sessionId, e);
+            } else {
+                // A bug, not the file: the session stays as it was.
+                throw (RuntimeException) e;
+            }
+        }
+        return summary;
     }
 
     private ResultWriter beginResult(UUID sessionId) {
@@ -162,11 +184,18 @@ public class ProcessService {
         }
     }
 
-    /** FAILED is final (design D2): its old result goes too, so nothing stale is ever served. */
+    /**
+     * FAILED is final (design D2), and saved first. Its old result goes too; that deletion is best effort, since
+     * a failed session serves no result anyway (BE-F09 checks the status) and must not hide the original error.
+     */
     private void fail(ImportSession session, Instant now) {
-        results.delete(session.id());
         session.transitionTo(SessionStatus.FAILED, now);
         sessions.save(session);
+        try {
+            results.delete(session.id());
+        } catch (RuntimeException e) {
+            log.warn("Result of failed session {} could not be deleted: {}", session.id(), e.getClass().getName());
+        }
     }
 
     /** PostgreSQL keeps microseconds; truncating here keeps memory and database in agreement. */
@@ -179,6 +208,32 @@ public class ProcessService {
 
         ResultWriteFailure(UncheckedIOException cause) {
             super(cause);
+        }
+    }
+
+    /** Marks a failure to read the source to the end, whatever its kind. */
+    private static final class SourceFailure extends RuntimeException {
+
+        private final UUID sessionId;
+
+        SourceFailure(UUID sessionId, Exception cause) {
+            super(cause);
+            this.sessionId = sessionId;
+        }
+
+        /** What the client is told: the parser's own error as it is (FILE_PARSE_ERROR, FILE_EMPTY...), I/O as internal. */
+        DomainException reported() {
+            return switch (getCause()) {
+                case DomainException e -> e;
+                case UncheckedIOException e -> unreadable(e.getCause());
+                case IOException e -> unreadable(e);
+                default -> throw new IllegalStateException("Not a source failure", getCause());
+            };
+        }
+
+        private DomainException unreadable(IOException e) {
+            log.warn("Source file of session {} could not be read: {}", sessionId, e.getClass().getName());
+            return new DomainException(ErrorCode.INTERNAL_ERROR, "Source file could not be read.");
         }
     }
 }

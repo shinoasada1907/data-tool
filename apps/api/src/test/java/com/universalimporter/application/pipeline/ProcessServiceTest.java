@@ -173,6 +173,108 @@ class ProcessServiceTest {
         assertThat(results.stored(ID).orElseThrow().rows()).hasSize(6);
     }
 
+    @Test
+    void a_failure_to_close_the_source_after_reading_it_all_does_not_undo_the_run() {
+        givenSample(SessionStatus.READY);
+        parser = FakeSourceParser.forType(SourceFileType.CSV).withRows(SampleDataset.rows())
+                .failingOnClose(new UncheckedIOException(new IOException("temp file still locked")));
+
+        PipelineSummaryView view = service().process(ID);
+
+        assertThat(view.status()).isEqualTo(SessionStatus.PROCESSED);
+        assertThat(sessions.findById(ID).orElseThrow().status()).isEqualTo(SessionStatus.PROCESSED);
+        assertThat(results.stored(ID)).isPresent();
+    }
+
+    @Test
+    void any_source_error_fails_the_session_not_only_parse_errors() {
+        givenSample(SessionStatus.READY);
+        DomainException empty = new DomainException(ErrorCode.FILE_EMPTY, "The file has no header row.");
+        parser = FakeSourceParser.forType(SourceFileType.CSV).withRows(SampleDataset.rows()).failingAtRow(2, empty);
+
+        assertThat(catchThrowableOfType(DomainException.class, () -> service().process(ID))).isSameAs(empty);
+        assertThat(sessions.findById(ID).orElseThrow().status()).isEqualTo(SessionStatus.FAILED);
+    }
+
+    @Test
+    void a_failure_to_store_keeps_the_previous_result() {
+        givenSample(SessionStatus.PROCESSED);
+        InMemoryResultStore.Stored previous = new InMemoryResultStore.Stored(null, List.of());
+        results.put(ID, previous);
+        results.failWrites();
+
+        catchThrowableOfType(DomainException.class, () -> service().process(ID));
+
+        assertThat(results.stored(ID)).containsSame(previous);
+        assertThat(sessions.findById(ID).orElseThrow().status()).isEqualTo(SessionStatus.PROCESSED);
+    }
+
+    @Test
+    void a_configuring_session_that_is_ready_is_processed_and_can_still_fail() {
+        givenSample(SessionStatus.CONFIGURING);
+
+        assertThat(service().process(ID).status()).isEqualTo(SessionStatus.PROCESSED);
+
+        givenSample(SessionStatus.CONFIGURING);
+        parser = FakeSourceParser.forType(SourceFileType.CSV).withRows(SampleDataset.rows())
+                .failingAtRow(3, new DomainException(ErrorCode.FILE_PARSE_ERROR, "CSV syntax error near row 3."));
+        DomainException ex = catchThrowableOfType(DomainException.class, () -> service().process(ID));
+
+        assertThat(ex.code()).isEqualTo(ErrorCode.FILE_PARSE_ERROR);
+        assertThat(sessions.findById(ID).orElseThrow().status()).isEqualTo(SessionStatus.FAILED);
+    }
+
+    @Test
+    void runs_on_one_session_never_overlap() throws Exception {
+        givenSample(SessionStatus.READY);
+        results.slowCommits(200);
+        ProcessService service = service();
+        try (java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            java.util.concurrent.Future<?> first = pool.submit(() -> service.process(ID));
+            java.util.concurrent.Future<?> second = pool.submit(() -> service.process(ID));
+            first.get(10, java.util.concurrent.TimeUnit.SECONDS);
+            second.get(10, java.util.concurrent.TimeUnit.SECONDS);
+        }
+
+        assertThat(results.begun()).isEqualTo(2);
+        assertThat(results.maxConcurrentWriters()).isEqualTo(1);
+    }
+
+    @Test
+    void a_bug_in_the_pipeline_is_not_blamed_on_the_file() {
+        givenSample(SessionStatus.READY);
+        IllegalStateException bug = new IllegalStateException("bug");
+        ProcessService service = new ProcessService(sessions, configurations, storage, new SourceParsers(List.of(parser)),
+                (rows, config, sink) -> {
+                    throw bug;
+                }, results, HASHER, new SessionLocks(), Clock.fixed(T0, ZoneOffset.UTC));
+
+        assertThat(catchThrowableOfType(IllegalStateException.class, () -> service.process(ID))).isSameAs(bug);
+        assertThat(sessions.findById(ID).orElseThrow().status()).isEqualTo(SessionStatus.READY);
+        assertThat(results.open()).isZero();
+    }
+
+    @Test
+    void a_result_that_cannot_be_deleted_does_not_hide_the_parse_error() {
+        givenSample(SessionStatus.READY);
+        DomainException parseError = new DomainException(ErrorCode.FILE_PARSE_ERROR, "CSV syntax error near row 2.");
+        parser = FakeSourceParser.forType(SourceFileType.CSV).withRows(SampleDataset.rows()).failingAtRow(2, parseError);
+        InMemoryResultStore stuck = new InMemoryResultStore() {
+            @Override
+            public void delete(UUID sessionId) {
+                throw new UncheckedIOException(new IOException("file in use"));
+            }
+        };
+        ProcessService service = new ProcessService(sessions, configurations, storage, new SourceParsers(List.of(parser)),
+                new DefaultImportPipeline(MappingStrategies.standard(),
+                        new TransformationEngine(TransformationRegistry.standard()),
+                        new FieldValidator(ValidationRegistry.standard())),
+                stuck, HASHER, new SessionLocks(), Clock.fixed(T0, ZoneOffset.UTC));
+
+        assertThat(catchThrowableOfType(DomainException.class, () -> service.process(ID))).isSameAs(parseError);
+        assertThat(sessions.findById(ID).orElseThrow().status()).isEqualTo(SessionStatus.FAILED);
+    }
+
     private void givenSample(SessionStatus status) {
         givenSession(status);
         configurations.save(ImportConfiguration.empty(ID).withSchema(SampleDataset.SCHEMA).configuration()

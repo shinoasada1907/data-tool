@@ -81,6 +81,44 @@ class ConfigChangeInvalidatesResultTest {
     }
 
     @Test
+    void the_result_is_kept_when_saving_the_change_fails() {
+        sessions.failOnSave();
+
+        catchThrowableOfType(IllegalStateException.class, () -> service.updateTransformations(ID,
+                new TransformationConfig(List.of(new TransformationStep("name", 0, "uppercase", null)))));
+
+        assertThat(results.stored(ID)).isPresent();
+    }
+
+    @Test
+    void a_stale_result_is_deleted_whatever_the_session_status() {
+        givenSample(SessionStatus.READY);
+
+        service.updateTransformations(ID, new TransformationConfig(List.of(new TransformationStep("name", 0, "uppercase", null))));
+
+        assertThat(results.stored(ID)).isEmpty();
+    }
+
+    @Test
+    void a_result_that_cannot_be_deleted_does_not_undo_the_committed_change() {
+        InMemoryResultStore stuck = new InMemoryResultStore() {
+            @Override
+            public void delete(UUID sessionId) {
+                throw new java.io.UncheckedIOException(new java.io.IOException("file in use"));
+            }
+        };
+        ConfigurationService service = new ConfigurationService(sessions, configurations, new JsonConfigHasher(),
+                new SessionLocks(), new TransactionTemplate(new NoDatabase()),
+                new TransformationConfigValidator(TransformationRegistry.standard()), new ValidationConfigValidator(),
+                stuck, Clock.fixed(Instant.parse("2026-09-26T10:00:00Z"), ZoneOffset.UTC));
+
+        ConfigUpdateResult result = service.updateTransformations(ID, new TransformationConfig(List.of(
+                new TransformationStep("name", 0, "uppercase", null))));
+
+        assertThat(result.session().status()).isEqualTo(SessionStatus.READY);
+    }
+
+    @Test
     void a_failed_session_changes_nothing() {
         givenSample(SessionStatus.FAILED);
         ImportConfiguration before = configurations.findBySessionId(ID).orElseThrow();

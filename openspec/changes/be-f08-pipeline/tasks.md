@@ -248,6 +248,7 @@
 
 - [x] 8.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, kể cả ArchitectureTest.
   - Kết quả 2026-09-26: 73 suite, 657 test, 0 failure, 0 error.
+  - Sau khi sửa theo review (2026-09-27): 667 test, 0 failure, 0 error.
 - [x] 8.2 Chạy app thật với fixture:
   - upload, cấu hình bằng `curl`, rồi `POST /process`;
   - mở thư mục `result/` kiểm nội dung;
@@ -255,6 +256,34 @@
   - Kết quả (cổng 8081, worktree BE):
     - 4 PUT đều 200; `POST /process` → 200 `PROCESSED`, total 6 / valid 3 / invalid 3, summary khớp spec;
     - `valid.ndjson`: 3 dòng, dòng đầu đúng từng byte như spec. `invalid.ndjson`: row 3, 4, 6 với đúng lỗi;
-    - không có ``; log không chứa giá trị ô nào.
-- [ ] 8.3 Tick đủ checkbox. Chỗ nào làm khác kế hoạch thì gạch ngang và ghi LÝ DO. Cập nhật bảng "API contract V0.1", dòng #8 (thêm 422/500 theo OQ1), khi archive. Commit: `docs(openspec): complete be-f08 tasks`
-- [ ] 8.4 Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f08-pipeline -y`.
+    - không có `
+`; log không chứa giá trị ô nào.
+- [x] 8.2b Sửa theo review của senior-reviewer (TDD, test đỏ trước). Mỗi mục kèm **LÝ DO**:
+  - **BLOCKER**: `commit` từng nằm trong cùng khối try-with-resources với nguồn. Nếu đóng nguồn lỗi sau commit (ví dụ `onClose` của XLSX xoá file tạm), lỗi đó bị tính là lỗi đọc: `fail()` xoá kết quả vừa commit và session thành `FAILED` mãi mãi.
+    - Sửa: `execute` tách ba pha `begin` → `readThrough` (đọc hết rồi đóng nguồn) → `commit`. Lỗi đóng nguồn sau khi đã đọc hết chỉ ghi log.
+    - Test: `a_failure_to_close_the_source_after_reading_it_all_does_not_undo_the_run`.
+  - **MAJOR**: đổi thư mục trong `FileResultStore.commit` không có rollback. Bước 2 lỗi thì mất `result/`, chỉ còn `result.old-*`.
+    - Sửa:
+      - bước 2 lỗi thì khôi phục old;
+      - bước 3 và xoá tmp làm best-effort;
+      - thử lại tối đa 5 lần khi gặp `AccessDeniedException` (Windows);
+      - `begin()` → `recover()` khôi phục old và dọn `result.tmp-*`/`result.old-*`/`result.del-*` sót lại.
+    - Seam `Moves` (package-private) để test làm lỗi một lần đổi tên mà không phụ thuộc hệ điều hành.
+  - **MAJOR**: `delete()` từng xoá từng file ngay trên `result/`; xoá dở thì còn lại một kết quả thiếu file. Còn `fail()` thì xoá kết quả trước khi lưu `FAILED`, nên nếu xoá lỗi thì lỗi đó che mất lỗi gốc.
+    - Sửa: `delete()` đổi tên `result/ → result.del-{uuid}` trước rồi mới xoá; `fail()` lưu `FAILED` trước, xoá sau (best-effort, có log).
+  - **MINOR**: `CONFIGURING → FAILED` là chuyển trạng thái không hợp lệ. Sửa: chuyển `READY` trước khi chạy pipeline.
+  - **MINOR**: chỉ `FILE_PARSE_ERROR` từng làm `FAILED`. Sửa: mọi `DomainException`/IO của nguồn (ví dụ `FILE_EMPTY`) đều làm `FAILED`; bug khác (`RuntimeException`) không đổi trạng thái session.
+  - **MINOR**: ~~xoá kết quả chỉ khi session đang `PROCESSED`~~ → xoá khi hash đổi, dù ở trạng thái nào.
+    - **LÝ DO**: kết quả có thể còn trong khi status là `READY` (commit xong nhưng lưu session lỗi).
+    - Xoá sau commit là best-effort: thay đổi đã lưu thì không trả 500 nữa. Kết quả sót lại vô hại vì F09 kiểm hash.
+  - **MINOR**: bổ sung test.
+    - Test đồng thời thật, đo số writer mở cùng lúc; kiểm ngược: bỏ khoá thì đỏ.
+    - Giữ kết quả khi transaction lỗi; lỗi ghi store vẫn giữ kết quả cũ.
+    - Rollback, retry, recover, delete đổi tên trước, summary hỏng (kiểm ngược: bỏ restore/recover thì đỏ).
+    - Bug pipeline không làm `FAILED`; xoá lỗi không che lỗi gốc.
+  - Ghi chú cho F09 từ review:
+    - đọc ndjson bằng BigDecimal (`USE_BIG_DECIMAL_FOR_FLOATS`);
+    - quét tuyến tính để phân trang;
+    - đọc trong khoá session (Windows không đổi tên được thư mục đang có file mở).
+- [x] 8.3 Tick đủ checkbox. Chỗ nào làm khác kế hoạch thì gạch ngang và ghi LÝ DO. Cập nhật bảng "API contract V0.1", dòng #8 (thêm 422/500 theo OQ1), khi archive. Commit: `docs(openspec): complete be-f08 tasks`
+- [x] ~~8.4 Hỏi người dùng trước khi merge.~~ **LÝ DO**: người dùng đã cho tự merge feature → `dev` (không đụng `main`). Archive bằng `openspec archive be-f08-pipeline -y` trên nhánh feature trước khi merge.
