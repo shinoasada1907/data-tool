@@ -192,7 +192,7 @@
   // PUT /api/import-sessions/{id}/mapping → 200 ConfigUpdateResponseDto
   ```
 
-- [ ] 6.1 Viết `MappingControllerTest` (`@WebMvcTest(MappingController.class)`, `@MockitoBean ConfigurationService`):
+- [x] 6.1 Viết `MappingControllerTest` (`@WebMvcTest(MappingController.class)`, `@MockitoBean ConfigurationService`):
   | Request | Stub | Mong đợi |
   |---|---|---|
   | PUT `{"mappings":[{"targetField":"name","mappingType":"SOURCE_COLUMN","sourceColumn":"Họ tên","constantValue":null}]}` | trả kết quả có warning `note` | 200; `$.session.config.mapping.mappings[0].sourceColumn` `Họ tên`; `$.warnings[0].code` `TARGET_FIELD_UNMAPPED`. Service nhận đúng `MappingSpec` |
@@ -201,11 +201,15 @@
   | PUT hợp lệ | ném `SOURCE_COLUMN_NOT_FOUND` kèm item | 422; `$.code` `SOURCE_COLUMN_NOT_FOUND`; `$.errors[0].field` `name` |
   | PUT hợp lệ | ném `SESSION_NOT_FOUND` | 404; `$.code` `SESSION_NOT_FOUND` |
   | PUT hợp lệ | ném `SESSION_STATE_INVALID` | 409 |
-- [ ] 6.2 Sửa `ImportSessionControllerTest`: `GET /{id}` trả `$.config.mapping.mappings` (mảng).
-- [ ] 6.3 Chạy `./mvnw -q test -Dtest=MappingControllerTest,ImportSessionControllerTest`. Mong đợi: FAIL.
-- [ ] 6.4 Cài controller và DTO; sửa `SessionConfigDto` và `ImportSessionDto.from`.
-- [ ] 6.5 Chạy lại lệnh ở 6.3. Mong đợi: PASS.
-- [ ] 6.6 Commit: `feat(api): PUT mapping endpoint`
+- [x] 6.2 Sửa `ImportSessionControllerTest`: `GET /{id}` trả `$.config.mapping.mappings` (mảng).
+- [x] 6.3 Chạy `./mvnw -q test -Dtest=MappingControllerTest,ImportSessionControllerTest`. Mong đợi: FAIL.
+- [x] 6.4 Cài controller và DTO; sửa `SessionConfigDto` và `ImportSessionDto.from`.
+  - `ImportSessionDto.from` không phải sửa: `SessionConfigDto.from` tự lấy mapping từ `ImportConfiguration`.
+  - Làm thêm:
+    - `MappingControllerTest` có case `"constantValue": 84` → 400 (nhờ `StrictJsonConfig` của F04), và case `mappingType` lạ vẫn tới được domain (để thành 422, không phải 400).
+    - `ApiDocsIntegrationTest` kiểm thêm path `/mapping`.
+- [x] 6.5 Chạy lại lệnh ở 6.3. Mong đợi: PASS.
+- [x] 6.6 Commit: `feat(api): PUT mapping endpoint`
 
 ## 7. Integration test qua HTTP thật
 
