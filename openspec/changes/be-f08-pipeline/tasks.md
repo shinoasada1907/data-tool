@@ -70,13 +70,13 @@
 - Consumes: F05 (mapping), F06 (`TransformationEngine`), F07 (`FieldValidator`, `UniqueTracker`).
 - Produces: đúng các chữ ký ở design P1 và P3.
 
-- [ ] 2.1 Viết `SampleDataset`, dựng lại "bộ dữ liệu mẫu" trong spec:
+- [x] 2.1 Viết `SampleDataset`, dựng lại "bộ dữ liệu mẫu" trong spec:
   - các `ImportRow` từ row 2 tới row 7 (ô trống là `null`);
   - schema: `name` (string, required), `email` (email, required), `age` (number), `dob` (date);
   - mapping theo tên cột;
   - transformation: `name: trim(0)`; `email: trim(0), lowercase(1)`; `dob: dateFormat(0){inputFormat:"dd/MM/yyyy"}`;
   - validation: `email: unique`.
-- [ ] 2.2 Viết `DefaultImportPipelineTest`, dùng sink gom kết quả vào list:
+- [x] 2.2 Viết `DefaultImportPipelineTest`, dùng sink gom kết quả vào list:
   | Case | Mong đợi |
   |---|---|
   | Chạy `SampleDataset` | Sink nhận 6 row theo thứ tự 2..7. Row 2, 5, 7 `valid`; row 3, 4, 6 không `valid` |
@@ -89,10 +89,15 @@
   | Chạy `SampleDataset` 2 lần trên cùng một instance pipeline | Lần 2 có summary giống hệt lần 1, và row 2 vẫn hợp lệ (mỗi lần chạy dùng tracker mới) |
   | 5 row. Registry có transformation `explode` ném `IllegalStateException("boom")` khi giá trị là `"boom"`; row 3 có giá trị đó | `total`=5; row 3 có lỗi TRANSFORMATION_FAILED; 4 row còn lại xử lý bình thường; không kết quả nào chứa `"boom"` ngoài `sourceValue` |
   | `MappingStrategy` stub ném `RuntimeException` ở row 2 | Row 2 có lỗi `{code: TRANSFORMATION_FAILED, rule: "mapping", step: null, message: "Unexpected error while mapping the value."}`; row 3 vẫn được xử lý |
-- [ ] 2.3 Chạy `./mvnw -q test -Dtest=DefaultImportPipelineTest`. Mong đợi: FAIL, vì lỗi compile.
-- [ ] 2.4 Viết các class theo design P1–P4.
-- [ ] 2.5 Chạy lại lệnh ở 2.3. Mong đợi: PASS.
-- [ ] 2.6 Commit: `feat(domain): streaming import pipeline with row results and summary`
+- [x] 2.3 Chạy `./mvnw -q test -Dtest=DefaultImportPipelineTest`. Mong đợi: FAIL, vì lỗi compile.
+- [x] 2.4 Viết các class theo design P1–P4.
+  - Mapping đi qua `RowMapper` của F05: thêm `mapField(row, fieldIndex)` để bắt lỗi từng field; `MappingStrategies` có constructor public để test tiêm strategy lỗi.
+  - Step và rule được gom theo field **một lần mỗi lần chạy**, không `stepsFor`/`rulesFor` ở mỗi row.
+  - Làm thêm (việc F06/F07 để lại):
+    - `DatePatterns.formatter` cache formatter theo pattern, tối đa 256, đầy thì xoá hết;
+    - `domain.common.ThrottledWarnings`: bug trong transformation, rule hay mapping chỉ được log ở lần thứ 1, 10, 100… theo từng loại. Key là type, không phải dữ liệu. Có `ThrottledWarningsTest`.
+- [x] 2.5 Chạy lại lệnh ở 2.3. Mong đợi: PASS.
+- [x] 2.6 Commit: `feat(domain): streaming import pipeline with row results and summary`
 
 ## 3. Result store trên đĩa
 

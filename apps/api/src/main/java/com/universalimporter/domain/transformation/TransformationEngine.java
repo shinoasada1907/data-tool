@@ -1,5 +1,6 @@
 package com.universalimporter.domain.transformation;
 
+import com.universalimporter.domain.common.ThrottledWarnings;
 import com.universalimporter.domain.schema.FieldType;
 
 import java.util.Comparator;
@@ -13,10 +14,10 @@ public final class TransformationEngine {
 
     static final String UNEXPECTED = "Unexpected error while applying transformation.";
 
-    /** The JDK's logger: the domain stays free of logging libraries; Spring Boot routes it to the app's log. */
-    private static final System.Logger LOG = System.getLogger(TransformationEngine.class.getName());
-
     private final TransformationRegistry registry;
+    /** The JDK's logger: the domain stays free of logging libraries; Spring Boot routes it to the app's log. */
+    private final ThrottledWarnings warnings =
+            new ThrottledWarnings(System.getLogger(TransformationEngine.class.getName()));
 
     public TransformationEngine(TransformationRegistry registry) {
         this.registry = registry;
@@ -40,8 +41,9 @@ public final class TransformationEngine {
                 // Not the exception itself: its message may quote the cell value, which must not reach the log
                 // (design D13). Its class and where it was thrown are enough to find the bug.
                 StackTraceElement[] trace = bug.getStackTrace();
-                LOG.log(System.Logger.Level.WARNING, "Transformation " + step.type() + " failed unexpectedly on field "
-                        + fieldName + ": " + bug.getClass().getName() + (trace.length > 0 ? " at " + trace[0] : ""));
+                warnings.warn(String.valueOf(step.type()), () -> "Transformation " + step.type()
+                        + " failed unexpectedly on field " + fieldName + ": " + bug.getClass().getName()
+                        + (trace.length > 0 ? " at " + trace[0] : ""));
                 return FieldTransformResult.failed(new TransformationError(step.type(), order, UNEXPECTED));
             }
         }

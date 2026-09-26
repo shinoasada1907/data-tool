@@ -8,7 +8,9 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.ResolverStyle;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Date patterns as users write them (design T3). Patterns use {@link DateTimeFormatter} syntax; {@code y} (year of
@@ -27,6 +29,13 @@ public final class DatePatterns {
     private static final List<LocalDateTime> SAMPLES =
             List.of(LocalDateTime.of(2001, 2, 3, 4, 5, 6), LocalDateTime.of(1968, 11, 29, 13, 14, 15));
     private static final LocalDateTime SAMPLE = SAMPLES.get(0);
+
+    /**
+     * Compiled formatters by pattern: the pipeline formats every cell, and compiling a pattern costs more than
+     * using it. Formatters are immutable and thread-safe. Emptied when full, since patterns come from requests.
+     */
+    private static final Map<String, DateTimeFormatter> FORMATTERS = new ConcurrentHashMap<>();
+    private static final int MAX_CACHED = 256;
 
     /** Week-based year, week of year, week of month, day of year, aligned week of month. */
     private static final String UNSUPPORTED_LETTERS = "YwWDF";
@@ -49,6 +58,13 @@ public final class DatePatterns {
 
     /** @throws IllegalArgumentException when the pattern is not valid {@link DateTimeFormatter} syntax */
     public static DateTimeFormatter formatter(String pattern) {
+        if (FORMATTERS.size() >= MAX_CACHED) {
+            FORMATTERS.clear();
+        }
+        return FORMATTERS.computeIfAbsent(pattern, DatePatterns::compile);
+    }
+
+    private static DateTimeFormatter compile(String pattern) {
         return new DateTimeFormatterBuilder()
                 .parseCaseInsensitive()
                 .appendPattern(toStrict(pattern))
