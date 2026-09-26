@@ -5,6 +5,10 @@ import com.universalimporter.domain.common.ErrorCode;
 import com.universalimporter.domain.importsession.ImportSession;
 import com.universalimporter.domain.importsession.SessionStatus;
 import com.universalimporter.domain.importsession.SourceFileType;
+import com.universalimporter.domain.source.SourceColumn;
+import com.universalimporter.domain.source.SourceParser;
+import com.universalimporter.domain.source.SourceSchema;
+import com.universalimporter.support.FakeSourceParser;
 import com.universalimporter.support.InMemoryFileStorage;
 import com.universalimporter.support.InMemoryImportSessionRepository;
 import org.junit.jupiter.api.Test;
@@ -14,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,10 +30,68 @@ class ImportSessionServiceTest {
     private static final Instant NOW = Instant.parse("2026-09-25T10:00:00.123456789Z");
     private static final Instant NOW_IN_MICROS = Instant.parse("2026-09-25T10:00:00.123456Z");
 
+    private static final SourceSchema SCHEMA =
+            new SourceSchema(List.of(new SourceColumn(0, "name"), new SourceColumn(1, "email")), 2, null);
+
     private final InMemoryImportSessionRepository repository = new InMemoryImportSessionRepository();
     private final InMemoryFileStorage storage = new InMemoryFileStorage();
-    private final ImportSessionService service =
-            new ImportSessionService(repository, storage, Clock.fixed(NOW, ZoneOffset.UTC));
+    /** No parser at all: the F01 behaviour, where an upload stops at UPLOADED. */
+    private final ImportSessionService service = serviceWith();
+
+    private ImportSessionService serviceWith(SourceParser... parsers) {
+        return new ImportSessionService(repository, storage, Clock.fixed(NOW, ZoneOffset.UTC),
+                new SourceParsers(List.of(parsers)));
+    }
+
+    @Test
+    void upload_with_a_parser_inspects_the_stored_file_and_moves_the_session_to_configuring() {
+        FakeSourceParser csv = FakeSourceParser.forType(SourceFileType.CSV).returning(SCHEMA);
+
+        ImportSession session = serviceWith(csv).upload("customers.csv", content("name,email\nAn,an@x.com\n"));
+
+        assertThat(session.status()).isEqualTo(SessionStatus.CONFIGURING);
+        assertThat(session.sourceSchema()).contains(SCHEMA);
+        assertThat(repository.findById(session.id()).orElseThrow().sourceSchema()).contains(SCHEMA);
+        assertThat(csv.inspectedContent()).isEqualTo(storage.content(session.id()));
+    }
+
+    @Test
+    void a_file_the_parser_rejects_leaves_nothing_behind() {
+        DomainException parseError = new DomainException(ErrorCode.FILE_PARSE_ERROR, "CSV syntax error near row 2.");
+        ImportSessionService service = serviceWith(FakeSourceParser.forType(SourceFileType.CSV).failingWith(parseError));
+
+        assertThatThrownBy(() -> service.upload("broken.csv", content("a,b\n\"x\n"))).isSameAs(parseError);
+        assertThat(storage.isEmpty()).isTrue();
+        assertThat(repository.isEmpty()).isTrue();
+    }
+
+    @Test
+    void an_unexpected_parser_failure_also_removes_the_stored_file() {
+        IllegalStateException bug = new IllegalStateException("parser bug");
+        ImportSessionService service = serviceWith(FakeSourceParser.forType(SourceFileType.CSV).failingWith(bug));
+
+        assertThatThrownBy(() -> service.upload("a.csv", content("a"))).isSameAs(bug);
+        assertThat(storage.isEmpty()).isTrue();
+    }
+
+    @Test
+    void without_a_parser_for_the_type_the_session_stays_uploaded() {
+        ImportSessionService service = serviceWith(FakeSourceParser.forType(SourceFileType.CSV).returning(SCHEMA));
+
+        ImportSession session = service.upload("a.xlsx", new ByteArrayResource(new byte[]{0x50, 0x4B, 0x03, 0x04}));
+
+        assertThat(session.status()).isEqualTo(SessionStatus.UPLOADED);
+        assertThat(session.sourceSchema()).isEmpty();
+    }
+
+    @Test
+    void an_inspected_file_is_still_removed_when_the_session_cannot_be_saved() {
+        ImportSessionService service = serviceWith(FakeSourceParser.forType(SourceFileType.CSV).returning(SCHEMA));
+        repository.failOnSave();
+
+        assertThatThrownBy(() -> service.upload("a.csv", content("a"))).hasMessage("database is down");
+        assertThat(storage.isEmpty()).isTrue();
+    }
 
     @Test
     void upload_stores_the_file_and_creates_an_uploaded_session() {

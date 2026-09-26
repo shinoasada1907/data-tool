@@ -3,13 +3,21 @@ package com.universalimporter.infrastructure.persistence;
 import com.universalimporter.domain.importsession.ImportSession;
 import com.universalimporter.domain.importsession.ImportSessionRepository;
 import com.universalimporter.domain.importsession.SourceFile;
+import com.universalimporter.domain.source.SourceSchema;
 import org.springframework.stereotype.Repository;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public class JpaImportSessionRepository implements ImportSessionRepository {
+
+    /**
+     * Own mapper rather than the application's: the stored JSON must not change when API JSON settings do
+     * (design D8).
+     */
+    private static final JsonMapper JSON = JsonMapper.builder().build();
 
     private final ImportSessionJpaRepository jpa;
 
@@ -31,13 +39,19 @@ public class JpaImportSessionRepository implements ImportSessionRepository {
 
     private static ImportSessionEntity toEntity(ImportSession session) {
         SourceFile file = session.sourceFile();
+        String sourceSchemaJson = session.sourceSchema()
+                .map(schema -> JSON.writeValueAsString(SourceSchemaDocument.from(schema)))
+                .orElse(null);
         return new ImportSessionEntity(session.id(), file.originalFileName(), file.fileType(), file.sizeBytes(),
-                session.status(), session.version(), session.createdAt(), session.updatedAt());
+                session.status(), session.version(), session.createdAt(), session.updatedAt(), sourceSchemaJson);
     }
 
     private static ImportSession toDomain(ImportSessionEntity entity) {
         SourceFile file = new SourceFile(entity.getOriginalFileName(), entity.getFileType(), entity.getSizeBytes());
+        SourceSchema sourceSchema = entity.getSourceSchemaJson() == null
+                ? null
+                : JSON.readValue(entity.getSourceSchemaJson(), SourceSchemaDocument.class).toDomain();
         return ImportSession.restore(entity.getId(), file, entity.getStatus(),
-                entity.getCreatedAt(), entity.getUpdatedAt(), entity.getVersion());
+                entity.getCreatedAt(), entity.getUpdatedAt(), entity.getVersion(), sourceSchema);
     }
 }

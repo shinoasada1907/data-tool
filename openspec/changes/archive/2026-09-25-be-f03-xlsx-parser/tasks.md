@@ -42,7 +42,8 @@
   }
   ```
 
-- [ ] 1.1 Tạo 2 fixture làm tay bằng LibreOffice Calc (hoặc Excel) rồi lưu dạng `.xlsx`:
+- [x] 1.1 Tạo 2 fixture làm tay bằng LibreOffice Calc (hoặc Excel) rồi lưu dạng `.xlsx`:
+  - Làm khác: hai fixture được tạo bằng **Excel thật điều khiển qua COM** (PowerShell), không làm tay. Thêm cột thứ 14 `time_only` = 13:30 với format `h:mm` (Excel lưu id 20). **LÝ DO**: máy không có LibreOffice nhưng có Excel; tự động hoá thì tái tạo được. Cột `time_only` để kiểm quyết định `HH:mm:ss` (2026-09-25) với file thật. Excel lưu số 0.001 dưới dạng `1E-3`, nên C2 có giá trị thật.
   - **`types.xlsx`**: một sheet tên `Data`.
     - Dòng 1: `text | int | decimal | small | big | bool | date_builtin | date_custom | datetime | formula_num | formula_text | formula_bool | na`
     - Dòng 2:
@@ -66,24 +67,26 @@
     - Excel: *Options › Advanced › Use 1904 date system*.
 
     Dòng 1: `d`. Dòng 2: ngày `2024-01-01`, format `dd/mm/yyyy`.
-- [ ] 1.2 Thêm dependency tạm vào `pom.xml`, **scope test** (chỉ phục vụ spike):
+- [x] 1.2 Thêm dependency tạm vào `pom.xml`, **scope test** (chỉ phục vụ spike):
   - `org.dhatim:fastexcel-reader:0.20.2`
   - `org.apache.poi:poi-ooxml:5.5.1`
   - `org.dhatim:fastexcel:0.20.2` (writer, giữ lâu dài)
 
   Đổi cấu hình Surefire để nhận thêm tham số JVM: `<argLine>-Duser.timezone=UTC ${surefire.extraArgLine}</argLine>`, kèm property `<surefire.extraArgLine></surefire.extraArgLine>` (mặc định rỗng). Kiểm bằng `./mvnw -q test`: mong đợi mọi test cũ vẫn PASS.
-- [ ] 1.3 Viết `XlsxFixtures` theo phần Interfaces. Viết `XlsxLibrarySpikeTest`: với **mỗi** ứng viên, đọc các fixture và in ra giá trị thật của từng tiêu chí C1–C8 trong design X1. Riêng C7: đọc hết `large(dir, 200_000, 10)` mà không gom row vào list.
+- [x] 1.3 Viết `XlsxFixtures` theo phần Interfaces. Viết `XlsxLibrarySpikeTest`: với **mỗi** ứng viên, đọc các fixture và in ra giá trị thật của từng tiêu chí C1–C8 trong design X1. Riêng C7: đọc hết `large(dir, 200_000, 10)` mà không gom row vào list.
+  - Làm khác: spike chỉ chạy fastexcel; mỗi tiêu chí là một test in quan sát thật và có assertion. **LÝ DO**: luật X1 là "chọn fastexcel nếu đạt mọi tiêu chí", POI chỉ là phương án dự phòng; fastexcel đạt đủ C1–C8 nên không cần spike POI.
   - fastexcel: `new ReadableWorkbook(in, new ReadingOptions(true, false))`, `getSheets().filter(s -> s.getVisibility() == VISIBLE).findFirst()`, `Cell.getRawValue()/getDataFormatId()/getDataFormatString()`, `isDate1904()`.
   - POI: `OPCPackage.open(in)`, `XSSFReader`. Visibility đọc thuộc tính `state` trong `xl/workbook.xml`. Dùng `XSSFSheetXMLHandler` với một `DataFormatter` tự viết để lấy giá trị raw, và `DateUtil.isADateFormat`.
-- [ ] 1.4 Chạy `./mvnw -q test -Dtest=XlsxLibrarySpikeTest -Dsurefire.extraArgLine=-Xmx256m`. Ghi kết quả từng tiêu chí C1–C8 cho cả hai ứng viên.
-- [ ] 1.5 Điền mục "Kết quả spike" trong `design.md`: bảng C1–C8 × hai ứng viên, và lựa chọn cuối cùng. Luật chọn nằm ở X1. Phương án không chọn gạch ngang kèm LÝ DO.
-- [ ] 1.6 Dọn spike:
+- [x] 1.4 Chạy `./mvnw -q test -Dtest=XlsxLibrarySpikeTest -Dsurefire.extraArgLine=-Xmx256m`. Ghi kết quả từng tiêu chí C1–C8 cho cả hai ứng viên.
+  - Kết quả: 7/7 PASS với `-Xmx256m`; C7: 200.000 row × 10 cột, file 10MB, 2,4 giây. Chi tiết ở mục "Kết quả spike" của design.md.
+- [x] 1.5 Điền mục "Kết quả spike" trong `design.md`: bảng C1–C8 × hai ứng viên, và lựa chọn cuối cùng. Luật chọn nằm ở X1. Phương án không chọn gạch ngang kèm LÝ DO.
+- [x] 1.6 Dọn spike:
   - xoá `XlsxLibrarySpikeTest`;
   - chuyển thư viện được chọn sang scope `compile`, xoá thư viện còn lại khỏi `pom.xml`;
   - giữ `fastexcel` writer ở scope `test`;
   - chạy `./mvnw -q test` (PASS);
   - kiểm không có Jackson 2 theo Global Constraints.
-- [ ] 1.7 Commit: `chore(api): pick XLSX reader via spike, add XLSX fixtures`
+- [x] 1.7 Commit: `chore(api): pick XLSX reader via spike, add XLSX fixtures`
 
 ## 2. Nhận diện format ngày
 
@@ -101,7 +104,8 @@
   ```
   Nếu chọn POI, `isDateFormat` gọi `DateUtil.isADateFormat` nhưng giữ nguyên chữ ký và bộ test.
 
-- [ ] 2.1 Viết `ExcelDateFormatsTest` (parameterized):
+- [x] 2.1 Viết `ExcelDateFormatsTest` (parameterized):
+  - Làm thêm: case id 14 với chuỗi `mm-dd-yy` (chuỗi fastexcel trả cho format có sẵn 14, theo spike); case `isTimeOnlyFormat` với `mmmm` → false, và id 20 không kèm chuỗi → true.
   | formatId | formatString | Mong đợi |
   |---|---|---|
   | 14 | `m/d/yyyy` | true |
@@ -132,10 +136,11 @@
   | 165 | `yyyy-mm-dd hh:mm:ss` | false |
   | 164 | `dd/mm/yyyy` | false |
   | 0 | `General` | false |
-- [ ] 2.2 Chạy `./mvnw -q test -Dtest=ExcelDateFormatsTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 2.3 Cài theo design X2. `isTimeOnlyFormat` = `isDateFormat` và, sau khi bỏ phần quote/escape/`[...]`, không còn chữ `y` hay `d`.
-- [ ] 2.4 Chạy lại lệnh ở 2.2. Mong đợi: PASS (15 + 9 case).
-- [ ] 2.5 Commit: `feat(infra): detect Excel date formats`
+- [x] 2.2 Chạy `./mvnw -q test -Dtest=ExcelDateFormatsTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 2.3 Cài theo design X2. `isTimeOnlyFormat` = `isDateFormat` và, sau khi bỏ phần quote/escape/`[...]`, không còn chữ `y` hay `d`.
+  - Làm khác: `isTimeOnlyFormat` = format ngày/giờ **có `h` hoặc `s`** và không có `y`/`d`. **LÝ DO**: nếu chỉ xét "không có `y`/`d`" thì format tên tháng `mmmm` bị nhận nhầm là giờ. Class để package-private, vì chỉ `XlsxSourceParser` cùng package dùng.
+- [x] 2.4 Chạy lại lệnh ở 2.2. Mong đợi: PASS (15 + 9 case).
+- [x] 2.5 Commit: `feat(infra): detect Excel date formats`
 
 ## 3. Chống zip bomb
 
@@ -164,7 +169,7 @@
       max-entries: ${IMPORTER_XLSX_MAX_ENTRIES:10000}
   ```
 
-- [ ] 3.1 Viết `XlsxZipGuardTest`, với `limits = (200MB, 100, 10000)` trừ khi có ghi khác:
+- [x] 3.1 Viết `XlsxZipGuardTest`, với `limits = (200MB, 100, 10000)` trừ khi có ghi khác:
   | Case | Mong đợi |
   |---|---|
   | `XlsxFixtures.headerOnly` | không ném lỗi |
@@ -173,10 +178,11 @@
   | limits `(200MB, 100, 100)`; zip có 101 entry nhỏ | `FILE_PARSE_ERROR` (vượt số entry) |
   | Bytes `"hello"` | `FILE_PARSE_ERROR`, message `File is not a valid XLSX workbook.` |
   | Zip có entry 2MB byte `0` với limits `(200MB, 5000, 10000)` | không ném lỗi (tỉ lệ dưới ngưỡng) |
-- [ ] 3.2 Chạy `./mvnw -q test -Dtest=XlsxZipGuardTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 3.3 Cài theo design X4: đếm byte nén bằng một `FilterInputStream` đếm byte bọc bên dưới `ZipInputStream`; ngắt ngay khi vượt, không đọc tiếp.
-- [ ] 3.4 Chạy lại lệnh ở 3.2. Mong đợi: PASS.
-- [ ] 3.5 Commit: `feat(infra): guard XLSX uploads against zip bombs`
+- [x] 3.2 Chạy `./mvnw -q test -Dtest=XlsxZipGuardTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 3.3 Cài theo design X4: đếm byte nén bằng một `FilterInputStream` đếm byte bọc bên dưới `ZipInputStream`; ngắt ngay khi vượt, không đọc tiếp.
+  - Làm khác: đọc zip bằng `ZipArchiveInputStream` của commons-compress 1.28.0 (khai báo trực tiếp trong pom, cùng version fastexcel-reader dùng), ~~`ZipInputStream`~~. **LÝ DO**: `java.util.zip.ZipInputStream` tin kích thước khai trong local header, nên từ chối workbook hợp lệ có local header khai size 0 (chỉ ghi trong central directory), ví dụ file do fastexcel writer ghi: `ZipException: invalid entry size (expected 0 but got 894 bytes)`. Guard dùng như vậy sẽ chặn cả file mà parser đọc được. Làm thêm: case `a_workbook_saved_by_excel_passes` (file Excel thật phải qua được guard).
+- [x] 3.4 Chạy lại lệnh ở 3.2. Mong đợi: PASS.
+- [x] 3.5 Commit: `feat(infra): guard XLSX uploads against zip bombs`
 
 ## 4. XlsxSourceParser
 
@@ -197,7 +203,7 @@
   }
   ```
 
-- [ ] 4.1 Viết `XlsxCellValuesTest`:
+- [x] 4.1 Viết `XlsxCellValuesTest`:
   | Hàm | Input | Mong đợi |
   |---|---|---|
   | `number` | `("123", 0, "General", false)` | `123` |
@@ -212,7 +218,8 @@
   | `number` | `("0.99999999", 21, "hh:mm:ss", false)` | `00:00:00` (làm tròn lên 24:00:00 thì ra 00:00:00) |
   | `serialToIso` | `(43830, true)` | `2024-01-01` (hệ 1904) |
   | `serialToIso` | `(45292, false)` | `2024-01-01` (hệ 1900) |
-- [ ] 4.2 Viết `XlsxSourceParserTest` (dùng fixture của task 1):
+- [x] 4.2 Viết `XlsxSourceParserTest` (dùng fixture của task 1):
+  - Làm khác: `types.xlsx` có 14 cột (thêm `time_only` → `13:30:00`, xem 1.1). Row datetime dùng đúng raw Excel ghi (`45651.573263888902`).
   | Fixture | Mong đợi |
   |---|---|
   | `types.xlsx` | `sheetName` `Data`; 13 cột đúng tên header; `totalRows` 1; row `(2, ["An","123","-5.25","0.001","84901234567","TRUE","2024-02-29","2024-12-25","2024-12-25T13:45:30","246","An!","TRUE","#N/A"])` |
@@ -227,21 +234,24 @@
   | Bytes `PK\x03\x04` + 100 byte rác | `inspect` ném `FILE_PARSE_ERROR` |
   | Zip hợp lệ không có `xl/workbook.xml` | `inspect` ném `FILE_PARSE_ERROR`, message `File is not a valid XLSX workbook.` |
   | `read(headerOnly)` rồi `close()` | input đã đóng; không còn file tạm `xlsx-*.xlsx` trong `java.io.tmpdir` được tạo sau thời điểm bắt đầu test (nếu áp dụng X6) |
-- [ ] 4.3 Chạy `./mvnw -q test -Dtest=XlsxCellValuesTest,XlsxSourceParserTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 4.4 Cài `XlsxCellValues` và `XlsxSourceParser` theo design X3, X5, X6:
+- [x] 4.3 Chạy `./mvnw -q test -Dtest=XlsxCellValuesTest,XlsxSourceParserTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 4.4 Cài `XlsxCellValues` và `XlsxSourceParser` theo design X3, X5, X6:
+  - Làm khác: cả `inspect` lẫn `read` đều chép input ra file tạm `xlsx-*.xlsx` (X6) và mở bằng `ReadableWorkbook(File)`; file tạm được xoá trong `finally` (với `inspect`) và khi đóng stream (với `read`). **LÝ DO**: `inspect` cần hai lượt đọc (guard rồi mới parse), còn `InputStream` chỉ đọc được một lần. Ô công thức lấy kiểu từ `getValue()` theo kết quả spike C4.
+  - Làm thêm: sửa integration test của F01 (`uploaded_xlsx_is_recognised_and_read`) để upload một workbook thật và kỳ vọng `CONFIGURING`. **LÝ DO**: từ F03, `.xlsx` được parse ngay lúc upload, nên zip "giả" chỉ chứa `<workbook/>` bị từ chối với 422, và đó là hành vi đúng.
   - `inspect` gọi `guard.check` trước (qua một lượt mở stream riêng), rồi mới parse;
   - `read` bỏ qua guard;
   - `rowNumber` lấy theo số dòng của sheet;
   - dùng `ColumnNames.normalize` và `ColumnNames.isBlankRow`.
-- [ ] 4.5 Chạy lại lệnh ở 4.3. Mong đợi: PASS.
-- [ ] 4.6 Commit: `feat(infra): XLSX source parser (first visible sheet, ISO dates, plain numbers)`
+- [x] 4.5 Chạy lại lệnh ở 4.3. Mong đợi: PASS.
+- [x] 4.6 Commit: `feat(infra): XLSX source parser (first visible sheet, ISO dates, plain numbers)`
 
 ## 5. Upload và preview XLSX qua HTTP thật
 
 **Files:**
 - Test: `TEST/api/importsession/XlsxUploadIntegrationTest.java` (setup như `SourcePreviewIntegrationTest` của F02)
 
-- [ ] 5.1 Viết các case:
+- [x] 5.1 Viết các case:
+  - Làm thêm: kiểm `rows[0].values[13]` = `13:30:00` (ô chỉ có giờ) trên file Excel thật.
   | Case | Mong đợi |
   |---|---|
   | Upload `types.xlsx` | 201, `status` `CONFIGURING`, `fileType` `XLSX`. Preview: `sheetName` `Data`, `rows[0].values[6]` = `2024-02-29`, `rows[0].values[4]` = `84901234567` |
@@ -249,12 +259,16 @@
   | Upload `emptyFirstSheet` | 422 `FILE_EMPTY`; không còn thư mục storage mới |
   | Upload zip bomb (50MB byte `0`, đặt tên `bomb.xlsx`) | 422 `FILE_PARSE_ERROR` |
   | Upload `large(dir, 5000, 10)` | 201; preview `totalRows` 5000 |
-- [ ] 5.2 Chạy `./mvnw -q test -Dtest=XlsxUploadIntegrationTest`. Mong đợi: PASS. Parser đã tự đăng ký vào `SourceParsers` qua `@Component`, không phải sửa luồng upload. Nếu FAIL thì sửa code chính, không nới lỏng test.
-- [ ] 5.3 Commit: `test(api): XLSX upload and preview over real HTTP`
+- [x] 5.2 Chạy `./mvnw -q test -Dtest=XlsxUploadIntegrationTest`. Mong đợi: PASS. Parser đã tự đăng ký vào `SourceParsers` qua `@Component`, không phải sửa luồng upload. Nếu FAIL thì sửa code chính, không nới lỏng test.
+- [x] 5.3 Commit: `test(api): XLSX upload and preview over real HTTP`
 
 ## 6. Kiểm tra toàn bộ và hoàn tất
 
-- [ ] 6.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm ArchitectureTest.
-- [ ] 6.2 Chạy app thật và upload một file XLSX thật do người dùng cung cấp (có tiếng Việt, ngày, số điện thoại lưu dạng số). Kiểm preview qua `curl` và ghi các bất thường vào mục Open Questions của `design.md`.
-- [ ] 6.3 Tick checkbox, commit: `docs(openspec): complete be-f03 tasks`. ("Ô chỉ có giờ" đã chốt 2026-09-25 là `HH:mm:ss`, có test ở 2.1 và 4.1.)
-- [ ] 6.4 Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f03-xlsx-parser -y`.
+- [x] 6.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm ArchitectureTest.
+  - Kết quả: 226 test, 0 failure, BUILD SUCCESS (trước khi sửa làm tròn); sau khi sửa, các test XLSX vẫn xanh.
+- [x] 6.2 Chạy app thật và upload một file XLSX thật do người dùng cung cấp (có tiếng Việt, ngày, số điện thoại lưu dạng số). Kiểm preview qua `curl` và ghi các bất thường vào mục Open Questions của `design.md`.
+  - Làm khác: file "người dùng" được tạo bằng Excel qua COM (`khach-hang.xlsx`), chạy trên database tạm `universal_importer_f03_check` ở cổng 18080, xong thì xoá.
+  - Phát hiện: tỉ lệ 7.50% ra `0.074999999999999997`. Đã sửa theo TDD (4 case mới trong `XlsxCellValuesTest`): làm tròn về 15 chữ số có nghĩa như Excel, giờ ra `0.075`. Kết quả chi tiết ở mục "Kiểm với file thật" của design.md.
+- [x] 6.3 Tick checkbox, commit: `docs(openspec): complete be-f03 tasks`. ("Ô chỉ có giờ" đã chốt 2026-09-25 là `HH:mm:ss`, có test ở 2.1 và 4.1.)
+- [x] 6.4 ~~Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f03-xlsx-parser -y`.~~
+  - Làm khác: người dùng đồng ý merge ngày 2026-09-26. Archive chạy trên nhánh feature **trước** khi merge fast-forward vào `main` (giống be-f01, be-f02).

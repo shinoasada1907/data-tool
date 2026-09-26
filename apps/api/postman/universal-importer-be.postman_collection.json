@@ -1,0 +1,241 @@
+{
+  "info": {
+    "name": "Universal Importer BE",
+    "description": "Manual and automated checks of the backend API (features BE-F01 to BE-F03).\n\nBefore running:\n1. Start PostgreSQL: `docker compose up -d` at the repo root.\n2. Start the API from apps/api: `./mvnw spring-boot:run` (port 8080).\n3. In Postman, set Settings > General > Working directory to the `apps/api/postman` folder, so the sample files in `samples/` are found. Otherwise pick the files again in each request's Body tab.\n\nRun the folders in order: \"1. Happy path\" stores `sessionId` for the later requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "sessionId", "value": "" },
+    { "key": "xlsxSessionId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Happy path",
+      "item": [
+        {
+          "name": "Upload CSV",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('file was read: status CONFIGURING', () => pm.expect(body.status).to.eql('CONFIGURING'));",
+                  "pm.test('fileType CSV', () => pm.expect(body.fileType).to.eql('CSV'));",
+                  "pm.test('Location header points to the session', () => pm.expect(pm.response.headers.get('Location')).to.eql('/api/import-sessions/' + body.id));",
+                  "pm.collectionVariables.set('sessionId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/import-sessions",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "samples/khach-hang.csv" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('same session', () => pm.expect(body.id).to.eql(pm.collectionVariables.get('sessionId')));",
+                  "pm.test('original file name kept', () => pm.expect(body.originalFileName).to.eql('khach-hang.csv'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/import-sessions/{{sessionId}}"
+          }
+        },
+        {
+          "name": "Preview CSV",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('4 columns, BOM removed from the first name', () => pm.expect(body.columns.map(c => c.name)).to.eql(['Họ tên', 'Email', 'Ngày sinh', 'SĐT']));",
+                  "pm.test('2 data rows (blank line skipped)', () => pm.expect(body.totalRows).to.eql(2));",
+                  "pm.test('row numbers as in Excel: 2 and 4', () => pm.expect(body.rows.map(r => r.rowNumber)).to.eql([2, 4]));",
+                  "pm.test('Vietnamese text intact', () => pm.expect(body.rows[0].values[0]).to.eql('Nguyễn Văn An'));",
+                  "pm.test('leading zero of the phone kept', () => pm.expect(body.rows[0].values[3]).to.eql('0912345678'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/import-sessions/{{sessionId}}/preview?limit=5"
+          }
+        },
+        {
+          "name": "Upload XLSX",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('file was read: status CONFIGURING', () => pm.expect(body.status).to.eql('CONFIGURING'));",
+                  "pm.test('fileType XLSX', () => pm.expect(body.fileType).to.eql('XLSX'));",
+                  "pm.collectionVariables.set('xlsxSessionId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/import-sessions",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "samples/khach-hang.xlsx" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Preview XLSX",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('sheet name', () => pm.expect(body.sheetName).to.eql('Khách hàng'));",
+                  "const first = body.rows[0].values;",
+                  "pm.test('date cell as ISO', () => pm.expect(first[1]).to.eql('1990-12-25'));",
+                  "pm.test('phone typed as text keeps its zero', () => pm.expect(first[3]).to.eql('0912345678'));",
+                  "pm.test('7.50% as the value Excel shows', () => pm.expect(first[5]).to.eql('0.075'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/import-sessions/{{xlsxSessionId}}/preview"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Error cases",
+      "item": [
+        {
+          "name": "Upload .xls -> 415 FILE_UNSUPPORTED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('415', () => pm.response.to.have.status(415));",
+                  "pm.test('problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('code FILE_UNSUPPORTED', () => pm.expect(pm.response.json().code).to.eql('FILE_UNSUPPORTED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/import-sessions",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "samples/data.xls" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Upload broken CSV -> 422 FILE_PARSE_ERROR",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422));",
+                  "const body = pm.response.json();",
+                  "pm.test('code FILE_PARSE_ERROR', () => pm.expect(body.code).to.eql('FILE_PARSE_ERROR'));",
+                  "pm.test('message names the row', () => pm.expect(body.detail).to.include('near row'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/import-sessions",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "samples/broken.csv" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Preview with limit=0 -> 400 REQUEST_INVALID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));",
+                  "pm.test('code REQUEST_INVALID', () => pm.expect(pm.response.json().code).to.eql('REQUEST_INVALID'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/import-sessions/{{sessionId}}/preview?limit=0"
+          }
+        },
+        {
+          "name": "Unknown session -> 404 SESSION_NOT_FOUND",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404', () => pm.response.to.have.status(404));",
+                  "pm.test('code SESSION_NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('SESSION_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/import-sessions/11111111-2222-3333-4444-555555555555"
+          }
+        }
+      ]
+    }
+  ]
+}

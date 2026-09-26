@@ -1,0 +1,23 @@
+package com.universalimporter.application.importsession;
+
+import com.universalimporter.domain.importsession.SourceFileType;
+import com.universalimporter.domain.source.SourceParser;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Optional;
+
+/** The parsers available to this application, looked up by file type. */
+@Component
+public class SourceParsers {
+
+    private final List<SourceParser> parsers;
+
+    public SourceParsers(List<SourceParser> parsers) {
+        this.parsers = List.copyOf(parsers);
+    }
+
+    public Optional<SourceParser> find(SourceFileType type) {
+        return parsers.stream().filter(parser -> parser.supports(type)).findFirst();
+    }
+}
