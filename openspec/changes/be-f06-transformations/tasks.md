@@ -396,7 +396,7 @@
   // PUT /api/import-sessions/{id}/transformations, @Valid @RequestBody → 200 ConfigUpdateResponseDto
   ```
 
-- [ ] 9.1 Viết `TransformationConfigControllerTest` với `@WebMvcTest(TransformationConfigController.class)` và `@MockitoBean` cho service:
+- [x] 9.1 Viết `TransformationConfigControllerTest` với `@WebMvcTest(TransformationConfigController.class)` và `@MockitoBean` cho service:
   | Body | Stub | Mong đợi |
   |---|---|---|
   | `{"transformations":[{"targetField":"name","order":0,"type":"trim"}]}` | trả response session `CONFIGURING`, `warnings=[]` | 200; `$.session.id`; `$.warnings.length()` = 0 |
@@ -408,10 +408,14 @@
   | body hợp lệ | ném `DomainException(CONFIG_INVALID, …, [ProblemItem("phone","CONFIG_INVALID","Target field does not exist.")])` | 422; `$.code` = `CONFIG_INVALID`; `$.errors[0].field` = `phone` |
   | body hợp lệ | ném `DomainException(SESSION_NOT_FOUND, …)` | 404 |
   | body hợp lệ | ném `DomainException(SESSION_STATE_INVALID, …)` | 409 |
-- [ ] 9.2 Chạy `./mvnw -q test -Dtest=TransformationConfigControllerTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 9.3 Tạo controller và DTO, và thêm `transformations` vào `config` trong DTO của session.
-- [ ] 9.4 Chạy lại lệnh ở 9.2. Mong đợi: PASS.
-- [ ] 9.5 Commit: `feat(api): PUT transformations endpoint`
+- [x] 9.2 Chạy `./mvnw -q test -Dtest=TransformationConfigControllerTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 9.3 Tạo controller và DTO, và thêm `transformations` vào `config` trong DTO của session.
+  - Đặt ở `api.transformation` (xem task 1). Làm thêm:
+    - test `"params": null` → 200, và param không phải chuỗi (`"inputFormat": 5`) → 400 nhờ `StrictJsonConfig`;
+    - `ImportSessionControllerTest` kiểm `$.config.transformations.transformations`;
+    - `ApiDocsIntegrationTest` kiểm path `/transformations`.
+- [x] 9.4 Chạy lại lệnh ở 9.2. Mong đợi: PASS.
+- [x] 9.5 Commit: `feat(api): PUT transformations endpoint`
 
 ## 10. Integration test qua HTTP thật
 
