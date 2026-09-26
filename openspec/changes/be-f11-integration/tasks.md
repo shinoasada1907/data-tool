@@ -212,16 +212,16 @@
 - Test: `TEST/application/importsession/SessionCleanupIntegrationTest.java`
 
 **Interfaces:**
-- Consumes: toàn bộ app, `SessionCleanupService` (task 3), `JdbcTemplate`, `ImportFlowClient` (F09).
-- Test đặt thuộc tính `importer.cleanup.enabled=false`, để scheduler không chạy song song với test.
+- Consumes: toàn bộ app, `SessionCleanupService` (task 3), `JdbcTemplate`, ~~`ImportFlowClient` (F09)~~ `HttpTestClient`.
+- Test đặt thuộc tính `importer.cleanup.enabled=false`, để scheduler không chạy song song với test. *(Đã là mặc định cho mọi test, xem 4.4.)*
 
-- [ ] 5.1 Viết `SessionCleanupIntegrationTest`:
+- [x] 5.1 Viết `SessionCleanupIntegrationTest`:
   | Case | Mong đợi |
   |---|---|
   | upload S, PUT schema cho S; `jdbc.update("update import_session set updated_at = now() - interval '25 hours' where id = ?", S)`; upload T; gọi `cleanupExpired()` | `deletedSessions` = 1; `GET /api/import-sessions/{S}` trả 404 `SESSION_NOT_FOUND`; `storageDir/{S}` không còn; `select count(*) from import_configuration where session_id = S` = 0; `GET /api/import-sessions/{T}` trả 200 |
   | tạo `storageDir/{randomUUID}` với `setLastModifiedTime(now − 25h)`, và `storageDir/backup` với `setLastModifiedTime(now − 30 ngày)`; gọi `cleanupExpired()` | thư mục UUID bị xoá; `backup` còn; `deletedOrphans` = 1 |
-- [ ] 5.2 Chạy `./mvnw -q test -Dtest=SessionCleanupIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính (không nới lỏng test), rồi chạy lại.
-- [ ] 5.3 Commit: `test(app): session cleanup end-to-end`
+- [x] 5.2 Chạy `./mvnw -q test -Dtest=SessionCleanupIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính (không nới lỏng test), rồi chạy lại.
+- [x] 5.3 Commit: `test(app): session cleanup end-to-end`
 
 ## 6. Bộ test contract lỗi cho mọi endpoint
 
