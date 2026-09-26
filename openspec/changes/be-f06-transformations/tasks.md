@@ -422,7 +422,7 @@
 **Files:**
 - Test: `TEST/api/importsession/TransformationConfigApiIntegrationTest.java` (`@SpringBootTest(webEnvironment = RANDOM_PORT)`, `@Import(TestcontainersConfiguration.class)`, `RestClient`, storage dir là `@TempDir`)
 
-- [ ] 10.1 Viết test. Mỗi case bắt đầu bằng upload `customers.csv` (`"name,dob\nAn,25/12/1990\n"`), rồi PUT `/schema` với `name` (string) và `dob` (date):
+- [x] 10.1 Viết test. Mỗi case bắt đầu bằng upload `customers.csv` (`"name,dob\nAn,25/12/1990\n"`), rồi PUT `/schema` với `name` (string) và `dob` (date):
   | Case | Mong đợi |
   |---|---|
   | PUT `/transformations` gửi `[{dob,0,dateFormat,{inputFormat:"dd/MM/yyyy"}},{name,0,trim}]` | 200; GET `/{id}` trả `config.transformations.transformations` theo thứ tự `name/trim`, rồi `dob/dateFormat` |
@@ -430,8 +430,9 @@
   | PUT hợp lệ, rồi PUT `/schema` chỉ còn `name` | response của `/schema` có warning `CONFIG_PRUNED` với `field` = `dob`; GET chỉ còn bước của `name` |
   | Gửi đúng payload FE: `[{name,0,trim},{name,1,uppercase},{dob,0,dateFormat,{inputFormat:"dd/MM/yyyy",outputFormat:"yyyy-MM-dd"}}]`, bước trim/uppercase không có `params` | 200; `warnings = []` |
   | PUT `/api/import-sessions/{uuid-chưa-tạo}/transformations` | 404; `code` = `SESSION_NOT_FOUND` |
-- [ ] 10.2 Chạy `./mvnw -q test -Dtest=TransformationConfigApiIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, không nới lỏng test.
-- [ ] 10.3 Commit: `test(api): transformation configuration end-to-end`
+- [x] 10.2 Chạy `./mvnw -q test -Dtest=TransformationConfigApiIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, không nới lỏng test.
+  - File đặt ở `TEST/api/transformation/` (xem task 1). Thêm case "field chuyển sang kiểu date thì bỏ bước `dateFormat` có output không phải ISO", để phủ scenario đó của spec qua HTTP thật.
+- [x] 10.3 Commit: `test(api): transformation configuration end-to-end`
 
 ## 11. Kiểm tra toàn bộ và hoàn tất
 
