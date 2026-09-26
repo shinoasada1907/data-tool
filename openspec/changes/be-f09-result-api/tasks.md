@@ -16,7 +16,9 @@
 - Chiều phụ thuộc theo D1. `application` không import `api`; `domain` là Java thuần.
 - Mã lỗi và status đúng D4: 400 `REQUEST_INVALID`, 404 `SESSION_NOT_FOUND`, 409 `RESULT_NOT_AVAILABLE`.
 - Mặc định `view=valid`, `page=0`, `size=50`. `size` trong khoảng 1–200; `page` ≥ 0.
-- ~~Lệnh đọc không lấy khoá theo session (D11).~~ **Lệnh đọc giữ khoá session.** **LÝ DO**: trên Windows không đổi tên được một thư mục khi có file bên trong đang mở. Nếu đọc không giữ khoá thì commit của `/process` hoặc lệnh xoá khi đổi config chạy đè lên sẽ thất bại. Mỗi lần đọc chỉ quét vài MB nên thời gian giữ khoá ngắn.
+- ~~Lệnh đọc không lấy khoá theo session (D11).~~ ~~Lệnh đọc giữ khoá session trong suốt lần quét.~~ **Chỉ bước kiểm và mở giữ khoá session; phần quét chạy ngoài khoá, trên stream tách rời.** Xem 5.2b.
+  - **LÝ DO (đã đo trên máy, Windows 11 + NTFS)**: khi một file bên trong `result/` đang mở, kể cả mở bằng NIO, thì đổi tên `result/` bị `AccessDeniedException`. Commit của `/process` và lệnh xoá khi đổi config đều cần đổi tên thư mục này.
+  - **Sai lầm đã sửa**: bản đầu giữ khoá trong suốt lần quét, với lý do "chỉ quét vài MB". Con số này sai khoảng 100 lần. Reviewer đo 1 triệu row lỗi: `invalid.ndjson` 259 MB, một lần quét có lọc mất khoảng 4 giây. Với CSV 20 MB toàn row ngắn (khoảng 3,5 triệu row) thì mất khoảng 13 giây mỗi request, trong suốt thời gian đó PUT và process bị chặn.
 - Mọi `Stream` đọc từ `ResultStore` phải đóng bằng try-with-resources.
 - Jackson 3 (`tools.jackson.*`); số `BigDecimal` ghi dạng plain.
 - Commit trên nhánh `feature/be-f09-result-api`, cuối commit message có dòng `Co-Authored-By`. Không push, không merge khi chưa hỏi.
@@ -208,7 +210,48 @@
 
 ## 5. Kiểm tra toàn bộ và hoàn tất
 
-- [ ] 5.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm cả ArchitectureTest.
-- [ ] 5.2 Chạy app thật: upload, cấu hình, process với curl, rồi `curl "localhost:8080/api/import-sessions/{id}/result?view=invalid&size=1"`. Kiểm `page.totalPages` đúng, và JSON có `errors[].stage`, `rule`, `step`.
-- [ ] 5.3 Tick đủ checkbox; chỗ nào làm khác kế hoạch thì gạch và ghi LÝ DO. Commit: `docs(openspec): complete be-f09 tasks`
-- [ ] 5.4 Hỏi người dùng trước khi merge vào `main`. Sau khi merge: `openspec archive be-f09-result-api -y`, commit phần archive.
+- [x] 5.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm cả ArchitectureTest.
+  - Kết quả 2026-09-27: 710 test, 0 failure, 0 error.
+  - Sau khi sửa theo review: 720 test, 0 failure, 0 error.
+- [x] 5.2 Chạy app thật: upload, cấu hình, process với curl, rồi `curl "localhost:8080/api/import-sessions/{id}/result?view=invalid&size=1"`. Kiểm `page.totalPages` đúng, và JSON có `errors[].stage`, `rule`, `step`.
+  - Kết quả (cổng 8081, worktree BE, fixture `customers-sample.csv`; không dùng cổng 8080 vì người dùng đang chạy ở đó):
+    - trước khi process: 409 `RESULT_NOT_AVAILABLE`;
+    - `view=invalid&size=1` → row 3 với 3 lỗi, mỗi lỗi có đủ `stage`/`rule`/`step`; `totalPages = 3`;
+    - `view=valid` → row 2, 5, 7; số ghi plain (`"age":30`);
+    - lọc `code=VALIDATION_TYPE` → row 3, 6;
+    - `size=500` → 400;
+    - sau khi PUT đổi config → 409;
+    - log không chứa giá trị ô nào.
+- [x] 5.2b Sửa theo review của senior-reviewer (TDD, test đỏ trước). Mỗi mục kèm **LÝ DO**:
+  - **MAJOR — check-rồi-đọc (TOCTOU)**: `requireCurrentSummary` public tự lấy khoá rồi nhả khoá, nên F10 gọi nó xong mới đọc thì kết quả có thể đã bị đổi hoặc bị xoá ở giữa hai bước.
+    - Sửa: bỏ `requireCurrentSummary` public. Thêm `openCurrent(id, view)`: kiểm và mở row trong **một** bước dưới khoá, trả `CurrentResult(summary, configuration, rows)` (AutoCloseable). F10 dùng hàm này, và có luôn `configuration` khớp với kết quả để lấy schema.
+  - **MAJOR — giữ khoá khi quét cả file**:
+    - Sửa `ResultStore.readRows(id, view, skip)` thành stream **tách rời**: tạo hard link cạnh `result/`, mở nó, rồi xoá link ngay. Cái gì không có hard link thì copy.
+    - Stream đọc tiếp được dù `result/` bị thay hoặc bị xoá, và không bao giờ chặn việc đổi tên. Đã thử trên máy trước khi làm: đổi tên và xoá `result/` đều thành công khi reader đang mở qua link; xoá link khi đang mở cũng thành công; không để lại file nào.
+    - `query` chỉ giữ khoá lúc kiểm và mở; phần quét chạy ngoài khoá.
+    - Row bị `skip` không được parse.
+    - Trang nằm sau trang cuối mà không có bộ lọc thì không mở file.
+    - Kiểm ngược:
+      - mở file thẳng trong `result/` → `a_reader_keeps_its_rows_while_the_result_is_replaced_and_deleted` đỏ ("Cannot store the result");
+      - bỏ khoá trong `query` → `the_result_is_checked_and_opened_under_the_session_lock` đỏ.
+  - **Không chuyển sang thư mục theo thế hệ** (generation directories: mỗi commit một thư mục và một con trỏ, reviewer gợi ý). **LÝ DO**: hard link đã giải quyết đúng vấn đề mà không phải viết lại commit/recover/delete của F08, phần vừa được review và test kỹ.
+  - **MAJOR — số lớn trên FE**: `JSON.parse` làm tròn số quá 2^53 (ví dụ `12345678901234567890` → `…7000`).
+    - Không đổi contract (FE đã code theo JSON number, và spec D10/F09-D5 đã chốt).
+    - Ghi quyết định vào spec: số trả ra là giá trị chính xác, client cần hơn 15 chữ số có nghĩa thì phải parse không mất độ chính xác.
+    - Đã báo FE. Export (F10) luôn giữ đúng giá trị.
+  - **MINOR — test rỗng (vacuous)**: thêm các test sau:
+    - parse lười: dòng 500 hỏng mà `skip(10).limit(2)` vẫn chạy;
+    - dòng bị `skip` không được parse;
+    - `totalElements` lấy từ summary (summary ghi 7 trong khi chỉ có 2 row);
+    - gọi hai lần qua HTTP thật cho cùng body;
+    - khoá (kèm kiểm ngược).
+    - Test khoá nhả latch trong `finally`, vì bản đầu treo thay vì báo đỏ khi assertion fail.
+  - **MINOR — D13**: dòng ndjson hỏng làm message của Jackson trích nguyên giá trị ô vào log ERROR. Sửa: ném `IllegalStateException("Result of session … is unreadable at line N.")` không kèm cause.
+  - **MINOR**: `ResultQuery` kiểm bất biến trong compact constructor (`view` khác null, `page ≥ 0`, `size ≥ 1`). Thêm test `page = Integer.MAX_VALUE`.
+  - **NIT (giữ nguyên, có ghi chú)**:
+    - `view=` rỗng coi như không gửi, nên dùng mặc định `valid`, giống `field`/`code` rỗng;
+    - `code` so khớp chính xác, phân biệt hoa thường, đúng F09-D2;
+    - NBSP ở `field`/`code` không được coi là rỗng; FE đã trim trước khi gửi.
+  - **NIT**: integration test đổi config bằng `/transformations`, đúng scenario trong spec.
+- [x] 5.3 Tick đủ checkbox; chỗ nào làm khác kế hoạch thì gạch và ghi LÝ DO. Commit: `docs(openspec): complete be-f09 tasks`
+- [x] ~~5.4 Hỏi người dùng trước khi merge vào `main`.~~ **LÝ DO**: người dùng cho tự merge feature → `dev`, không đụng `main`. Archive bằng `openspec archive be-f09-result-api -y` trên nhánh feature trước khi merge.

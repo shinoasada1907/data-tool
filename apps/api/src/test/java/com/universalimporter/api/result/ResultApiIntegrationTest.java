@@ -129,10 +129,21 @@ class ResultApiIntegrationTest {
     }
 
     @Test
+    void the_same_page_twice_is_the_same_body() {
+        process();
+
+        String first = http.get(path("/result?view=invalid&page=0&size=50")).body();
+
+        assertThat(http.get(path("/result?view=invalid&page=0&size=50")).body()).isEqualTo(first);
+    }
+
+    @Test
     void a_configuration_change_makes_the_result_unavailable() {
         process();
 
-        assertThat(http.putJson(path("/schema"), SCHEMA.formatted(true)).status()).isEqualTo(200);
+        assertThat(http.putJson(path("/transformations"),
+                "{\"transformations\": [{\"targetField\": \"name\", \"order\": 0, \"type\": \"trim\"}]}").status())
+                .isEqualTo(200);
         Response result = http.get(path("/result"));
 
         assertThat(result.status()).isEqualTo(409);

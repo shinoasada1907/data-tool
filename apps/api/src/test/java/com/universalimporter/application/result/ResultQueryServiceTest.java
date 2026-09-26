@@ -22,6 +22,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,10 +44,11 @@ class ResultQueryServiceTest {
     private final InMemoryImportSessionRepository sessions = new InMemoryImportSessionRepository();
     private final InMemoryImportConfigurationRepository configurations = new InMemoryImportConfigurationRepository();
     private final InMemoryResultStore results = new InMemoryResultStore();
+    private final SessionLocks locks = new SessionLocks();
 
     private ResultQueryService service(String currentHash) {
         ConfigHasher hasher = configuration -> currentHash;
-        return new ResultQueryService(sessions, configurations, hasher, results, new SessionLocks());
+        return new ResultQueryService(sessions, configurations, hasher, results, locks);
     }
 
     private ResultQueryService service() {
@@ -77,6 +83,18 @@ class ResultQueryServiceTest {
     }
 
     @Test
+    void without_a_filter_the_total_is_the_summary_count_not_a_count_of_rows() {
+        ResultSummary claimsSeven = new ResultSummary(10, 7, 3, SUMMARY.errorCountsByCode(),
+                SUMMARY.errorCountsByField(), T0, "h1");
+        results.put(ID, new InMemoryResultStore.Stored(claimsSeven, results.stored(ID).orElseThrow().rows()));
+
+        ResultPage page = service().query(ID, new ResultQuery(ResultView.VALID, 0, 5, null, null));
+
+        assertThat(page.totalElements()).isEqualTo(7);
+        assertThat(page.totalPages()).isEqualTo(2);
+    }
+
+    @Test
     void the_first_page_of_invalid_rows() {
         ResultPage page = service().query(ID, new ResultQuery(ResultView.INVALID, 0, 2, null, null));
 
@@ -100,6 +118,62 @@ class ResultQueryServiceTest {
         assertThat(page.rows()).isEmpty();
         assertThat(page.totalElements()).isEqualTo(3);
         assertThat(page.totalPages()).isEqualTo(2);
+    }
+
+    @Test
+    void a_page_past_the_end_without_a_filter_opens_nothing() {
+        ResultPage page = service().query(ID, new ResultQuery(ResultView.INVALID, 2, 2, null, null));
+
+        assertThat(page.rows()).isEmpty();
+        assertThat(page.totalElements()).isEqualTo(3);
+        assertThat(results.opened()).isZero();
+    }
+
+    @Test
+    void the_largest_page_number_is_an_empty_page_not_an_error() {
+        ResultPage page = service().query(ID, new ResultQuery(ResultView.INVALID, Integer.MAX_VALUE, 200, "email", null));
+
+        assertThat(page.rows()).isEmpty();
+        assertThat(page.totalElements()).isEqualTo(2);
+        assertThat(page.page()).isEqualTo(Integer.MAX_VALUE);
+    }
+
+    @Test
+    void a_query_out_of_range_is_a_programming_error() {
+        assertThat(catchThrowableOfType(IllegalArgumentException.class,
+                () -> new ResultQuery(ResultView.VALID, -1, 50, null, null))).isNotNull();
+        assertThat(catchThrowableOfType(IllegalArgumentException.class,
+                () -> new ResultQuery(ResultView.VALID, 0, 0, null, null))).isNotNull();
+        assertThat(catchThrowableOfType(NullPointerException.class,
+                () -> new ResultQuery(null, 0, 50, null, null))).isNotNull();
+    }
+
+    @Test
+    void the_result_is_checked_and_opened_under_the_session_lock() throws Exception {
+        CountDownLatch held = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
+            pool.submit(() -> locks.withLock(ID, () -> {
+                held.countDown();
+                awaitQuietly(release);
+                return null;
+            }));
+            try {
+                assertThat(held.await(5, TimeUnit.SECONDS)).isTrue();
+                Future<ResultPage> query = pool.submit(() ->
+                        service().query(ID, new ResultQuery(ResultView.VALID, 0, 50, null, null)));
+
+                Thread.sleep(200);
+                assertThat(query.isDone()).isFalse();
+                assertThat(results.opened()).isZero();
+
+                release.countDown();
+                assertThat(rowNumbers(query.get(5, TimeUnit.SECONDS))).containsExactly(2, 5);
+            } finally {
+                // Never leave the lock holder waiting, or closing the pool would hang a failing test.
+                release.countDown();
+            }
+        }
     }
 
     @Test
@@ -199,16 +273,21 @@ class ResultQueryServiceTest {
     }
 
     @Test
-    void the_same_query_gives_the_same_rows() {
-        ResultQuery query = new ResultQuery(ResultView.INVALID, 0, 50, null, null);
-
-        assertThat(service().query(ID, query).rows()).isEqualTo(service().query(ID, query).rows());
+    void the_current_result_comes_with_its_configuration_and_open_rows() {
+        try (CurrentResult current = service().openCurrent(ID, ResultView.INVALID)) {
+            assertThat(current.summary()).isEqualTo(SUMMARY);
+            assertThat(current.configuration().sessionId()).isEqualTo(ID);
+            assertThat(current.rows().map(RowResult::rowNumber).toList()).containsExactly(3, 4, 6);
+        }
     }
 
     @Test
-    void the_current_summary_is_found_without_reading_rows() {
-        assertThat(service().requireCurrentSummary(ID)).isEqualTo(SUMMARY);
-        assertThat(results.rowsRead()).isZero();
+    void opened_rows_do_not_change_when_the_result_is_deleted_afterwards() {
+        try (CurrentResult current = service().openCurrent(ID, ResultView.VALID)) {
+            results.delete(ID);
+
+            assertThat(current.rows().map(RowResult::rowNumber).toList()).containsExactly(2, 5);
+        }
     }
 
     private void assertNotAvailable(ResultQueryService service) {
@@ -216,8 +295,17 @@ class ResultQueryServiceTest {
                 service.query(ID, new ResultQuery(ResultView.VALID, 0, 50, null, null)));
 
         assertThat(ex.code()).isEqualTo(ErrorCode.RESULT_NOT_AVAILABLE);
-        assertThat(catchThrowableOfType(DomainException.class, () -> service.requireCurrentSummary(ID)).code())
+        assertThat(catchThrowableOfType(DomainException.class, () -> service.openCurrent(ID, ResultView.VALID)).code())
                 .isEqualTo(ErrorCode.RESULT_NOT_AVAILABLE);
+        assertThat(results.opened()).isZero();
+    }
+
+    private static void awaitQuietly(CountDownLatch latch) {
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private void givenSession(SessionStatus status) {

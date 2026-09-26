@@ -84,7 +84,9 @@ public record PipelineSummaryDto(UUID sessionId, SessionStatus status, long tota
   - Có bộ lọc: đếm trong cùng lượt quét toàn bộ view.
 - `totalPages = ceil(totalElements / size)`, bằng 0 khi `totalElements = 0`. `page` vượt trang cuối thì trả `rows: []` với status 200, không báo lỗi.
 - Stream luôn được đóng bằng try-with-resources.
-- *(Khác D11, xem tasks — Global Constraints)*: đọc giữ khoá session. Trên Windows không đổi tên được thư mục khi có file bên trong đang mở, nên một lần đọc chạy chen có thể làm commit của `/process` hoặc lệnh xoá khi đổi config thất bại. `requireCurrentSummary` cũng giữ khoá; khoá là reentrant nên `query` gọi nó bên trong khoá được.
+- *(Khác D11, xem tasks — Global Constraints và 5.2b)*: bước kiểm (F09-D4) và bước mở row chạy chung một lần dưới khoá session, nên row luôn thuộc đúng summary vừa kiểm. Phần quét chạy **ngoài** khoá, trên stream tách rời mà `ResultStore.readRows` trả về: hard link cạnh `result/`, mở xong thì xoá link ngay. Stream này không thấy và không chặn lần process hay lần đổi config kế tiếp. Lý do: trên Windows không đổi tên được thư mục khi có file bên trong đang mở (đã thử trên máy).
+- Không có bộ lọc: các row bị bỏ qua không được parse; trang nằm sau trang cuối thì không mở file.
+- API cho F10: `ResultQueryService.openCurrent(id, view)` trả `CurrentResult(summary, configuration, rows)` và kiểm đúng như `GET /result`. Không còn hàm "kiểm rồi mới đọc" tách làm hai bước.
 
 ### F09-D4. Điều kiện có kết quả
 Kiểm theo thứ tự sau, dừng ở điều kiện đầu tiên không đạt:
@@ -103,10 +105,12 @@ Phần kiểm này nằm trong một method public `ResultQueryService.requireCu
 - Row lỗi mang chuỗi sau transformation, hoặc `null` (D10).
 - Số luôn ghi dạng plain. Mapper JSON của app bật `StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN` qua `JsonMapperBuilderCustomizer`. Nếu không bật, `BigDecimal("0.0000001")` sẽ ra `1E-7`. Nếu F08 đã bật thì task 1 bỏ phần này.
 - `summary.status` là trạng thái hiện tại của session, tức `PROCESSED`.
+- **Độ chính xác của số** *(chốt sau review)*: số trả ra đúng từng chữ số và giữ scale của giá trị đã lưu (`TypeRule` nhận tới 1000 ký tự). JavaScript `JSON.parse` làm tròn số có hơn khoảng 15–17 chữ số có nghĩa; client cần độ chính xác đó phải parse không mất độ chính xác (lossless). Không đổi sang string, để giữ contract V0.1 mà FE đã dùng. Export (F10) luôn ghi đúng giá trị.
+- `view` rỗng (`view=`) coi như không gửi, nên dùng mặc định `valid`. `code` so khớp chính xác, phân biệt hoa thường.
 
 ## Risks / Trade-offs
 
-- [Lọc hoặc lấy trang sâu phải quét toàn bộ file ndjson] → Dung lượng bị chặn bởi giới hạn upload 20MB, nên mỗi request chỉ quét vài MB. Về sau có thể thêm file index offset nếu cần.
+- [Lọc hoặc lấy trang sâu phải quét toàn bộ file ndjson] → ~~Dung lượng bị chặn bởi giới hạn upload 20MB, nên mỗi request chỉ quét vài MB.~~ Con số đã đo: 1 triệu row lỗi cho `invalid.ndjson` 259 MB, một lần quét có lọc mất khoảng 4 giây; CSV 20 MB toàn row ngắn có thể lên tới khoảng 13 giây. Phần quét chạy ngoài khoá nên không chặn process hay PUT, chỉ tốn CPU của chính request đó. Khi cần, thêm file index offset.
 - [Tên thành phần của F08 khác giả định] → Task 1 đối chiếu và sửa file này trước khi code.
 - [PUT xoá thư mục `result/` đúng lúc một request đang đọc file] → Trên Linux, file đã mở vẫn đọc tiếp được. Trên Windows, việc xoá có thể thất bại vì file đang mở; đây là rủi ro của cách F08 xoá kết quả, ghi ở Open Questions.
 - [Mapper JSON toàn cục bật ghi số dạng plain] → Chỉ ảnh hưởng `BigDecimal`. Các endpoint khác chưa trả `BigDecimal`, nên không có tác dụng phụ.

@@ -80,6 +80,7 @@ Row khớp SHALL được trả kèm đầy đủ `errors[]` của nó. `totalEl
 `values` của mỗi row SHALL là một object có key là tên target field, theo thứ tự schema.
 - Với row hợp lệ, giá trị SHALL đã được ép kiểu: `number` là JSON number, ghi dạng plain, không dùng số mũ; `boolean` là `true`/`false`; `date` là chuỗi `yyyy-MM-dd`; giá trị rỗng là `null`.
 - Với row lỗi, giá trị SHALL là chuỗi sau transformation, hoặc `null` ở field có transformation thất bại.
+- Số SHALL được trả đúng từng chữ số và giữ scale của giá trị đã lưu. Client cần hơn 15 chữ số có nghĩa phải parse không mất độ chính xác.
 - Mỗi phần tử của `errors[]` SHALL có đủ `rowNumber`, `fieldName`, `stage`, `rule`, `step`, `code`, `message`, `sourceValue`.
 
 #### Scenario: Row hợp lệ đã ép kiểu

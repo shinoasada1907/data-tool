@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
 import tools.jackson.core.StreamWriteFeature;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
@@ -24,6 +25,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AccessDeniedException;
+import java.nio.file.FileSystemException;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -36,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 /**
@@ -44,10 +48,13 @@ import java.util.stream.Stream;
  * dates {@code yyyy-MM-dd}, keys in schema order. A run writes into {@code result.tmp-{uuid}/}; a commit swaps it
  * in with renames, so a reader sees either the old result, no result for a moment, or the new one, never a
  * half-written one. A swap that fails midway puts the old result back; whatever an interrupted run leaves behind
- * ({@code result.tmp-*}, {@code result.old-*}, {@code result.del-*}) is cleared by the next {@link #begin}.
+ * ({@code result.tmp-*}, {@code result.old-*}, {@code result.del-*}, {@code result.read-*}) is cleared by the
+ * next {@link #begin}.
  * <p>
  * Windows refuses a rename while another process (an indexer, an antivirus) briefly holds a file inside; such a
- * refusal is retried a few times before it counts as a failure.
+ * refusal is retried a few times before it counts as a failure. Windows also refuses to rename a directory while a
+ * file inside it is open, so readers never open a file inside {@code result/}: each opens a hard link made beside
+ * it, and removes the link at once (see {@link #readRows}).
  */
 @Component
 public class FileResultStore implements ResultStore {
@@ -59,6 +66,7 @@ public class FileResultStore implements ResultStore {
     private static final String TEMP = "result.tmp-";
     private static final String OLD = "result.old-";
     private static final String DELETING = "result.del-";
+    private static final String READING = "result.read-";
     private static final int MOVE_ATTEMPTS = 5;
 
     private static final Logger log = LoggerFactory.getLogger(FileResultStore.class);
@@ -124,19 +132,21 @@ public class FileResultStore implements ResultStore {
         }
     }
 
-    /** Reads one line at a time, so a page near the start of a large result reads little of the file. */
+    /**
+     * Reads one line at a time, and parses only the lines after {@code skip}. The reader is detached: it opens a
+     * hard link to the file (a copy where the file system has no hard links) and removes that link at once. The
+     * open file stays readable, while {@code result/} holds no open file and can be renamed or deleted.
+     */
     @Override
-    public Stream<RowResult> readRows(UUID sessionId, ResultView view) {
-        Path file = sessionDir(sessionId).resolve(RESULT).resolve(view == ResultView.VALID ? VALID : INVALID);
-        BufferedReader reader;
-        try {
-            reader = Files.newBufferedReader(file, StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new UncheckedIOException("Cannot read the result of session " + sessionId, e);
-        }
+    public Stream<RowResult> readRows(UUID sessionId, ResultView view, long skip) {
+        Path sessionDir = sessionDir(sessionId);
+        Path file = sessionDir.resolve(RESULT).resolve(view == ResultView.VALID ? VALID : INVALID);
+        BufferedReader reader = openDetached(sessionId, sessionDir, file);
         boolean valid = view == ResultView.VALID;
+        AtomicLong lineNumber = new AtomicLong(skip);
         return reader.lines()
-                .map(line -> toRow(JSON.readTree(line), valid))
+                .skip(skip)
+                .map(line -> toRow(sessionId, lineNumber.incrementAndGet(), line, valid))
                 .onClose(() -> {
                     try {
                         reader.close();
@@ -169,6 +179,34 @@ public class FileResultStore implements ResultStore {
         return root.resolve(sessionId.toString());
     }
 
+    private static BufferedReader openDetached(UUID sessionId, Path sessionDir, Path file) {
+        if (Files.notExists(file)) {
+            throw new UncheckedIOException("No result for session " + sessionId, new NoSuchFileException(file.toString()));
+        }
+        Path handle = sessionDir.resolve(READING + UUID.randomUUID());
+        try {
+            linkOrCopy(file, handle);
+            BufferedReader reader = Files.newBufferedReader(handle, StandardCharsets.UTF_8);
+            // The open reader keeps the content: nothing is left behind, even if the process dies while reading.
+            deleteQuietly(handle);
+            return reader;
+        } catch (IOException e) {
+            deleteQuietly(handle);
+            throw new UncheckedIOException("Cannot read the result of session " + sessionId, e);
+        }
+    }
+
+    private static void linkOrCopy(Path file, Path handle) throws IOException {
+        try {
+            Files.createLink(handle, file);
+        } catch (NoSuchFileException e) {
+            throw e;
+        } catch (UnsupportedOperationException | FileSystemException e) {
+            // A file system without hard links: a copy is slower but just as detached.
+            Files.copy(file, handle);
+        }
+    }
+
     /**
      * Puts back the previous result of a commit interrupted between its two renames, then clears leftovers. Runs
      * under the session lock, so no other run is writing here.
@@ -190,7 +228,7 @@ public class FileResultStore implements ResultStore {
             return;
         }
         try {
-            for (String prefix : List.of(TEMP, OLD, DELETING)) {
+            for (String prefix : List.of(TEMP, OLD, DELETING, READING)) {
                 for (Path leftover : entries(sessionDir, prefix)) {
                     deleteQuietly(leftover);
                 }
@@ -369,6 +407,15 @@ public class FileResultStore implements ResultStore {
         return new ResultSummary(json.get("total").asLong(), json.get("valid").asLong(), json.get("invalid").asLong(),
                 counts(json.get("errorCountsByCode")), counts(json.get("errorCountsByField")),
                 Instant.parse(json.get("processedAt").asString()), json.get("configHash").asString());
+    }
+
+    /** A line that cannot be parsed is reported by its number only: Jackson's message would quote the cell (D13). */
+    private static RowResult toRow(UUID sessionId, long lineNumber, String line, boolean valid) {
+        try {
+            return toRow(JSON.readTree(line), valid);
+        } catch (JacksonException | IllegalArgumentException | NullPointerException e) {
+            throw new IllegalStateException("Result of session " + sessionId + " is unreadable at line " + lineNumber + ".");
+        }
     }
 
     private static RowResult toRow(JsonNode json, boolean valid) {
