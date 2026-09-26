@@ -67,11 +67,12 @@ interface WizardState {
   transformations: Section<Record<FieldKey, Transformation[]>>
   validations: Section<Record<FieldKey, UserRule[]>>
   result: {
+    runId: number          // số thứ tự lần chạy; phần gắn với một lần chạy (lượt tải file) đổi theo nó
     summary: PipelineSummary
     columns: string[]      // tên field lúc chạy, theo thứ tự schema: cột của bảng kết quả
     query: ResultQuery     // tab, trang, bộ lọc của trang đang xem
     page: ResultPage | null  // trang đang xem; null khi vừa chạy xong mà trang đầu chưa tải
-    stale: boolean
+    stale: 'configChanged' | 'unavailable' | 'sessionUnusable' | null  // lý do kết quả đã cũ (D18)
   } | null
 }
 ```

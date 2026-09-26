@@ -91,7 +91,7 @@
   - `onerror` → `network`.
   - XHR giả nằm ở `src/test/fakeXhr.ts`, gắn vào bằng `vi.stubGlobal`, nên production code không cần tham số chỉ để test.
   - Cách đổi từng mã lỗi sang `ApiError` đã có test ở 3.2 (`apiError.ts`), nên test của upload chỉ giữ một ca lỗi đại diện (`415`). Bốn mã còn lại được kiểm ở test component 5.2.
-- [ ] 3.6 `api/endpoints.ts`: 10 hàm cho các endpoint FE dùng (không gồm `GET /api/import-sessions/{id}`). Test với MSW: method, path, query và body của từng hàm; PUT trả `200 {session, warnings}` thì hàm vẫn resolve và bỏ qua body.
+- [x] 3.6 `api/endpoints.ts`: 10 hàm cho các endpoint FE dùng (không gồm `GET /api/import-sessions/{id}`). Test với MSW: method, path, query và body của từng hàm; PUT trả `200 {session, warnings}` thì hàm vẫn resolve và bỏ qua body.
   - FE-F01 chỉ cần upload (3.5). Mỗi hàm còn lại làm cùng feature dùng nó.
   - FE-F02 đã xong `getPreview` (`limit=50`), có test với MSW: path, query, và body 200 sai dạng → `INVALID_RESPONSE` (kể cả ô không phải chuỗi hay `null`, vì React không vẽ boolean và vỡ trang với object).
   - FE-F05 đã xong `putMapping`, có test với MSW (method, path, body).
@@ -100,7 +100,8 @@
   - FE-F08/F09 đã xong `postProcess` (timeout riêng 5 phút, có test bằng fake timer) và `getResult` (`size=50`; `field`/`code` chỉ gửi khi có), có test với MSW.
   - ~~Không gồm `GET /api/import-sessions/{id}`.~~ **Đổi — LÝ DO:** BE-F08 trả cùng `500 INTERNAL_ERROR` cho ba nguyên nhân (đọc file nguồn lỗi thì session `FAILED`; lưu kết quả lỗi hoặc bug thì session giữ nguyên, kết quả cũ còn), body không phân biệt được. Sau khi process trả 5xx, FE gọi `getSessionStatus` để biết có phải upload lại không, và kết quả cũ còn dùng được không (design D12).
   - FE-F04 đã xong `putSchema`, có test với MSW: method, path, body; `200 {session, warnings}` thì resolve và bỏ qua body; `422` giữ `errors[]`. Body 200 chỉ được kiểm là có `session` (để body HTML từ proxy vẫn báo `INVALID_RESPONSE`).
-- [ ] 3.7 `domain/types.ts` và TDD `api/mappers.ts`:
+  - Xong đủ ở FE-F10: upload (`upload.ts`, 3.5), `getPreview`, `putSchema`, `putMapping`, `putTransformations`, `putValidations`, `postProcess`, `getResult`, `downloadValidRows`, `downloadErrorReport`, cộng `getSessionStatus` (xem dòng gạch ở trên). Timeout riêng 5 phút của `postProcess` vẫn đúng: process là một request JSON bình thường, không stream; riêng tải file dùng thời gian im lặng (3.4).
+- [x] 3.7 `domain/types.ts` và TDD `api/mappers.ts`:
   - đổi key ↔ tên field; `order` theo vị trí;
   - mapping chỉ gồm field đã map;
   - `order` của transformation tính riêng theo field; `trim`, `uppercase`, `lowercase` không có `params`;
@@ -112,7 +113,8 @@
   - FE-F06/F07 đã xong `Transformation`, `UserRule`, `toTransformationConfigDto` và `toValidationConfigDto`, có test: theo thứ tự schema rồi thứ tự bước, `order` từ 0 trong từng field; chỉ `defaultValue`/`dateFormat` có `params`; field kiểu `date` luôn gửi `outputFormat: "yyyy-MM-dd"`; validations chỉ `email`/`unique` theo thứ tự cố định, không `params`, bỏ `email` ở field không phải `string`.
   - FE-F05 đã xong `FieldMapping`, `MappingDraft` và `toMappingConfigDto`, có test: chỉ gồm field đã map, theo thứ tự schema; `targetField` là tên đã chuẩn hoá (NFC + trim), khớp tên đã PUT schema.
   - FE-F04 đã xong `TargetField`, `FieldType`, `FIELD_TYPES` và `toTargetSchemaDto`, có test: tên đã trim, `order` theo vị trí hiển thị từ 0, không gửi key nội bộ.
-- [ ] 3.8 Mock cho test:
+  - FE-F08/F09 đã xong `PipelineSummary`, `ResultQuery`, `ResultRow`, `RowError`, `ResultPage`, `toPipelineSummary` và `toResultPage`, có test: giữ số đếm và thời điểm chạy; lỗi đủ trường (bỏ `rowNumber` lặp lại trong lỗi).
+- [x] 3.8 Mock cho test:
   - `mocks/fixtures.ts`, đúng shape của contract V0.1:
     - preview CSV và XLSX, trong đó có cột tên dạng số, `totalRows` luôn có;
     - result có dòng lỗi và nhiều trang; `ImportErrorDto` có `stage`, `rule`, `step`, `fieldName`;
@@ -130,6 +132,8 @@
   - FE-F04 đã xong `configUpdateFixture` (body 200 của PUT cấu hình) và helper `mockSaveSchema` (ghi lại body JSON của từng lần PUT).
   - FE-F05 thêm `mockSaveMapping`; hai helper dùng chung `mockPutJson`.
     - `mocks/handlers.ts` có handler mặc định cho GET preview. **LÝ DO:** upload xong là bước Xem trước gọi preview ngay; không có handler thì mọi test upload cũ phụ thuộc may rủi thời gian (request bị huỷ lúc unmount trước khi MSW kịp báo lỗi).
+  - FE-F06–F10 thêm fixture summary và result (dòng lỗi có `stage`, `rule`, `step`, `fieldName`; key `values` cố ý lệch thứ tự schema); các helper `mockSaveTransformations`, `mockSaveValidations`, `mockProcess`, `mockResult` (ghi query), `mockSession`, `recordRequests`, `problemWithErrors`; `test/flows.ts` (đi qua các bước) và `test/downloads.ts` (bắt file được lưu). Kết quả nhiều trang dựng bằng cách ghi đè `page` của fixture (`pagesByView`).
+  - ~~`mocks/handlers.ts`: session store trong bộ nhớ, chỉ trả fixture.~~ **Đổi — LÝ DO:** test tự khai báo từng response cho tình huống của nó, và request lạ phải làm test fail; một session store chung trong handler của test sẽ che mất request thừa. Session store trong bộ nhớ nằm ở `mocks/devHandlers.ts`, chỉ dùng cho `dev:mock` (3.9).
 - [x] 3.9 Chế độ `dev:mock`:
   - Tạo `mocks/browser.ts`; chạy `pnpm dlx msw init public/ --save` để sinh `public/mockServiceWorker.js`.
   - `main.tsx` chỉ import động và khởi động worker khi `VITE_USE_MOCK=true`.
@@ -146,7 +150,7 @@
 
 ## 4. Khung wizard (phần khung của FE-F11, làm trước để các bước cắm vào)
 
-- [ ] 4.1 TDD `wizard/state.ts` và `wizard/reducer.ts`.
+- [x] 4.1 TDD `wizard/state.ts` và `wizard/reducer.ts`.
   - Actions: `sessionCreated`, `previewLoaded`, `schemaEdited`, `mappingEdited`, `transformationsEdited`, `validationsEdited`, `sectionSaved`, `processCompleted`, `resultUnavailable` (nhận `409 RESULT_NOT_AVAILABLE`), `busyChanged`, `reset`.
   - Test đủ bảng "chuyển về chưa lưu / đánh dấu cũ" của spec `import-wizard`.
   - Test cascade (spec `target-schema`): đổi tên; xoá field; đổi kiểu khỏi `string` thì xoá rule `email`; đổi kiểu sang `date` thì đặt `outputFormat` về `yyyy-MM-dd`.
@@ -166,18 +170,21 @@
     - Schema sinh từ cột nguồn thì mapping được map sẵn theo tên cột. "Tạo lại từ file" thay mapping cùng field.
     - Cascade từ schema: mọi thay đổi schema đưa mapping về chưa lưu (PUT /schema làm BE xoá mapping của tên cũ, `CONFIG_PRUNED`); đổi tên giữ mapping vì gắn theo key; xoá field thì xoá mapping của field đó; field tự thêm là chưa map.
     - Cascade sang mapping và rules làm ở F05–F07, khi có state tương ứng.
-- [ ] 4.2 TDD `wizard/guards.ts`: `canEnter(step, state)` trả `{allowed, reason}`; test đủ bảng điều kiện của spec `import-wizard`.
+  - FE-F08/F09 đã xong `processCompleted` (kết quả mới, `runId` tăng, trang đầu chưa tải), `resultPageLoaded` (bỏ qua khi kết quả đã cũ) và `resultUnavailable` (mang lý do, design D18), có test. Mọi action sửa cấu hình đánh dấu kết quả cũ khi state thật sự đổi; lưu, điều hướng và bộ đếm bận thì không.
+  - ~~`validationsEdited`~~ là `validationToggled` (bật/tắt một rule), vì UI chỉ có checkbox cho `email` và `unique`.
+- [x] 4.2 TDD `wizard/guards.ts`: `canEnter(step, state)` trả `{allowed, reason}`; test đủ bảng điều kiện của spec `import-wizard`.
   - FE-F01 đã xong: Upload và Xem trước theo điều kiện thật. Các bước sau khoá kèm lý do, cho tới khi feature tương ứng đưa state của nó vào.
   - FE-F02 đã xong: bước Schema mở khi preview đã tải, kể cả file không có dòng dữ liệu; bước Xem trước được tính là "đã xong" khi có preview.
   - FE-F04 đã xong: bước Mapping mở khi schema đã lưu và có ít nhất một field; bước Schema "đã xong" theo cùng điều kiện.
   - FE-F05 đã xong: bước Biến đổi & kiểm tra mở khi schema và mapping đều đã lưu; sửa schema là khoá lại cho tới khi mapping được lưu lại.
+  - FE-F08/F09 đã xong: bước Kết quả mở khi điều kiện của bước Biến đổi & kiểm tra còn đúng và đã có kết quả (kể cả kết quả cũ); lý do khoá đi theo điều kiện chưa đạt đầu tiên. Bước Biến đổi & kiểm tra "đã xong" khi có kết quả chưa cũ.
 - [x] 4.3 `WizardContext.tsx`, `WizardShell.tsx` và `shared/ui/Stepper`: 6 bước với trạng thái xong/đang ở/khoá; bấm bước bị khoá thì hiện lý do; khoá điều hướng khi `busy`; mỗi bước tạm là placeholder. Có component test.
   - **`WizardContext.tsx` được tách làm hai**: `wizard/context.ts` (context và hook `useWizard`) và `wizard/WizardProvider.tsx` (component). **LÝ DO:** luật `react/only-export-components` của oxlint (phục vụ Fast Refresh) không cho một file vừa export component vừa export hook.
   - `Stepper` là component generic, không biết gì về wizard; `WizardShell` tính trạng thái từng bước bằng `canEnter` và `isStepDone`.
   - Trạng thái "đã xong" có chữ "(đã xong)" cho screen reader. Bản đầu thiếu trạng thái này dù task đã tick; review FE-F01 phát hiện và đã bổ sung, có test.
   - Lý do khoá bị xoá khi đổi bước, nên không hiện lại khi quay về bước cũ. Bản đầu chỉ ẩn đi và có lỗi này; có test.
   - Thả file ra ngoài vùng upload được chặn ở `window` (`usePreventFileDrop`), để trình duyệt không mở file và rời khỏi app; có test.
-- [ ] 4.4 Thành phần UI dùng chung trong `shared/ui`:
+- [x] 4.4 Thành phần UI dùng chung trong `shared/ui`:
   - `ErrorBanner`: nhận `ApiError`; dòng chính theo thứ tự ưu tiên; dòng phụ là `detail` khi dòng chính lấy từ bảng của FE; hiện mã lỗi; có nút "Thử lại" tuỳ chọn; có chế độ hiện danh sách `fieldErrors` (dùng cho readiness issue).
   - `EmptyState`, `Spinner`, `Pagination`, `ConfirmPanel`.
   - `DataTable`: cột khai báo tường minh, cuộn ngang trong khung bảng.
@@ -189,7 +196,8 @@
   - Còn lại:
     - ~~`EmptyState`, `Spinner`, `DataTable` → FE-F02~~ Đã xong ở FE-F02, test qua component test của bước Xem trước. `DataTable` có thêm `EmptyCell` cho ô `null`; cách chia độ rộng cột ghi ở design D14.
     - ~~chế độ danh sách `fieldErrors` → FE-F04 / FE-F08~~ FE-F04 đã thêm `items` cho `ErrorBanner` (lỗi của BE không gắn được vào field nào). Danh sách readiness issue của FE-F08 dùng lại prop này.
-    - `Pagination` → FE-F09.
+    - ~~`Pagination` → FE-F09.~~ Đã xong ở FE-F09 (`shared/ui/Pagination.tsx`), test qua bước Kết quả: đổi trang, focus ở biên cả hai chiều.
+    - Nút "Thử lại" của request đọc nằm ở `wizard/LoadFailureBanner.tsx` (dựng trên `ErrorBanner`, prop `action`), dùng chung cho bước Xem trước và bước Kết quả (review FE-F08/F09).
   - **Thêm `wizard/StepActions.tsx`** (nút "Quay lại"/"Tiếp" ở chân bước), vốn không có trong danh sách trên. **LÝ DO:** mọi bước từ Preview tới Rules đều cần cặp nút này, cùng luật khoá khi bận và luôn hiện lý do khoá cạnh nút "Tiếp" (spec import-wizard, target-schema).
 - [x] 4.5 Đăng ký `beforeunload` khi có session và gỡ khi reset; test cả hai chiều.
   - Hook `wizard/useBeforeUnload.ts`, test trong `WizardShell.test.tsx`: chưa có session; có session; đang upload thay thế thì vẫn cảnh báo, vì session cũ còn cho tới khi có session mới.
@@ -601,4 +609,24 @@
       - PUT schema, mapping và transformations đều mang tên mới (`"targetField":"text mới"`), cùng PUT validations.
       - Bảng kết quả mới dùng tên mới và không còn cảnh báo kết quả cũ.
     - Console chỉ có hai dòng Chrome ghi request lỗi của hai ca cố ý làm hỏng (422 và reset). Không có lỗi hay cảnh báo nào của app.
-- [ ] 13.5 `pnpm test`, `pnpm lint`, `pnpm build` đều xanh; đối chiếu từng mục "Done when" phía FE của F01–F11 trong Notion.
+- [x] 13.5 `pnpm test`, `pnpm lint`, `pnpm build` đều xanh; đối chiếu từng mục "Done when" phía FE của F01–F11 trong Notion.
+  - 2026-09-27: `pnpm test` xanh (488 test), `pnpm lint` không cảnh báo, `pnpm build` thành công (một chunk JS, không có code của `dev:mock`).
+  - Đối chiếu trang "03 — Feature Breakdown để Dev" của Notion (đọc qua API public), chỉ các mục phía FE. Mục thuần BE (test BE, storage path, formula injection, reproducible…) thuộc các change BE.
+
+    | Feature | Mục "Done when" / FE | Bằng chứng |
+    |---|---|---|
+    | F01 | CSV/XLSX tạo session; sang Preview sau khi upload; file sai loại hoặc quá giới hạn báo rõ | test `UploadStep`, `checkFiles`; BE thật 13.4 (CSV, XLSX). 413 qua proxy dev của Vite thành lỗi mạng (xem 13.4). |
+    | F02 | Header đúng thứ tự; sample rows + số dòng; parse error hiển thị có cấu trúc | test `PreviewStep`; BE thật 13.4 (FE-F02, `FILE_PARSE_ERROR`) |
+    | F03 | XLSX preview được; dùng chung preview; workbook trống báo rõ; số dòng truy được | cùng bảng preview, tên sheet; `FILE_EMPTY` có thông điệp riêng; BE thật `types.xlsx` |
+    | F04 | Thêm/xoá/sắp xếp field; 5 kiểu end-to-end; trùng tên chặn ở FE và BE; `required` lưu đúng | test `SchemaStep`, `schemaRules`; BE thật 13.4 (FE-F04, 422 trùng tên) |
+    | F05 | Map cột, map hằng; thiếu cột nguồn báo từ BE; cảnh báo field chưa map | test `MappingStep` (`SOURCE_COLUMN_NOT_FOUND`); BE thật 13.4 (FE-F05) |
+    | F06 | Nhiều biến đổi đúng thứ tự; FE gửi đúng thứ tự; lỗi hiển thị có cấu trúc | test `RulesStep`, `toTransformationConfigDto`; lỗi `TRANSFORMATION_FAILED` ở bảng kết quả (BE thật) |
+    | F07 | Một dòng nhiều lỗi; lỗi có dòng + field + mã; FE cấu hình được rule V0.1 | BE thật: dòng 3 có 3 lỗi; `email`, `unique`, `required`/`type` suy ra |
+    | F08 | FE process và process lại được | test `runPipeline`; BE thật (chạy lại sau khi sửa rule, sau khi đổi tên) |
+    | F09 | total/valid/invalid; dòng lỗi kèm lỗi; dữ liệu sau biến đổi; dùng được khi nhiều lỗi | test `ResultStep` (phân trang, lọc, rỗng); BE thật 13.4 |
+    | F10 | JSON đúng tên và kiểu; CSV đúng header và thứ tự; tải được file thật từ BE | test `ExportActions`, `download`; BE thật 13.4 (FE-F10) |
+    | F11 | CSV và XLSX happy path end-to-end; sửa cấu hình rồi chạy lại; lỗi BE hiển thị nhất quán; README có demo | `App.integration.test.tsx`; BE thật 13.4; 13.2; `README.md` |
+
+  - Các gạch đầu dòng "FE" của từng feature trong Notion đều có mặt. Hai điểm khác đã ghi lý do từ trước:
+    - Wizard 6 bước thay vì 7: "Process" là nút chính của bước 5 (design M1).
+    - "Preview config" của F06 là dòng tóm tắt chuỗi biến đổi, không chạy thử dữ liệu (design D8).
