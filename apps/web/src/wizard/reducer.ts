@@ -1,3 +1,4 @@
+import { fieldsFromPreview } from '../domain/inferSchema'
 import type { TargetField } from '../domain/types'
 import { canEnter } from './guards'
 import { initialWizardState, isBusy, type SchemaEdit, type WizardAction, type WizardState } from './state'
@@ -8,10 +9,14 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
       // Session mới thay nguyên khối state của session cũ (design D13). Bộ đếm request giữ nguyên:
       // request đang chạy vẫn sẽ báo kết thúc sau đó.
       return { ...initialWizardState, pendingRequests: state.pendingRequests, session: action.session, step: 'preview' }
-    case 'previewLoaded':
+    case 'previewLoaded': {
       // Response về muộn của session cũ không được ghi đè lên session hiện tại.
       if (action.sessionId !== state.session?.id) return state
-      return { ...state, preview: action.preview }
+      const loaded = { ...state, preview: action.preview }
+      // Sinh sẵn schema từ cột nguồn, một lần cho mỗi session: preview chỉ tải một lần, và không bao giờ đè lên field
+      // đã có (spec target-schema, "Sinh schema từ cột nguồn").
+      return state.schema.draft.length === 0 ? generateSchema(loaded) : loaded
+    }
     case 'schemaEdited':
       return editSchema(state, action.edit)
     case 'sectionSaved':
@@ -44,6 +49,8 @@ function markSaved(state: WizardState, action: Extract<WizardAction, { type: 'se
 function editSchema(state: WizardState, edit: SchemaEdit): WizardState {
   const fields = state.schema.draft
 
+  if (edit.kind === 'regenerate') return state.preview ? generateSchema(state) : state
+
   if (edit.kind === 'add') {
     const field: TargetField = { key: `f${state.nextFieldSeq}`, name: '', type: 'string', required: false }
     return { ...state, nextFieldSeq: state.nextFieldSeq + 1, schema: { draft: [...fields, field], saved: false } }
@@ -65,6 +72,13 @@ function editSchema(state: WizardState, edit: SchemaEdit): WizardState {
       return withFields(state, moved)
     }
   }
+}
+
+/** Key đánh tiếp từ `nextFieldSeq`, nên field sinh lại không mang key của field cũ (design D3). */
+function generateSchema(state: WizardState): WizardState {
+  if (!state.preview) return state
+  const { fields, nextFieldSeq } = fieldsFromPreview(state.preview, state.nextFieldSeq)
+  return { ...state, nextFieldSeq, schema: { draft: fields, saved: false } }
 }
 
 function withFields(state: WizardState, draft: TargetField[]): WizardState {

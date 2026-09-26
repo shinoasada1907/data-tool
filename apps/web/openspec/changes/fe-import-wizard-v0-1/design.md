@@ -275,6 +275,13 @@ src/
 - Với field kiểu khác, `outputFormat` cho nhập tự do và được điền sẵn `yyyy-MM-dd`.
 - BE parse STRICT và tự đổi `y` thành `u`, nên các mẫu gợi ý dùng `yyyy` như bình thường.
 
+### D20. Sinh schema từ cột nguồn (người dùng yêu cầu ngày 2026-09-26)
+- Preview tải xong thì reducer (`previewLoaded`) sinh sẵn schema: mỗi cột một field cùng tên, cùng thứ tự, không bắt buộc. Chỉ sinh khi schema đang trống, và preview chỉ tải một lần cho mỗi session, nên không bao giờ đè lên field user đã sửa.
+- Kiểu được đoán bằng hàm thuần `domain/inferSchema.ts`, dùng đúng luật kiểm kiểu của BE-F07 (không trim), để kiểu đoán ra không tự sinh lỗi `VALIDATION_TYPE` trên các dòng đã xem. Chỉ xét tối đa 50 dòng preview, nên dòng sau vẫn có thể sai kiểu; lỗi đó hiện ở bước Kết quả và user đổi kiểu được.
+- Cột chỉ có `1`/`0` là `number`, không phải `boolean`: hay gặp ở cột số lượng hơn cột đúng/sai. `boolean` cần ít nhất một ô `true`/`false`.
+- "Tạo lại từ file" thay toàn bộ field bằng bản sinh mới, hỏi xác nhận khi đang có field. Field sinh lại nhận key mới (tiếp theo `nextFieldSeq`), để cấu hình Mapping và rules gắn theo key cũ không bám nhầm vào field mới.
+- FE-F05 dự kiến map mặc định mỗi field sang cột nguồn cùng tên.
+
 ## API contract V0.1 (đã chốt với BE)
 
 Quy ước chung:

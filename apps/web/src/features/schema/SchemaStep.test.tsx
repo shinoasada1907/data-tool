@@ -11,14 +11,26 @@ type User = ReturnType<typeof userEvent.setup>
 
 const saved = () => HttpResponse.json(configUpdateFixture())
 
-/** Upload, chờ bảng preview (handler mặc định), rồi bấm "Tiếp" sang bước Schema. */
-async function openSchemaStep(user: User) {
+/**
+ * Upload, chờ bảng preview (handler mặc định: `csvPreviewFixture`), rồi bấm "Tiếp" sang bước Schema. Schema được sinh
+ * sẵn từ cột nguồn; mặc định xoá hết qua giao diện, để các test về thao tác sửa bắt đầu từ danh sách trống.
+ */
+async function openSchemaStep(user: User, { keepGenerated = false }: { keepGenerated?: boolean } = {}) {
   mockUpload(() => HttpResponse.json(importSessionFixture(), { status: 201 }))
   render(<App />)
   await user.upload(screen.getByLabelText('Chọn file CSV hoặc XLSX'), testFile('khach-hang.csv'))
   await screen.findByRole('table', { name: 'Dữ liệu xem trước' })
   await user.click(nextButton())
   await screen.findByRole('heading', { level: 2, name: 'Schema đích' })
+  if (!keepGenerated) {
+    while (screen.queryAllByRole('group', { name: /^Field \d+$/ }).length > 0) {
+      await user.click(within(fieldGroup(1)).getByRole('button', { name: 'Xoá' }))
+    }
+  }
+}
+
+function fieldTypes() {
+  return screen.getAllByRole('combobox', { name: 'Kiểu' }).map((select) => (select as HTMLSelectElement).value)
 }
 
 function nextButton() {
@@ -63,13 +75,99 @@ async function addField(user: User, name: string, { type, required }: { type?: s
 }
 
 describe('bước Schema', () => {
-  test('mở bước lần đầu: chưa có field, "Tiếp" khoá với lý do "Cần ít nhất một field"', async () => {
+  test('xoá hết field: "Tiếp" khoá với lý do "Cần ít nhất một field"', async () => {
     const user = userEvent.setup()
     await openSchemaStep(user)
 
     expect(screen.queryAllByRole('group', { name: /^Field \d+$/ })).toHaveLength(0)
     expect(nextButton()).toBeDisabled()
     expect(nextButton()).toHaveAccessibleDescription('Cần ít nhất một field')
+  })
+
+  describe('sinh schema từ cột nguồn', () => {
+    // csvPreviewFixture: cột "2024" (A01…), "Họ tên" (chữ, có ô chỉ khoảng trắng), "1" (10, null, 7), "Email".
+    test('vào bước lần đầu: mỗi cột thành một field cùng tên, đúng thứ tự, kiểu đoán từ dữ liệu, không bắt buộc', async () => {
+      const user = userEvent.setup()
+      await openSchemaStep(user, { keepGenerated: true })
+
+      expect(fieldNames()).toEqual(['2024', 'Họ tên', '1', 'Email'])
+      expect(fieldTypes()).toEqual(['string', 'string', 'number', 'email'])
+      for (const checkbox of screen.getAllByRole('checkbox', { name: 'Bắt buộc' })) {
+        expect(checkbox).not.toBeChecked()
+      }
+      expect(nextButton()).toBeEnabled()
+    })
+
+    test('không tự sinh lại: xoá một field, sang Preview rồi quay lại thì field đó không xuất hiện lại', async () => {
+      const user = userEvent.setup()
+      await openSchemaStep(user, { keepGenerated: true })
+
+      await user.click(within(fieldGroup(2)).getByRole('button', { name: 'Xoá' }))
+      await user.click(screen.getByRole('button', { name: 'Quay lại' }))
+      await user.click(nextButton())
+
+      expect(fieldNames()).toEqual(['2024', '1', 'Email'])
+    })
+
+    test('"Tạo lại từ file" khi đang có field: hỏi xác nhận; "Huỷ" thì giữ nguyên và trả focus về nút', async () => {
+      const user = userEvent.setup()
+      await openSchemaStep(user, { keepGenerated: true })
+      await user.type(nameInput(1), '-x')
+
+      await user.click(screen.getByRole('button', { name: 'Tạo lại từ file' }))
+      const confirm = screen.getByRole('group', {
+        name: 'Thay toàn bộ 4 field hiện có bằng 4 field sinh từ các cột của file?',
+      })
+      await user.click(within(confirm).getByRole('button', { name: 'Huỷ' }))
+
+      expect(fieldNames()).toEqual(['2024-x', 'Họ tên', '1', 'Email'])
+      expect(screen.getByRole('button', { name: 'Tạo lại từ file' })).toHaveFocus()
+    })
+
+    test('"Tạo lại từ file", đồng ý: thay toàn bộ field bằng bản sinh từ cột nguồn, focus vào field đầu', async () => {
+      const user = userEvent.setup()
+      await openSchemaStep(user, { keepGenerated: true })
+      await user.type(nameInput(1), '-x')
+      await user.click(within(fieldGroup(2)).getByRole('button', { name: 'Xoá' }))
+      await addField(user, 'thêm')
+
+      await user.click(screen.getByRole('button', { name: 'Tạo lại từ file' }))
+      await user.click(screen.getByRole('button', { name: 'Tạo lại' }))
+
+      expect(fieldNames()).toEqual(['2024', 'Họ tên', '1', 'Email'])
+      expect(fieldTypes()).toEqual(['string', 'string', 'number', 'email'])
+      expect(nameInput(1)).toHaveFocus()
+    })
+
+    test('"Tạo lại từ file" khi đã xoá hết field: sinh ngay, không hỏi', async () => {
+      const user = userEvent.setup()
+      await openSchemaStep(user)
+
+      await user.click(screen.getByRole('button', { name: 'Tạo lại từ file' }))
+
+      expect(screen.queryByRole('button', { name: 'Tạo lại' })).not.toBeInTheDocument()
+      expect(fieldNames()).toEqual(['2024', 'Họ tên', '1', 'Email'])
+    })
+
+    test('lưu schema sinh sẵn mà không sửa gì: PUT đúng tên, kiểu và thứ tự của các cột', async () => {
+      const save = mockSaveSchema(saved)
+      const user = userEvent.setup()
+      await openSchemaStep(user, { keepGenerated: true })
+
+      await user.click(nextButton())
+
+      await screen.findByRole('heading', { level: 2, name: 'Mapping' })
+      expect(save.bodies).toEqual([
+        {
+          fields: [
+            { name: '2024', type: 'string', required: false, order: 0 },
+            { name: 'Họ tên', type: 'string', required: false, order: 1 },
+            { name: '1', type: 'number', required: false, order: 2 },
+            { name: 'Email', type: 'email', required: false, order: 3 },
+          ],
+        },
+      ])
+    })
   })
 
   test('"Thêm field": field mới ở cuối, kiểu string, không bắt buộc, ô tên được focus và chưa báo lỗi', async () => {

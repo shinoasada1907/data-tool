@@ -19,6 +19,45 @@ FE SHALL cho user thêm field, xoá field và đổi thứ tự field bằng nú
 - **WHEN** user bấm "Xoá" ở field `b`
 - **THEN** `b` biến mất khỏi danh sách
 
+### Requirement: Sinh schema từ cột nguồn
+Khi preview của một session tải xong, FE SHALL sinh sẵn schema: mỗi cột nguồn thành một field cùng tên, theo đúng thứ tự `columns[]`, `required = false`, kiểu đoán từ các ô không rỗng của preview. Việc sinh này chỉ xảy ra một lần cho mỗi session; sau đó FE MUST NOT tự sinh lại đè lên những gì user đã sửa. Schema sinh ra là chưa lưu, và đi qua cùng các luật kiểm tên như field user tự thêm.
+
+Kiểu được đoán theo đúng luật kiểm kiểu của BE (BE-F07), không trim giá trị. Ô rỗng (`null` hoặc chỉ gồm khoảng trắng) bị bỏ qua. Trong các ô còn lại:
+1. mọi ô là `true`/`false`/`1`/`0` (không phân biệt hoa thường) và có ít nhất một ô là `true` hoặc `false` → `boolean`;
+2. mọi ô khớp `^-?\d+(\.\d+)?$` → `number`;
+3. mọi ô là ngày `yyyy-MM-dd` có thật trên lịch → `date`;
+4. mọi ô khớp `^[^@\s]+@[^@\s]+\.[^@\s]+$` → `email`;
+5. còn lại, hoặc cột không có ô nào không rỗng → `string`.
+
+#### Scenario: Vào bước Schema lần đầu
+- **WHEN** preview có `columns` là `["Mã", "Email", "Số lượng"]` và user vào bước Schema lần đầu
+- **THEN** danh sách field là `Mã`, `Email`, `Số lượng` theo đúng thứ tự đó, đều không bắt buộc
+
+#### Scenario: Đoán kiểu
+- **WHEN** các ô không rỗng của bốn cột lần lượt là `["TRUE", "0"]`, `["42", "-3.50"]`, `["2024-02-29"]`, `["an@example.com"]`
+- **THEN** bốn field có kiểu lần lượt `boolean`, `number`, `date`, `email`
+
+#### Scenario: Cột chỉ có 1 và 0
+- **WHEN** các ô không rỗng của một cột là `["1", "0", "1"]`
+- **THEN** field có kiểu `number`
+
+#### Scenario: Giá trị lẫn kiểu hoặc sai định dạng
+- **WHEN** các ô không rỗng của một cột là `["42", " 7"]`, hoặc `["2024-02-30"]`, hoặc `["2024-12-25T13:45:30"]`
+- **THEN** field có kiểu `string`
+
+#### Scenario: Không tự sinh lại
+- **WHEN** schema đã được sinh, user xoá một field, sang bước Preview rồi quay lại bước Schema
+- **THEN** field đã xoá không xuất hiện lại
+
+#### Scenario: Tạo lại từ file
+- **WHEN** schema đang có field và user bấm "Tạo lại từ file"
+- **THEN** FE hỏi xác nhận; đồng ý thì toàn bộ field bị thay bằng field sinh từ cột nguồn, huỷ thì giữ nguyên
+- **AND** field sinh lại mang key nội bộ mới, không dùng lại key cũ
+
+#### Scenario: Tạo lại khi chưa có field
+- **WHEN** user đã xoá hết field rồi bấm "Tạo lại từ file"
+- **THEN** FE sinh field ngay, không hỏi xác nhận
+
 ### Requirement: Kiểu dữ liệu và required
 Mỗi field SHALL có một kiểu thuộc `string`, `number`, `boolean`, `date`, `email`, và một checkbox required.
 

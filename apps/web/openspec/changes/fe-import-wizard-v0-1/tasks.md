@@ -273,6 +273,20 @@
   - đổi kiểu khỏi `string` thì xoá rule `email`;
   - đổi kiểu sang `date` thì `outputFormat` về `yyyy-MM-dd`.
 
+- [x] 7.5 Sinh schema từ cột nguồn (spec target-schema, requirement "Sinh schema từ cột nguồn"; người dùng yêu cầu ngày 2026-09-26, sau khi FE-F04 đã vào `dev`):
+  - TDD `domain/inferSchema.ts`: `inferFieldType(values)` theo đúng luật kiểu của BE-F07, và `fieldsFromPreview(preview)`.
+  - Reducer: `previewLoaded` sinh schema khi schema đang trống; thêm kiểu sửa `regenerate` vào `schemaEdited`, key tiếp tục từ `nextFieldSeq`.
+  - `SchemaStep`: nút "Tạo lại từ file", hỏi xác nhận bằng `ConfirmPanel` khi đang có field.
+  - Cập nhật các test đang giả định bước Schema mở ra trống.
+  - Ghi chú cho FE-F05: Mapping mặc định map field sang cột nguồn cùng tên.
+  - Đã xong, có test:
+    - `inferFieldType`: từng kiểu và các ca biên (`1`/`0` là `number`; `" 42"`, `1,234`, `2024-02-30`, ngày có giờ, `yes`/`no` là `string`; ô `null`, rỗng, chỉ khoảng trắng hoặc NBSP bị bỏ qua).
+    - Reducer: `previewLoaded` chỉ sinh khi schema đang trống; `regenerate` dùng key mới, tiếp theo `nextFieldSeq`.
+    - Màn Schema: vào bước thấy field sinh sẵn; xoá rồi quay lại thì không sinh lại; "Tạo lại từ file" hỏi xác nhận khi đang có field ("Huỷ" giữ nguyên, trả focus về nút; đồng ý thì thay và focus field đầu); chưa có field thì sinh ngay; lưu schema sinh sẵn gửi đúng tên, kiểu, thứ tự.
+  - Các test thao tác của FE-F04 (thêm, sửa, xoá, lưu) vẫn bắt đầu từ danh sách trống, bằng cách xoá hết field được sinh qua giao diện (helper `openSchemaStep`).
+  - Đã làm mutation check (sinh đè lên field đã có, dùng lại key cũ, cột `1`/`0` thành `boolean`, không bỏ ô chỉ có khoảng trắng, luôn hỏi xác nhận, "Huỷ" không trả focus, không focus field đầu sau khi tạo lại): đều có test fail.
+  - Đã chạy thật với BE ở 8080 (Chrome headless): CSV 6 cột ra đúng `string`, `string`, `date`, `number`, `boolean`, `email`; hộp xác nhận hiện đúng số field; console sạch.
+
 ## 8. FE-F05 Mapping (spec field-mapping)
 
 - [ ] 8.1 TDD `domain/configRules.ts` phần mapping: field required chưa map → lỗi; field optional chưa map → cảnh báo; hằng rỗng → lỗi.

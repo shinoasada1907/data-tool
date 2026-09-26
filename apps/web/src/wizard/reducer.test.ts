@@ -183,3 +183,52 @@ describe('schema', () => {
     }
   })
 })
+
+describe('sinh schema từ cột nguồn', () => {
+  const twoColumns: SourcePreview = {
+    sheetName: null,
+    columns: ['Mã', 'Số lượng'],
+    rows: [{ rowNumber: 2, values: ['A01', '10'] }],
+    totalRows: 1,
+  }
+
+  test('previewLoaded sinh schema từ các cột khi schema đang trống: chưa lưu, key từ f1', () => {
+    const next = wizardReducer(atPreview, { type: 'previewLoaded', sessionId: 's-1', preview: twoColumns })
+
+    expect(next.schema).toEqual({
+      draft: [
+        { key: 'f1', name: 'Mã', type: 'string', required: false },
+        { key: 'f2', name: 'Số lượng', type: 'number', required: false },
+      ],
+      saved: false,
+    })
+    expect(next.nextFieldSeq).toBe(3)
+  })
+
+  test('previewLoaded không ghi đè schema đã có field', () => {
+    const withField = wizardReducer(atPreview, { type: 'schemaEdited', edit: { kind: 'add' } })
+
+    const next = wizardReducer(withField, { type: 'previewLoaded', sessionId: 's-1', preview: twoColumns })
+
+    expect(next.schema).toBe(withField.schema)
+  })
+
+  test('regenerate thay toàn bộ field bằng field sinh từ preview, với key mới không trùng key cũ', () => {
+    let state = wizardReducer(atPreview, { type: 'previewLoaded', sessionId: 's-1', preview: twoColumns })
+    state = wizardReducer(state, { type: 'schemaEdited', edit: { kind: 'update', key: 'f1', patch: { name: 'Mã KH' } } })
+    state = wizardReducer(state, { type: 'schemaEdited', edit: { kind: 'add' } })
+
+    const next = wizardReducer(state, { type: 'schemaEdited', edit: { kind: 'regenerate' } })
+
+    expect(next.schema.draft).toEqual([
+      { key: 'f4', name: 'Mã', type: 'string', required: false },
+      { key: 'f5', name: 'Số lượng', type: 'number', required: false },
+    ])
+    expect(next.schema.saved).toBe(false)
+    expect(next.nextFieldSeq).toBe(6)
+  })
+
+  test('regenerate khi chưa có preview thì không làm gì', () => {
+    expect(wizardReducer(atPreview, { type: 'schemaEdited', edit: { kind: 'regenerate' } })).toBe(atPreview)
+  })
+})

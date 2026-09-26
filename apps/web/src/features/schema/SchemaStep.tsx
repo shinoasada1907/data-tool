@@ -7,6 +7,7 @@ import { checkSchema, matchServerErrors } from '../../domain/schemaRules'
 import { FIELD_TYPES, type FieldKey, type FieldType, type TargetField } from '../../domain/types'
 import { describeApiError, type ErrorText } from '../../shared/describeError'
 import { messages, stepLabels } from '../../shared/messages'
+import { ConfirmPanel } from '../../shared/ui/ConfirmPanel'
 import { EmptyState } from '../../shared/ui/EmptyState'
 import { ErrorBanner } from '../../shared/ui/ErrorBanner'
 import { ArrowDownIcon, ArrowUpIcon, PlusIcon, TrashIcon } from '../../shared/ui/icons'
@@ -26,6 +27,7 @@ interface Failure {
 
 /** Chỗ focus sau khi danh sách field đổi, vì control đang giữ focus có thể vừa biến mất hoặc bị khoá (design D14). */
 type PendingFocus =
+  | { kind: 'firstName' }
   | { kind: 'lastName' }
   | { kind: 'name'; key: FieldKey }
   | { kind: 'move'; key: FieldKey; direction: 'up' | 'down' }
@@ -44,7 +46,9 @@ export function SchemaStep() {
   const [touched, setTouched] = useState<ReadonlySet<FieldKey>>(() => new Set(fields.map((field) => field.key)))
   const [serverErrors, setServerErrors] = useState<Record<FieldKey, string>>({})
   const [failure, setFailure] = useState<Failure | null>(null)
+  const [confirmingRegenerate, setConfirmingRegenerate] = useState(false)
   const pendingFocus = useRef<PendingFocus | null>(null)
+  const regenerateButtonRef = useRef<HTMLButtonElement>(null)
   const rows = useRef(new Map<FieldKey, HTMLLIElement>())
   const addButtonRef = useRef<HTMLButtonElement>(null)
   const titleRef = useRef<HTMLHeadingElement>(null)
@@ -71,6 +75,23 @@ export function SchemaStep() {
       { kind: 'remove', key: fields[index].key },
       neighbour ? { kind: 'name', key: neighbour.key } : { kind: 'addButton' },
     )
+  }
+
+  function regenerate() {
+    setConfirmingRegenerate(false)
+    edit({ kind: 'regenerate' }, { kind: 'firstName' })
+  }
+
+  // Đang có field thì hỏi trước khi thay; chưa có thì không có gì để mất.
+  function requestRegenerate() {
+    if (fields.length === 0) regenerate()
+    else setConfirmingRegenerate(true)
+  }
+
+  function cancelRegenerate() {
+    // Hộp xác nhận (đang giữ focus) biến mất: trả focus về nút đã mở nó.
+    flushSync(() => setConfirmingRegenerate(false))
+    regenerateButtonRef.current?.focus()
   }
 
   async function saveAndContinue() {
@@ -184,15 +205,30 @@ export function SchemaStep() {
           </div>
         )}
 
-        <button
-          ref={addButtonRef}
-          type="button"
-          className={styles.add}
-          onClick={() => edit({ kind: 'add' }, { kind: 'lastName' })}
-        >
-          <PlusIcon />
-          {messages.schema.add}
-        </button>
+        <div className={styles.tools}>
+          <button
+            ref={addButtonRef}
+            type="button"
+            className={styles.add}
+            onClick={() => edit({ kind: 'add' }, { kind: 'lastName' })}
+          >
+            <PlusIcon />
+            {messages.schema.add}
+          </button>
+          <button ref={regenerateButtonRef} type="button" className={styles.regenerate} onClick={requestRegenerate}>
+            {messages.schema.regenerate}
+          </button>
+        </div>
+
+        {confirmingRegenerate && (
+          <ConfirmPanel
+            message={messages.schema.regenerateConfirm(fields.length, state.preview?.columns.length ?? 0)}
+            confirmLabel={messages.schema.regenerateAction}
+            cancelLabel={messages.schema.cancel}
+            onConfirm={regenerate}
+            onCancel={cancelRegenerate}
+          />
+        )}
       </fieldset>
 
       <StepActions
@@ -327,7 +363,7 @@ function focusPending(
     addButton?.focus()
     return
   }
-  const key = target.kind === 'lastName' ? fields.at(-1)?.key : target.key
+  const key = target.kind === 'firstName' ? fields[0]?.key : target.kind === 'lastName' ? fields.at(-1)?.key : target.key
   const row = key === undefined ? undefined : rows.get(key)
   if (!row) return
   if (target.kind === 'move') {

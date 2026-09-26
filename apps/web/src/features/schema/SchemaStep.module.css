@@ -151,7 +151,14 @@
   background: var(--color-surface-subtle);
 }
 
-.add {
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.add,
+.regenerate {
   display: inline-flex;
   align-self: flex-start;
   align-items: center;
@@ -166,7 +173,14 @@
   box-shadow: var(--shadow-hard-sm);
 }
 
-.add:active {
+/* Nút phụ: nền trắng, cùng khung và bóng cứng với nút "Thêm field". */
+.regenerate {
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.add:active,
+.regenerate:active {
   box-shadow: none;
   transform: translate(4px, 4px);
 }

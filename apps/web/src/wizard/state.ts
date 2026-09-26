@@ -33,6 +33,8 @@ export const initialWizardState: WizardState = {
 
 export type SchemaEdit =
   | { kind: 'add' }
+  /** Thay toàn bộ field bằng field sinh từ cột nguồn của preview ("Tạo lại từ file"). */
+  | { kind: 'regenerate' }
   | { kind: 'update'; key: FieldKey; patch: Partial<{ name: string; type: FieldType; required: boolean }> }
   | { kind: 'remove'; key: FieldKey }
   | { kind: 'move'; key: FieldKey; offset: -1 | 1 }
