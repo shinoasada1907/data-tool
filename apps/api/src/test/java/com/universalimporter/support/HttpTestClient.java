@@ -45,6 +45,13 @@ public final class HttpTestClient {
                 .toEntity(String.class));
     }
 
+    public Response post(String path) {
+        return toResponse(client.post().uri(path)
+                .retrieve()
+                .onStatus(status -> true, (request, response) -> { })
+                .toEntity(String.class));
+    }
+
     public Response get(String path) {
         return toResponse(client.get().uri(path)
                 .retrieve()

@@ -227,7 +227,7 @@
 - Test: `TEST/api/importsession/ProcessApiIntegrationTest.java`, dùng `@SpringBootTest(webEnvironment = RANDOM_PORT)`, `@Import(TestcontainersConfiguration.class)`, `RestClient`, và `static @TempDir storageDir` đăng ký qua `@DynamicPropertySource`.
 - Helper `configureSample(id)`: gọi PUT `/schema`, `/mapping`, `/transformations`, `/validations` theo bộ mẫu. Payload giống hệt FE gửi: `trim`/`lowercase` và các rule không có `params`.
 
-- [ ] 7.1 Viết test:
+- [x] 7.1 Viết test:
   | Case | Mong đợi |
   |---|---|
   | Upload fixture → `configureSample` → `POST /process` | 200; `total`=6, `valid`=3, `invalid`=3; `storageDir/{id}/result/valid.ndjson` có 3 dòng, `invalid.ndjson` có 3 dòng; `GET /{id}` trả `status`=`PROCESSED` |
@@ -240,8 +240,9 @@
   | Upload, `configureSample`, xoá `storageDir/{id}/source.bin`, rồi `POST /process` | 500; `code`=`INTERNAL_ERROR`; `status`=`FAILED` |
   | `POST /api/import-sessions/{uuid-chưa-tạo}/process` | 404; `code`=`SESSION_NOT_FOUND` |
   | 2 luồng gọi `POST /process` cùng lúc trên một session đã cấu hình | cả hai trả 200; `result/` có đủ 3 file; không còn `result.tmp-*` hay `result.old-*` |
-- [ ] 7.2 Chạy `./mvnw -q test -Dtest=ProcessApiIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, không nới lỏng test.
-- [ ] 7.3 Commit: `test(api): process pipeline end-to-end`
+- [x] 7.2 Chạy `./mvnw -q test -Dtest=ProcessApiIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, không nới lỏng test.
+  - File đặt ở `TEST/api/process/` (xem task 1). Thêm `HttpTestClient.post`.
+- [x] 7.3 Commit: `test(api): process pipeline end-to-end`
 
 ## 8. Kiểm tra toàn bộ và hoàn tất
 
