@@ -75,7 +75,7 @@
   }
   ```
 
-- [ ] 2.1 Viết `TextValuesTest` (parameterized):
+- [x] 2.1 Viết `TextValuesTest` (parameterized):
   | Input | `isEmpty` | `strip` |
   |---|---|---|
   | `null` | true | `null` |
@@ -85,10 +85,10 @@
   | `" a b "` | false | `"a b"` |
   | `"\u00A0An\u00A0"` | false | `"An"` |
   | `"\tx\n"` | false | `"x"` |
-- [ ] 2.2 Chạy `./mvnw -q test -Dtest=TextValuesTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 2.3 Tạo `RowErrorCode` và `TextValues`.
-- [ ] 2.4 Chạy lại lệnh ở 2.2. Mong đợi: PASS (7 case).
-- [ ] 2.5 Commit: `feat(domain): row error codes and blank-aware text helpers`
+- [x] 2.2 Chạy `./mvnw -q test -Dtest=TextValuesTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 2.3 Tạo `RowErrorCode` và `TextValues`.
+- [x] 2.4 Chạy lại lệnh ở 2.2. Mong đợi: PASS (7 case).
+- [x] 2.5 Commit: `feat(domain): row error codes and blank-aware text helpers`
 
 ## 3. Contract Transformation và 4 transformation văn bản
 
