@@ -11,6 +11,10 @@ const withSavedSchema: WizardState = {
   ...withPreview,
   schema: { draft: [{ key: 'f1', name: 'email', type: 'email', required: true }], saved: true },
 }
+const withSavedMapping: WizardState = {
+  ...withSavedSchema,
+  mapping: { draft: { f1: { kind: 'column', column: 'Email' } }, saved: true },
+}
 
 describe('isStepDone', () => {
   test('bước Upload xong khi đã có session', () => {
@@ -28,8 +32,13 @@ describe('isStepDone', () => {
     expect(isStepDone('schema', withSavedSchema)).toBe(true)
   })
 
-  test('lát F04 chưa có bước nào sau Schema được coi là xong', () => {
+  test('bước Mapping xong khi schema và mapping đều đã lưu', () => {
     expect(isStepDone('mapping', withSavedSchema)).toBe(false)
+    expect(isStepDone('mapping', withSavedMapping)).toBe(true)
+  })
+
+  test('lát F05 chưa có bước nào sau Mapping được coi là xong', () => {
+    expect(isStepDone('rules', withSavedMapping)).toBe(false)
   })
 })
 
@@ -65,11 +74,22 @@ describe('canEnter', () => {
     expect(canEnter('mapping', withSavedSchema)).toEqual({ allowed: true })
   })
 
-  // Lát F04 chưa có mapping và kết quả trong state nên các bước sau luôn khoá.
-  test.each([
-    ['rules', 'Cần lưu mapping trước'],
-    ['result', 'Cần chạy xử lý trước'],
-  ] as const)('bước %s vẫn khoá khi schema đã lưu, lý do "%s"', (step, reason) => {
-    expect(canEnter(step, withSavedSchema)).toEqual({ allowed: false, reason })
+  test('mapping chưa lưu thì khoá bước Biến đổi & kiểm tra, kèm lý do', () => {
+    expect(canEnter('rules', withSavedSchema)).toEqual({ allowed: false, reason: 'Cần lưu mapping trước' })
+  })
+
+  test('schema và mapping đều đã lưu thì vào được bước Biến đổi & kiểm tra', () => {
+    expect(canEnter('rules', withSavedMapping)).toEqual({ allowed: true })
+  })
+
+  test('mapping đã lưu nhưng schema vừa sửa (chưa lưu) thì vẫn khoá', () => {
+    const schemaEdited: WizardState = { ...withSavedMapping, schema: { ...withSavedMapping.schema, saved: false } }
+
+    expect(canEnter('rules', schemaEdited).allowed).toBe(false)
+  })
+
+  // Lát F05 chưa có kết quả trong state nên bước Kết quả luôn khoá.
+  test('bước Kết quả vẫn khoá khi mapping đã lưu', () => {
+    expect(canEnter('result', withSavedMapping)).toEqual({ allowed: false, reason: 'Cần chạy xử lý trước' })
   })
 })

@@ -232,3 +232,108 @@ describe('sinh schema từ cột nguồn', () => {
     expect(wizardReducer(atPreview, { type: 'schemaEdited', edit: { kind: 'regenerate' } })).toBe(atPreview)
   })
 })
+
+describe('mapping', () => {
+  const columns: SourcePreview = {
+    sheetName: null,
+    columns: ['Mã', 'Email'],
+    rows: [{ rowNumber: 2, values: ['A01', 'an@example.com'] }],
+    totalRows: 1,
+  }
+  const loaded = wizardReducer(atPreview, { type: 'previewLoaded', sessionId: 's-1', preview: columns })
+
+  function editSchema(state: WizardState, schemaEdit: SchemaEdit) {
+    return wizardReducer(state, { type: 'schemaEdited', edit: schemaEdit })
+  }
+
+  function saveMapping(state: WizardState) {
+    return wizardReducer(state, { type: 'sectionSaved', section: 'mapping', draft: state.mapping.draft })
+  }
+
+  test('schema sinh từ cột nguồn thì mỗi field map sẵn với cột cùng tên, chưa lưu', () => {
+    expect(loaded.mapping).toEqual({
+      draft: { f1: { kind: 'column', column: 'Mã' }, f2: { kind: 'column', column: 'Email' } },
+      saved: false,
+    })
+  })
+
+  test('"Tạo lại từ file": mapping thay theo field mới, không còn key cũ', () => {
+    const next = editSchema(loaded, { kind: 'regenerate' })
+
+    expect(next.mapping.draft).toEqual({ f3: { kind: 'column', column: 'Mã' }, f4: { kind: 'column', column: 'Email' } })
+  })
+
+  test('mappingEdited đặt cột, hằng, hoặc bỏ map (null) cho đúng field; mapping về chưa lưu', () => {
+    let state = saveMapping(loaded)
+    state = wizardReducer(state, { type: 'mappingEdited', key: 'f1', mapping: { kind: 'constant', value: 'VN' } })
+    expect(state.mapping.saved).toBe(false)
+
+    state = wizardReducer(state, { type: 'mappingEdited', key: 'f2', mapping: null })
+
+    expect(state.mapping.draft).toEqual({ f1: { kind: 'constant', value: 'VN' } })
+  })
+
+  test('đổi tên field giữ nguyên mapping (gắn theo key) nhưng đưa mapping về chưa lưu, vì BE xoá mapping của tên cũ', () => {
+    const saved = saveMapping(loaded)
+
+    const renamed = editSchema(saved, { kind: 'update', key: 'f2', patch: { name: 'email_address' } })
+
+    expect(renamed.mapping).toEqual({ draft: saved.mapping.draft, saved: false })
+  })
+
+  // Payload PUT mapping phụ thuộc cả tên field, nên đổi tên cũng phải làm bản đã gửi trở thành "cũ" khi so tham chiếu.
+  test('PUT mapping gửi trước khi đổi tên field: về tới nơi cũng không đánh dấu bản hiện tại là đã lưu', () => {
+    const sent = loaded.mapping.draft
+    const renamed = editSchema(loaded, { kind: 'update', key: 'f2', patch: { name: 'email_address' } })
+
+    const next = wizardReducer(renamed, { type: 'sectionSaved', section: 'mapping', draft: sent })
+
+    expect(next.mapping.saved).toBe(false)
+  })
+
+  test.each<[string, SchemaEdit]>([
+    ['đổi kiểu', { kind: 'update', key: 'f1', patch: { type: 'number' } }],
+    ['đổi bắt buộc', { kind: 'update', key: 'f1', patch: { required: true } }],
+    ['đổi thứ tự', { kind: 'move', key: 'f2', offset: -1 }],
+    ['thêm field', { kind: 'add' }],
+  ])('%s ở Schema cũng đưa mapping về chưa lưu', (_, schemaEdit) => {
+    expect(editSchema(saveMapping(loaded), schemaEdit).mapping.saved).toBe(false)
+  })
+
+  test('map mặc định lấy đúng tên cột của file, kể cả khi tên field về sau bị sửa', () => {
+    const nfdColumns: SourcePreview = { ...columns, columns: ['Mã'.normalize('NFD'), 'Email'] }
+
+    const state = wizardReducer(atPreview, { type: 'previewLoaded', sessionId: 's-1', preview: nfdColumns })
+
+    expect(state.mapping.draft.f1).toEqual({ kind: 'column', column: 'Mã'.normalize('NFD') })
+  })
+
+  test('xoá field thì xoá mapping của field đó', () => {
+    const next = editSchema(loaded, { kind: 'remove', key: 'f2' })
+
+    expect(next.mapping.draft).toEqual({ f1: { kind: 'column', column: 'Mã' } })
+  })
+
+  test('field tự thêm bắt đầu ở trạng thái chưa map', () => {
+    const next = editSchema(loaded, { kind: 'add' })
+
+    expect(next.mapping.draft).not.toHaveProperty('f3')
+  })
+
+  test('sectionSaved của một bản mapping cũ không đánh dấu bản hiện tại là đã lưu', () => {
+    const sent = loaded.mapping.draft
+    const editedMeanwhile = wizardReducer(loaded, { type: 'mappingEdited', key: 'f1', mapping: null })
+
+    expect(wizardReducer(editedMeanwhile, { type: 'sectionSaved', section: 'mapping', draft: sent })).toBe(editedMeanwhile)
+  })
+
+  test('sessionCreated và reset xoá mapping', () => {
+    const state = saveMapping(loaded)
+
+    expect(wizardReducer(state, { type: 'sessionCreated', session: { ...session, id: 's-2' } }).mapping).toEqual({
+      draft: {},
+      saved: false,
+    })
+    expect(wizardReducer(state, { type: 'reset' }).mapping).toEqual({ draft: {}, saved: false })
+  })
+})

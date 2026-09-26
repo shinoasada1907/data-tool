@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { csvPreviewFixture, importSessionFixture, xlsxPreviewFixture } from '../mocks/fixtures'
-import { toSessionInfo, toSourcePreview, toTargetSchemaDto } from './mappers'
+import { toMappingConfigDto, toSessionInfo, toSourcePreview, toTargetSchemaDto } from './mappers'
 
 test('toSessionInfo lấy đúng id của session (F02 dùng id này để gọi /preview) và thông tin file', () => {
   const dto = importSessionFixture({
@@ -53,6 +53,36 @@ describe('toTargetSchemaDto', () => {
       fields: [
         { name: 'email', type: 'email', required: true, order: 0 },
         { name: 'Họ tên', type: 'string', required: false, order: 1 },
+      ],
+    })
+  })
+})
+
+describe('toMappingConfigDto', () => {
+  test('sourceColumn gửi nguyên văn tên cột của file (không chuẩn hoá), vì BE so khớp chính xác với preview', () => {
+    const nfd = 'Họ tên'.normalize('NFD')
+
+    const dto = toMappingConfigDto([{ key: 'f1', name: 'name', type: 'string', required: false }], {
+      f1: { kind: 'column', column: nfd },
+    })
+
+    expect(dto.mappings[0].sourceColumn).toBe(nfd)
+  })
+
+  test('chỉ gồm field đã map, theo thứ tự schema, targetField là tên hiện tại (đã chuẩn hoá)', () => {
+    const dto = toMappingConfigDto(
+      [
+        { key: 'f1', name: ' email ', type: 'email', required: true },
+        { key: 'f2', name: 'note', type: 'string', required: false },
+        { key: 'f3', name: 'country', type: 'string', required: false },
+      ],
+      { f3: { kind: 'constant', value: 'VN' }, f1: { kind: 'column', column: 'E-mail' } },
+    )
+
+    expect(dto).toEqual({
+      mappings: [
+        { targetField: 'email', mappingType: 'SOURCE_COLUMN', sourceColumn: 'E-mail', constantValue: null },
+        { targetField: 'country', mappingType: 'CONSTANT', sourceColumn: null, constantValue: 'VN' },
       ],
     })
   })

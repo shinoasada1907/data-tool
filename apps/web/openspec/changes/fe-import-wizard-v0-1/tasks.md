@@ -84,6 +84,7 @@
 - [ ] 3.6 `api/endpoints.ts`: 10 hàm cho các endpoint FE dùng (không gồm `GET /api/import-sessions/{id}`). Test với MSW: method, path, query và body của từng hàm; PUT trả `200 {session, warnings}` thì hàm vẫn resolve và bỏ qua body.
   - FE-F01 chỉ cần upload (3.5). Mỗi hàm còn lại làm cùng feature dùng nó.
   - FE-F02 đã xong `getPreview` (`limit=50`), có test với MSW: path, query, và body 200 sai dạng → `INVALID_RESPONSE` (kể cả ô không phải chuỗi hay `null`, vì React không vẽ boolean và vỡ trang với object).
+  - FE-F05 đã xong `putMapping`, có test với MSW (method, path, body).
   - FE-F04 đã xong `putSchema`, có test với MSW: method, path, body; `200 {session, warnings}` thì resolve và bỏ qua body; `422` giữ `errors[]`. Body 200 chỉ được kiểm là có `session` (để body HTML từ proxy vẫn báo `INVALID_RESPONSE`).
 - [ ] 3.7 `domain/types.ts` và TDD `api/mappers.ts`:
   - đổi key ↔ tên field; `order` theo vị trí;
@@ -94,6 +95,7 @@
   - preview giữ đúng thứ tự `columns[]`.
   - FE-F01 đã xong: `SessionInfo` và `toSessionInfo`. Hàm này chỉ chép field nên không có unit test riêng; test component 5.3 kiểm nó (tên file của session hiện đúng khi quay lại bước Upload). Phần còn lại làm theo feature.
   - FE-F02 đã xong `SourcePreview` và `toSourcePreview`, có test: thứ tự `columns[]` giữ nguyên kể cả cột tên dạng số, `values` theo vị trí.
+  - FE-F05 đã xong `FieldMapping`, `MappingDraft` và `toMappingConfigDto`, có test: chỉ gồm field đã map, theo thứ tự schema; `targetField` là tên đã chuẩn hoá (NFC + trim), khớp tên đã PUT schema.
   - FE-F04 đã xong `TargetField`, `FieldType`, `FIELD_TYPES` và `toTargetSchemaDto`, có test: tên đã trim, `order` theo vị trí hiển thị từ 0, không gửi key nội bộ.
 - [ ] 3.8 Mock cho test:
   - `mocks/fixtures.ts`, đúng shape của contract V0.1:
@@ -111,6 +113,7 @@
     - `csvPreviewFixture` (cột tên dạng số `2024` và `1`, ô `null`, ô chỉ có khoảng trắng, số dòng nhảy cóc) và `xlsxPreviewFixture` (có `sheetName`). Shape đã đối chiếu với response của BE thật.
     - Helper `mockPreview` (dùng chung logic với `mockUpload`).
   - FE-F04 đã xong `configUpdateFixture` (body 200 của PUT cấu hình) và helper `mockSaveSchema` (ghi lại body JSON của từng lần PUT).
+  - FE-F05 thêm `mockSaveMapping`; hai helper dùng chung `mockPutJson`.
     - `mocks/handlers.ts` có handler mặc định cho GET preview. **LÝ DO:** upload xong là bước Xem trước gọi preview ngay; không có handler thì mọi test upload cũ phụ thuộc may rủi thời gian (request bị huỷ lúc unmount trước khi MSW kịp báo lỗi).
 - [ ] 3.9 Chế độ `dev:mock`:
   - Tạo `mocks/browser.ts`; chạy `pnpm dlx msw init public/ --save` để sinh `public/mockServiceWorker.js`.
@@ -136,11 +139,16 @@
     - `schemaEdited` mang một `edit`: `add`, `update`, `remove`, `move`. Mọi thay đổi đưa schema về chưa lưu. Key sinh từ `nextFieldSeq` (`f1`, `f2`, …), không dùng lại sau khi xoá, và đếm lại từ `f1` khi có session mới.
     - `sectionSaved` mang đúng bản draft đã gửi; reducer chỉ đánh dấu đã lưu khi draft hiện tại vẫn là bản đó (so tham chiếu). **LÝ DO:** nếu user sửa trong lúc PUT đang chạy, bản đang hiển thị chưa được lưu. Từ review FE-F04, phần sửa bị khoá trong lúc lưu, nên phép so này là lớp phòng thủ thứ hai.
     - Reducer đọc `section` bằng `switch`: thêm section mới vào union mà quên nhánh thì compiler báo lỗi.
+  - FE-F05 đã xong `mappingEdited` và `sectionSaved` cho mapping, có test:
+    - `mappingEdited { key, mapping }`, với `mapping: null` là bỏ map.
+    - Schema sinh từ cột nguồn thì mapping được map sẵn theo tên cột. "Tạo lại từ file" thay mapping cùng field.
+    - Cascade từ schema: mọi thay đổi schema đưa mapping về chưa lưu (PUT /schema làm BE xoá mapping của tên cũ, `CONFIG_PRUNED`); đổi tên giữ mapping vì gắn theo key; xoá field thì xoá mapping của field đó; field tự thêm là chưa map.
     - Cascade sang mapping và rules làm ở F05–F07, khi có state tương ứng.
 - [ ] 4.2 TDD `wizard/guards.ts`: `canEnter(step, state)` trả `{allowed, reason}`; test đủ bảng điều kiện của spec `import-wizard`.
   - FE-F01 đã xong: Upload và Xem trước theo điều kiện thật. Các bước sau khoá kèm lý do, cho tới khi feature tương ứng đưa state của nó vào.
   - FE-F02 đã xong: bước Schema mở khi preview đã tải, kể cả file không có dòng dữ liệu; bước Xem trước được tính là "đã xong" khi có preview.
   - FE-F04 đã xong: bước Mapping mở khi schema đã lưu và có ít nhất một field; bước Schema "đã xong" theo cùng điều kiện.
+  - FE-F05 đã xong: bước Biến đổi & kiểm tra mở khi schema và mapping đều đã lưu; sửa schema là khoá lại cho tới khi mapping được lưu lại.
 - [x] 4.3 `WizardContext.tsx`, `WizardShell.tsx` và `shared/ui/Stepper`: 6 bước với trạng thái xong/đang ở/khoá; bấm bước bị khoá thì hiện lý do; khoá điều hướng khi `busy`; mỗi bước tạm là placeholder. Có component test.
   - **`WizardContext.tsx` được tách làm hai**: `wizard/context.ts` (context và hook `useWizard`) và `wizard/WizardProvider.tsx` (component). **LÝ DO:** luật `react/only-export-components` của oxlint (phục vụ Fast Refresh) không cho một file vừa export component vừa export hook.
   - `Stepper` là component generic, không biết gì về wizard; `WizardShell` tính trạng thái từng bước bằng `canEnter` và `isStepDone`.
@@ -268,6 +276,7 @@
   - ~~**Chưa kiểm với BE thật:** BE-F04 chưa có.~~ Đã kiểm với BE thật sau khi BE-F04 vào `dev` (`4803fd0`); kết quả ghi ở 13.4.
 - [ ] 7.4 Test tích hợp UI cho cascade:
   - Chưa làm ở FE-F04. **LÝ DO:** state của mapping, transformations và validations chưa tồn tại; mỗi ca cascade làm cùng feature đưa state đó vào (F05, F06, F07). Key cố định của field (D3) đã có sẵn cho việc này.
+  - FE-F05 đã xong hai ca đầu cho mapping, có test tích hợp UI: đổi tên field thì mapping giữ nguyên và lần PUT mapping kế tiếp gửi tên mới; xoá field thì mapping của nó không còn trong PUT. Hai ca về rule làm ở F06/F07.
   - đổi tên vẫn giữ mapping/rules, và các lần PUT mapping/transformations/validations sau đó gửi tên mới (BE đã xoá cấu hình của tên cũ khi PUT schema);
   - xoá field thì xoá cấu hình của field đó;
   - đổi kiểu khỏi `string` thì xoá rule `email`;
@@ -289,14 +298,38 @@
 
 ## 8. FE-F05 Mapping (spec field-mapping)
 
-- [ ] 8.1 TDD `domain/configRules.ts` phần mapping: field required chưa map → lỗi; field optional chưa map → cảnh báo; hằng rỗng → lỗi.
-- [ ] 8.2 `MappingStep`:
+- [x] 8.0 Map mặc định theo tên cột (spec field-mapping, requirement "Map mặc định theo tên cột"; bổ sung ngày 2026-09-26 cùng với việc sinh schema, design D20): field sinh từ cột nguồn map sẵn với cột cùng tên; field tự thêm là "Chưa map".
+- [x] 8.1 TDD `domain/configRules.ts` phần mapping: field required chưa map → lỗi; field optional chưa map → cảnh báo; hằng rỗng → lỗi.
+  - `checkMapping` trả vấn đề theo key và lý do khoá "Tiếp" liệt kê tên field theo thứ tự schema ("Field bắt buộc chưa map: …", "Giá trị cố định đang trống: …", nối bằng dấu chấm phẩy). Một cột dùng cho nhiều field là hợp lệ.
+- [x] 8.2 `MappingStep`:
   - mỗi field chọn Chưa map / Cột nguồn / Giá trị cố định;
   - danh sách cột theo thứ tự preview; tối đa 3 giá trị mẫu không rỗng;
   - cảnh báo và lỗi; nút "Tiếp" khoá kèm danh sách field lỗi.
 
   Có component test.
-- [ ] 8.3 Lưu khi bấm "Tiếp": PUT mapping chỉ gồm field đã map; bỏ qua nếu đã lưu; `422` (`SOURCE_COLUMN_NOT_FOUND` / `MAPPING_INVALID`) → lỗi tại dòng của field. Test với MSW, kiểm payload đúng scenario của spec.
+  - Mỗi field là một `<fieldset>` tên là tên field. Ô "Nguồn" là một `<select>`: "Chưa map", nhóm "Cột nguồn" theo thứ tự preview, rồi "Giá trị cố định…". Chọn giá trị cố định thì hiện ô nhập; chọn cột thì hiện tối đa 3 giá trị mẫu (bỏ ô rỗng hoặc chỉ khoảng trắng), lấy từ preview, không gọi API.
+  - Lỗi và cảnh báo gắn vào ô tương ứng qua `aria-describedby`; lỗi hằng rỗng gắn vào ô nhập, các vấn đề khác gắn vào ô chọn nguồn.
+  - Chọn "Giá trị cố định…" không tự đưa focus sang ô nhập. **LÝ DO:** trên Windows, Chrome phát `change` mỗi lần bấm mũi tên trên `<select>` đang đóng; tự chuyển focus sẽ cướp focus giữa lúc user đang lướt các lựa chọn.
+- [x] 8.3 Lưu khi bấm "Tiếp": PUT mapping chỉ gồm field đã map; bỏ qua nếu đã lưu; `422` (`SOURCE_COLUMN_NOT_FOUND` / `MAPPING_INVALID`) → lỗi tại dòng của field. Test với MSW, kiểm payload đúng scenario của spec.
+
+  - Có test: payload đúng scenario (hằng, cột, field chưa map bị bỏ); đã lưu và không sửa thì không PUT lại; đang lưu thì khoá phần sửa và điều hướng; `422 SOURCE_COLUMN_NOT_FOUND` hiện tại dòng field và focus ô nguồn của field đó (lỗi được render trước khi focus, `flushSync`); `404 SESSION_NOT_FOUND` có "Upload lại".
+  - Đã làm mutation check (không map sẵn theo tên cột, sửa schema không đưa mapping về chưa lưu, xoá field không xoá mapping, luôn PUT dù đã lưu, mẫu không bỏ ô trống, không khoá phần sửa khi lưu, `targetField` không chuẩn hoá): đều có test fail.
+  - Đã kiểm với BE thật (13.4).
+
+> **Review FE-F05** (senior-reviewer, 2026-09-26). Đã sửa, mỗi mục có test và đã làm mutation check:
+> - Lưu lỗi ở dòng giá trị cố định thì focus vào ô nhập giá trị (nơi mang lỗi), không vào ô chọn nguồn. Luồng báo lỗi và focus được gom thành `useSaveFeedback` + `SaveFailureBanner`, dùng chung cho Schema và Mapping.
+> - Sửa schema tạo tham chiếu mới cho `mapping.draft`, để `sectionSaved` của bản gửi trước đó không đánh dấu nhầm là đã lưu (design D2).
+> - Thêm test cho "sửa field khác thì xoá lỗi BE" và "lỗi session vẫn giữ nút Upload lại" ở bước Mapping.
+> - Câu xác nhận "Tạo lại từ file" nói rõ mapping cũng được đặt lại.
+> - Ô chọn nguồn được mô tả bằng kiểu, bắt buộc và giá trị mẫu cho screen reader.
+> - Map mặc định lấy tên cột từ `preview.columns`, không từ tên field. Có test: `sourceColumn` dạng NFD được gửi nguyên văn.
+> - Luật "giá trị cố định rỗng" theo đúng `String.isBlank()` của Java: NBSP không tính là rỗng, còn U+001C–U+001F thì có.
+> - Lướt qua lựa chọn khác rồi quay lại "Giá trị cố định…" thì giá trị đã gõ vẫn còn.
+> - Dòng mapping được `memo` với props ổn định, và giá trị mẫu tính một lần cho mỗi cột. Gõ vào một ô không render lại cả bảng.
+> - Test đổi tên so đủ danh sách payload; có test "quay lại Schema rồi trở lại vẫn giữ lựa chọn đang sửa"; test reducer phủ cả đổi kiểu, bắt buộc, thứ tự, thêm field.
+>
+> Không làm: hiện một lựa chọn riêng khi cột đã map không còn trong preview. **LÝ DO:** preview cố định theo session, và session mới thì schema lẫn mapping đều bị xoá, nên tình huống này không xảy ra được. Nếu sau này cho tải lại preview giữa chừng thì phải làm.
+> Chưa gom CSS trùng giữa các bước (tiêu đề, khung bảng). **LÝ DO:** rủi ro thấp; gom khi làm tới bước thứ ba dùng cùng khung.
 
 ## 9. FE-F06/F07 Transform & Validate (spec rule-config)
 
@@ -395,5 +428,10 @@
     - `GET /api/import-sessions/{id}`: `status = READY`, `config.schema` khớp 6 field đã gửi, `readiness = {ready: true, issues: []}`.
     - `422` thật (gọi thẳng BE): `errors[]` có `field: "email"` cho field trùng tên đứng sau, và `field: null` cho tên rỗng và kiểu lạ. Khớp cách FE ghép lỗi (`matchServerErrors`). Session vẫn `READY`, không lưu gì.
     - BE hiện mới trả `config.schema` (chưa có mapping, transformations, validations). Đã sửa `dto.ts` cho các phần đó là tuỳ chọn, và thêm `config`/`readiness` vào fixture session cho giống response thật.
+    - Console không có lỗi.
+  - **FE-F05 (2026-09-26)**, BE `dev` `b8ff03c` (có BE-F05) chạy ở 8081, Chrome headless:
+    - Vào bước Mapping sau khi lưu schema 6 field: mỗi field map sẵn với cột cùng tên, có 3 giá trị mẫu; "Mã KH" (bắt buộc) có nhãn "Bắt buộc".
+    - Đổi "Họ tên" sang giá trị cố định `Khách lẻ`, bỏ map "Ngày sinh" (hiện cảnh báo "Chưa map (field không bắt buộc)"), rồi bấm "Tiếp": `PUT /mapping` trả `200`, body có 5 phần tử theo thứ tự schema (không có "Ngày sinh"). Wizard sang bước Biến đổi & kiểm tra, bước Mapping "đã xong".
+    - `GET /api/import-sessions/{id}`: `status = READY`, `readiness.ready = true`, `config.mapping` khớp đúng body đã gửi.
     - Console không có lỗi.
 - [ ] 13.5 `pnpm test`, `pnpm lint`, `pnpm build` đều xanh; đối chiếu từng mục "Done when" phía FE của F01–F11 trong Notion.

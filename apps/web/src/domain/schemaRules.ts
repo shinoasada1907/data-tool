@@ -66,7 +66,7 @@ export interface ServerErrors {
  * từng field; lỗi không có `field`, hoặc tên không khớp field nào, đưa lên đầu form (spec target-schema).
  */
 export function matchServerErrors(
-  fields: TargetField[],
+  fields: readonly TargetField[],
   items: readonly { field: string | null; message: string }[],
 ): ServerErrors {
   const byKey: Record<FieldKey, string> = {}

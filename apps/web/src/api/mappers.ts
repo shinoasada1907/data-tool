@@ -1,6 +1,6 @@
 import { normalizeFieldName } from '../domain/schemaRules'
-import type { SessionInfo, SourcePreview, TargetField } from '../domain/types'
-import type { ImportSessionDto, SourcePreviewDto, TargetSchemaDto } from './dto'
+import type { MappingDraft, SessionInfo, SourcePreview, TargetField } from '../domain/types'
+import type { ImportSessionDto, MappingConfigDto, SourcePreviewDto, TargetSchemaDto } from './dto'
 
 // Chuyển DTO ↔ model nội bộ (design D5). Mỗi feature thêm phần của mình.
 
@@ -32,5 +32,22 @@ export function toTargetSchemaDto(fields: TargetField[]): TargetSchemaDto {
       required: field.required,
       order,
     })),
+  }
+}
+
+/**
+ * Chỉ gồm field đã map, theo thứ tự schema; `targetField` là tên hiện tại của field (đã chuẩn hoá như khi PUT schema),
+ * nên đổi tên field thì lần PUT mapping kế tiếp gửi tên mới (spec field-mapping).
+ */
+export function toMappingConfigDto(fields: readonly TargetField[], mapping: MappingDraft): MappingConfigDto {
+  return {
+    mappings: fields.flatMap((field): MappingConfigDto['mappings'] => {
+      const current = mapping[field.key]
+      if (!current) return []
+      const targetField = normalizeFieldName(field.name)
+      return current.kind === 'column'
+        ? [{ targetField, mappingType: 'SOURCE_COLUMN', sourceColumn: current.column, constantValue: null }]
+        : [{ targetField, mappingType: 'CONSTANT', sourceColumn: null, constantValue: current.value }]
+    }),
   }
 }

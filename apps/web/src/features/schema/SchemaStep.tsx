@@ -1,29 +1,20 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { ApiError, isSessionUnusable } from '../../api/apiError'
 import { putSchema } from '../../api/endpoints'
 import { toTargetSchemaDto } from '../../api/mappers'
-import { checkSchema, matchServerErrors } from '../../domain/schemaRules'
+import { checkSchema } from '../../domain/schemaRules'
 import { FIELD_TYPES, type FieldKey, type FieldType, type TargetField } from '../../domain/types'
-import { describeApiError, type ErrorText } from '../../shared/describeError'
 import { messages, stepLabels } from '../../shared/messages'
 import { ConfirmPanel } from '../../shared/ui/ConfirmPanel'
 import { EmptyState } from '../../shared/ui/EmptyState'
-import { ErrorBanner } from '../../shared/ui/ErrorBanner'
 import { ArrowDownIcon, ArrowUpIcon, PlusIcon, TrashIcon } from '../../shared/ui/icons'
 import { useWizard } from '../../wizard/context'
+import { SaveFailureBanner } from '../../wizard/SaveFailureBanner'
 import { isBusy, type SchemaEdit } from '../../wizard/state'
 import { StepActions } from '../../wizard/StepActions'
 import { useBusyRequest } from '../../wizard/useBusyRequest'
+import { useSaveFeedback } from '../../wizard/useSaveFeedback'
 import styles from './SchemaStep.module.css'
-
-interface Failure {
-  text: ErrorText
-  /** `errors[]` của BE không gắn được vào field nào. */
-  items: string[]
-  /** Session hết hạn hoặc hỏng: chỉ còn cách upload lại (design D12). */
-  reupload: boolean
-}
 
 /** Chỗ focus sau khi danh sách field đổi, vì control đang giữ focus có thể vừa biến mất hoặc bị khoá (design D14). */
 type PendingFocus =
@@ -44,8 +35,7 @@ export function SchemaStep() {
   const saving = isBusy(state)
   // Field đã có lúc mở bước đều đã từng được focus (lúc thêm), nên coi như đã rời ô: quay lại bước vẫn thấy lỗi.
   const [touched, setTouched] = useState<ReadonlySet<FieldKey>>(() => new Set(fields.map((field) => field.key)))
-  const [serverErrors, setServerErrors] = useState<Record<FieldKey, string>>({})
-  const [failure, setFailure] = useState<Failure | null>(null)
+  const { serverErrors, failure, clearBeforeSave, clearOnEdit, report } = useSaveFeedback()
   const [confirmingRegenerate, setConfirmingRegenerate] = useState(false)
   const pendingFocus = useRef<PendingFocus | null>(null)
   const regenerateButtonRef = useRef<HTMLButtonElement>(null)
@@ -62,10 +52,7 @@ export function SchemaStep() {
 
   function edit(schemaEdit: SchemaEdit, focus?: PendingFocus) {
     pendingFocus.current = focus ?? null
-    // Lỗi BE và khối lỗi nói về bản đã gửi; sửa bất kỳ field nào (ví dụ đổi tên field kia cho hết trùng) là bản đó không
-    // còn nữa. Riêng lỗi session hỏng thì sửa gì cũng không hết, nên giữ nút "Upload lại".
-    setServerErrors({})
-    setFailure((current) => (current?.reupload ? current : null))
+    clearOnEdit()
     dispatch({ type: 'schemaEdited', edit: schemaEdit })
   }
 
@@ -104,39 +91,15 @@ export function SchemaStep() {
     if (!state.session) return
     const draft = fields
     const sessionId = state.session.id
-    setFailure(null)
-    setServerErrors({})
+    clearBeforeSave()
     try {
       await runBusy(() => putSchema(sessionId, toTargetSchemaDto(draft)))
       dispatch({ type: 'sectionSaved', section: 'schema', draft })
       dispatch({ type: 'navigate', step: 'mapping' })
     } catch (error) {
-      showSaveError(error, draft)
+      // Lỗi của field nằm ở ô tên.
+      report(error, draft, (key) => focusControl(rows.current.get(key)?.querySelector('[data-action="name"]')), titleRef.current)
     }
-  }
-
-  function showSaveError(error: unknown, draft: TargetField[]) {
-    if (!(error instanceof ApiError)) {
-      // Lỗi lập trình: user chỉ thấy câu chung, nên stack phải nằm ở console.
-      console.error(error)
-      setFailure({ text: { headline: messages.unexpected }, items: [], reupload: false })
-      titleRef.current?.focus()
-      return
-    }
-    const matched = matchServerErrors(draft, error.fieldErrors)
-    // Gắn lỗi vào DOM trước rồi mới focus: screen reader đọc ô lúc nó nhận focus, thuộc tính gắn sau không được đọc lại.
-    flushSync(() => {
-      setServerErrors(matched.byKey)
-      setFailure({
-        text: describeApiError(error) ?? { headline: messages.unexpected },
-        items: matched.general,
-        reupload: isSessionUnusable(error),
-      })
-    })
-    // Nút "Tiếp" bị khoá trong lúc lưu nên đã mất focus: đưa tới field lỗi đầu tiên, hoặc tiêu đề bước.
-    const firstInvalid = draft.find((field) => matched.byKey[field.key])
-    if (firstInvalid) focusPending({ kind: 'name', key: firstInvalid.key }, draft, rows.current, addButtonRef.current)
-    else titleRef.current?.focus()
   }
 
   return (
@@ -148,17 +111,7 @@ export function SchemaStep() {
         <p className={styles.intro}>{messages.schema.intro}</p>
       </div>
 
-      {failure && (
-        <ErrorBanner
-          text={failure.text}
-          items={failure.items}
-          action={
-            failure.reupload
-              ? { label: messages.sessionUnusableAction, onClick: () => dispatch({ type: 'reset' }) }
-              : undefined
-          }
-        />
-      )}
+      {failure && <SaveFailureBanner failure={failure} />}
 
       <fieldset className={styles.editor} disabled={saving}>
         <legend className="sr-only">{messages.schema.editorLabel}</legend>
@@ -351,6 +304,11 @@ function FieldRow({ field, position, isFirst, isLast, error, rowRef, onNameBlur,
       </fieldset>
     </li>
   )
+}
+
+function focusControl(element: HTMLElement | null | undefined): boolean {
+  element?.focus()
+  return Boolean(element)
 }
 
 function focusPending(

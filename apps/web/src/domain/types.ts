@@ -41,3 +41,9 @@ export interface TargetField {
   type: FieldType
   required: boolean
 }
+
+/** Nguồn giá trị của một target field. Field chưa map thì không có mặt trong mapping. */
+export type FieldMapping = { kind: 'column'; column: string } | { kind: 'constant'; value: string }
+
+/** Mapping theo key của field (design D3), nên đổi tên field không làm mất mapping. */
+export type MappingDraft = Readonly<Record<FieldKey, FieldMapping>>

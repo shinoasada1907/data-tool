@@ -9,7 +9,7 @@ function locked(reason: string): Guard {
   return { allowed: false, reason }
 }
 
-/** Bước đã hoàn tất, để stepper hiện "đã xong". Lát FE-F04 mới có Upload, Xem trước và Schema. */
+/** Bước đã hoàn tất, để stepper hiện "đã xong". Lát FE-F05 mới có Upload, Xem trước, Schema và Mapping. */
 export function isStepDone(step: StepId, state: WizardState): boolean {
   switch (step) {
     case 'upload':
@@ -18,6 +18,8 @@ export function isStepDone(step: StepId, state: WizardState): boolean {
       return state.preview !== null
     case 'schema':
       return hasSavedSchema(state)
+    case 'mapping':
+      return hasSavedMapping(state)
     default:
       return false
   }
@@ -25,7 +27,7 @@ export function isStepDone(step: StepId, state: WizardState): boolean {
 
 /**
  * Điều kiện vào từng bước (spec import-wizard, "Chặn tiến tới bước khi thiếu phụ thuộc").
- * Lát FE-F04 mới có session, preview và schema; các bước sau được mở dần theo từng feature.
+ * Lát FE-F05 mới có session, preview, schema và mapping; các bước sau được mở dần theo từng feature.
  */
 export function canEnter(step: StepId, state: WizardState): Guard {
   switch (step) {
@@ -38,7 +40,7 @@ export function canEnter(step: StepId, state: WizardState): Guard {
     case 'mapping':
       return hasSavedSchema(state) ? ALLOWED : locked(messages.guard.needSchema)
     case 'rules':
-      return locked(messages.guard.needMapping)
+      return hasSavedMapping(state) ? ALLOWED : locked(messages.guard.needMapping)
     case 'result':
       return locked(messages.guard.needResult)
   }
@@ -46,4 +48,9 @@ export function canEnter(step: StepId, state: WizardState): Guard {
 
 function hasSavedSchema(state: WizardState): boolean {
   return state.schema.saved && state.schema.draft.length > 0
+}
+
+/** Điều kiện của Mapping, và mapping đã lưu (spec import-wizard). */
+function hasSavedMapping(state: WizardState): boolean {
+  return hasSavedSchema(state) && state.mapping.saved
 }

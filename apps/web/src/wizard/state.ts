@@ -1,4 +1,4 @@
-import type { FieldKey, FieldType, SessionInfo, SourcePreview, TargetField } from '../domain/types'
+import type { FieldKey, FieldMapping, FieldType, MappingDraft, SessionInfo, SourcePreview, TargetField } from '../domain/types'
 
 export const STEPS = ['upload', 'preview', 'schema', 'mapping', 'rules', 'result'] as const
 export type StepId = (typeof STEPS)[number]
@@ -9,7 +9,7 @@ export interface Section<T> {
   saved: boolean
 }
 
-// Lát FE-F04. Các feature sau thêm mapping, rules, result (design D2).
+// Lát FE-F05. Các feature sau thêm rules, result (design D2).
 export interface WizardState {
   step: StepId
   /** Số request làm đổi state đang chạy. Lớn hơn 0 thì khoá điều hướng (xem isBusy). */
@@ -20,6 +20,8 @@ export interface WizardState {
   /** Tải một lần cho mỗi session; null khi chưa tải xong (spec source-preview). */
   preview: SourcePreview | null
   schema: Section<TargetField[]>
+  /** Theo key của field; field chưa map thì không có mặt. */
+  mapping: Section<MappingDraft>
 }
 
 export const initialWizardState: WizardState = {
@@ -29,6 +31,7 @@ export const initialWizardState: WizardState = {
   session: null,
   preview: null,
   schema: { draft: [], saved: false },
+  mapping: { draft: {}, saved: false },
 }
 
 export type SchemaEdit =
@@ -44,8 +47,11 @@ export type WizardAction =
   /** `sessionId`: id FE đã dùng để gửi request (không phải field BE gửi lại). */
   | { type: 'previewLoaded'; sessionId: string; preview: SourcePreview }
   | { type: 'schemaEdited'; edit: SchemaEdit }
+  /** `mapping: null` là bỏ map field đó. */
+  | { type: 'mappingEdited'; key: FieldKey; mapping: FieldMapping | null }
   /** `draft`: đúng bản đã gửi đi; nếu user đã sửa tiếp trong lúc chờ thì bản hiện tại vẫn là chưa lưu. */
   | { type: 'sectionSaved'; section: 'schema'; draft: TargetField[] }
+  | { type: 'sectionSaved'; section: 'mapping'; draft: MappingDraft }
   | { type: 'navigate'; step: StepId }
   | { type: 'requestStarted' }
   | { type: 'requestSettled' }

@@ -19,6 +19,21 @@ Với mỗi target field (theo thứ tự schema), FE SHALL cho chọn một tro
 - **WHEN** field `name` và field `display_name` cùng được map với cột `Họ tên`
 - **THEN** FE chấp nhận và không báo lỗi
 
+### Requirement: Map mặc định theo tên cột
+Field được sinh từ cột nguồn (spec target-schema, "Sinh schema từ cột nguồn") SHALL được map sẵn với cột nguồn cùng tên. Field user tự thêm SHALL bắt đầu ở trạng thái "Chưa map". Đổi tên field MUST NOT làm đổi cột nguồn đã map.
+
+#### Scenario: Vào bước Mapping lần đầu
+- **WHEN** schema được sinh từ các cột `["Mã", "Email"]` và user vào bước Mapping
+- **THEN** field `Mã` map với cột `Mã`, field `Email` map với cột `Email`
+
+#### Scenario: Đổi tên field đã map
+- **WHEN** field `Email` (map với cột `Email`) được đổi tên thành `email_address` ở bước Schema
+- **THEN** ở bước Mapping, field `email_address` vẫn map với cột `Email`, và lần PUT mapping kế tiếp gửi `targetField: "email_address"`
+
+#### Scenario: Xoá field đã map
+- **WHEN** user xoá field `Email` ở bước Schema
+- **THEN** mapping của field đó bị xoá khỏi state và không xuất hiện trong lần PUT mapping kế tiếp
+
 ### Requirement: Cảnh báo và chặn field chưa map
 FE MUST phân loại tình trạng mapping của từng field như sau:
 - field optional chưa map: chỉ cảnh báo;

@@ -2,7 +2,7 @@ import { http, HttpResponse } from 'msw'
 import { describe, expect, test } from 'vitest'
 import { configUpdateFixture, csvPreviewFixture, problemFixture } from '../mocks/fixtures'
 import { server } from '../mocks/node'
-import { getPreview, putSchema } from './endpoints'
+import { getPreview, putMapping, putSchema } from './endpoints'
 
 describe('getPreview', () => {
   test('gọi GET /api/import-sessions/{id}/preview?limit=50 và trả về SourcePreviewDto', async () => {
@@ -66,5 +66,26 @@ describe('putSchema', () => {
       code: 'SCHEMA_INVALID',
       fieldErrors: [{ field: 'email', code: 'SCHEMA_INVALID', message: 'Duplicate field name.' }],
     })
+  })
+})
+
+describe('putMapping', () => {
+  const mapping = {
+    mappings: [
+      { targetField: 'email', mappingType: 'SOURCE_COLUMN' as const, sourceColumn: 'E-mail', constantValue: null },
+    ],
+  }
+
+  test('gửi PUT /api/import-sessions/{id}/mapping với body là MappingConfigDto; 200 thì resolve', async () => {
+    let received: { path: string; body: unknown } | null = null
+    server.use(
+      http.put('/api/import-sessions/:id/mapping', async ({ request }) => {
+        received = { path: new URL(request.url).pathname, body: await request.json() }
+        return HttpResponse.json(configUpdateFixture())
+      }),
+    )
+
+    await expect(putMapping('s-1', mapping)).resolves.toBeUndefined()
+    expect(received).toEqual({ path: '/api/import-sessions/s-1/mapping', body: mapping })
   })
 })

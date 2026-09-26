@@ -130,6 +130,26 @@ export const messages = {
     noRowsHint: 'Vẫn có thể khai báo schema và mapping dựa trên các cột ở trên.',
   },
 
+  mapping: {
+    intro: 'Chọn nguồn giá trị cho từng field: một cột của file, hoặc một giá trị cố định.',
+    editorLabel: 'Mapping các field',
+    columns: { field: 'Field đích', source: 'Nguồn', value: 'Giá trị' },
+    sourceLabel: 'Nguồn',
+    unmapped: 'Chưa map',
+    columnsGroup: 'Cột nguồn',
+    constantOption: 'Giá trị cố định…',
+    constantLabel: 'Giá trị cố định',
+    samplesLabel: 'Giá trị mẫu',
+    noSamples: 'Không có giá trị mẫu trong dữ liệu xem trước',
+    requiredBadge: 'Bắt buộc',
+    typeLabel: 'Kiểu',
+    optionalUnmapped: 'Chưa map (field không bắt buộc)',
+    requiredUnmapped: 'Field bắt buộc chưa được map',
+    blankConstant: 'Giá trị cố định không được để trống',
+    blockedRequired: (names: string[]) => `Field bắt buộc chưa map: ${names.join(', ')}`,
+    blockedConstant: (names: string[]) => `Giá trị cố định đang trống: ${names.join(', ')}`,
+  },
+
   schema: {
     intro: 'Khai báo các field của dữ liệu đích. Thứ tự ở đây là thứ tự cột khi xuất file.',
     editorLabel: 'Danh sách field',
@@ -138,7 +158,7 @@ export const messages = {
     add: 'Thêm field',
     regenerate: 'Tạo lại từ file',
     regenerateConfirm: (current: number, columns: number) =>
-      `Thay toàn bộ ${current} field hiện có bằng ${columns} field sinh từ các cột của file?`,
+      `Thay toàn bộ ${current} field hiện có bằng ${columns} field sinh từ các cột của file? Mapping cũng được đặt lại theo tên cột.`,
     regenerateAction: 'Tạo lại',
     cancel: 'Huỷ',
     group: (position: number) => `Field ${position}`,

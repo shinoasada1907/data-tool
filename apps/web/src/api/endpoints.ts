@@ -1,5 +1,5 @@
 import { request } from './client'
-import type { SourcePreviewDto, TargetSchemaDto } from './dto'
+import type { MappingConfigDto, SourcePreviewDto, TargetSchemaDto } from './dto'
 
 // Các endpoint FE dùng (design → API contract V0.1). Upload nằm riêng ở upload.ts vì cần XHR.
 
@@ -20,6 +20,15 @@ export async function putSchema(sessionId: string, schema: TargetSchemaDto): Pro
   await request(`${SESSIONS}/${encodeURIComponent(sessionId)}/schema`, {
     method: 'PUT',
     body: schema,
+    validate: isConfigUpdateResponse,
+  })
+}
+
+/** Ghi đè toàn bộ mapping (chỉ gồm field đã map). Body `{ session, warnings }` được bỏ qua (design D6). */
+export async function putMapping(sessionId: string, mapping: MappingConfigDto): Promise<void> {
+  await request(`${SESSIONS}/${encodeURIComponent(sessionId)}/mapping`, {
+    method: 'PUT',
+    body: mapping,
     validate: isConfigUpdateResponse,
   })
 }
