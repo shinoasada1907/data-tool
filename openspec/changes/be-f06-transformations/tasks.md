@@ -436,7 +436,13 @@
 
 ## 11. Kiểm tra toàn bộ và hoàn tất
 
-- [ ] 11.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, kể cả ArchitectureTest.
-- [ ] 11.2 Chạy app thật và gọi `curl -X PUT` tới `/transformations` với một body hợp lệ và một body lỗi. Kiểm tra 200/422 và log không chứa giá trị ô.
+- [x] 11.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, kể cả ArchitectureTest.
+  - Kết quả 2026-09-26: 55 suite, 486 test, 0 failure, 0 error.
+- [x] 11.2 Chạy app thật và gọi `curl -X PUT` tới `/transformations` với một body hợp lệ và một body lỗi. Kiểm tra 200/422 và log không chứa giá trị ô.
+  - Chạy ở cổng 8081 từ worktree BE; body gửi bằng `--data-binary @file` (UTF-8). Kết quả:
+    - hợp lệ → 200, các bước trả về theo thứ tự `name/trim`, `name/uppercase`, `dob/dateFormat`, và `params` của trim là `{}`;
+    - 3 bước lỗi → 422 `CONFIG_INVALID` với 4 item (type lạ, field không có, pattern thiếu ngày, field date mà output không phải ISO);
+    - `"order":"abc"` → 400 `REQUEST_INVALID`.
+  - Log app không chứa giá trị ô.
 - [ ] 11.3 Tick đủ checkbox; chỗ nào làm khác kế hoạch thì gạch ngang và ghi LÝ DO. Commit: `docs(openspec): complete be-f06 tasks`
 - [ ] 11.4 Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f06-transformations -y`.
