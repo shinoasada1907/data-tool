@@ -2,7 +2,6 @@ package com.universalimporter.infrastructure.persistence;
 
 import com.universalimporter.domain.config.ImportConfiguration;
 import com.universalimporter.domain.config.ImportConfigurationRepository;
-import com.universalimporter.domain.mapping.MappingConfig;
 import org.springframework.stereotype.Repository;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -30,15 +29,17 @@ public class JpaImportConfigurationRepository implements ImportConfigurationRepo
     @Override
     public ImportConfiguration save(ImportConfiguration configuration, Instant now) {
         String schemaJson = JSON.writeValueAsString(TargetSchemaDocument.from(configuration.schema()));
-        ImportConfigurationEntity entity =
-                new ImportConfigurationEntity(configuration.sessionId(), schemaJson, configuration.version(), now);
+        String mappingJson = JSON.writeValueAsString(MappingDocument.from(configuration.mapping()));
+        ImportConfigurationEntity entity = new ImportConfigurationEntity(
+                configuration.sessionId(), schemaJson, mappingJson, configuration.version(), now);
         // Flush now so the returned configuration carries the version the database really holds.
         return toDomain(jpa.saveAndFlush(entity));
     }
 
     private static ImportConfiguration toDomain(ImportConfigurationEntity entity) {
         TargetSchemaDocument schema = JSON.readValue(entity.getTargetSchemaJson(), TargetSchemaDocument.class);
-        return new ImportConfiguration(entity.getSessionId(), schema.toDomain(), MappingConfig.empty(),
+        MappingDocument mapping = JSON.readValue(entity.getMappingJson(), MappingDocument.class);
+        return new ImportConfiguration(entity.getSessionId(), schema.toDomain(), mapping.toDomain(),
                 entity.getVersion());
     }
 }

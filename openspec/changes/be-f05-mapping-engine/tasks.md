@@ -138,17 +138,19 @@
   }
   ```
 
-- [ ] 4.1 Thêm test:
+- [x] 4.1 Thêm test:
   | Test | Case | Mong đợi |
   |---|---|---|
   | Repository | Lưu cấu hình có mapping `name ← "Họ tên"`, `country ← "VN"`, rồi đọc lại | mapping đọc ra bằng bản đã lưu |
   | Repository | Đọc một row có `mapping_json` bằng giá trị mặc định | `mapping` là `MappingConfig.empty()` |
   | Hasher | Hai cấu hình cùng schema, khác mapping | hai hash khác nhau |
   | Hasher | Cùng mapping, `define` từ hai input khác thứ tự | hai hash giống nhau (nhờ đã chuẩn hoá thứ tự, M1) |
-- [ ] 4.2 Chạy `./mvnw -q test -Dtest=JpaImportConfigurationRepositoryTest,JsonConfigHasherTest`. Mong đợi: FAIL.
-- [ ] 4.3 Cài `MappingDocument`; đọc/ghi cột `mapping_json`; hasher thêm mapping theo thứ tự S7.
-- [ ] 4.4 Chạy lại lệnh ở 4.2. Mong đợi: PASS.
-- [ ] 4.5 Commit: `feat(infra): persist and hash field mappings`
+- [x] 4.2 Chạy `./mvnw -q test -Dtest=JpaImportConfigurationRepositoryTest,JsonConfigHasherTest`. Mong đợi: FAIL.
+- [x] 4.3 Cài `MappingDocument`; đọc/ghi cột `mapping_json`; hasher thêm mapping theo thứ tự S7.
+  - ~~`public record MappingDocument`~~ → record package-private. **LÝ DO:** giống `TargetSchemaDocument` của F04 và `SourceSchemaDocument` của F02; chỉ adapter và hasher cùng package dùng nó.
+  - Case "row có `mapping_json` bằng giá trị mặc định" được dựng bằng `INSERT` native không có cột `mapping_json`, đúng như row do F04 để lại.
+- [x] 4.4 Chạy lại lệnh ở 4.2. Mong đợi: PASS.
+- [x] 4.5 Commit: `feat(infra): persist and hash field mappings`
 
 ## 5. Use case `updateMapping`
 

@@ -1,11 +1,15 @@
 package com.universalimporter.infrastructure.persistence;
 
 import com.universalimporter.domain.config.ImportConfiguration;
+import com.universalimporter.domain.mapping.MappingConfig;
+import com.universalimporter.domain.mapping.MappingSpec;
 import com.universalimporter.domain.importsession.ImportSession;
 import com.universalimporter.domain.importsession.SourceFile;
 import com.universalimporter.domain.importsession.SourceFileType;
 import com.universalimporter.domain.schema.FieldSpec;
 import com.universalimporter.domain.schema.TargetSchema;
+import com.universalimporter.domain.source.SourceColumn;
+import com.universalimporter.domain.source.SourceSchema;
 import com.universalimporter.support.TestcontainersConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -70,6 +74,34 @@ class JpaImportConfigurationRepositoryTest {
                 new FieldSpec(" name ", "string", false, 7), new FieldSpec("email", "email", true, 9)))).configuration();
 
         assertThat(hasher.hash(repository.findBySessionId(ID).orElseThrow())).isEqualTo(hasher.hash(redefined));
+    }
+
+    @Test
+    void reads_back_the_saved_mapping() {
+        TargetSchema schema = TargetSchema.define(List.of(
+                new FieldSpec("name", "string", true, 0), new FieldSpec("country", "string", false, 1)));
+        SourceSchema source = new SourceSchema(List.of(new SourceColumn(0, "Họ tên")), 1, null);
+        MappingConfig mapping = MappingConfig.define(List.of(
+                new MappingSpec("name", "SOURCE_COLUMN", "Họ tên", null),
+                new MappingSpec("country", "CONSTANT", null, "VN")), schema, source);
+        ImportConfiguration configuration =
+                ImportConfiguration.empty(ID).withSchema(schema).configuration().withMapping(mapping).configuration();
+
+        repository.save(configuration, T0);
+        flushAndClear();
+
+        assertThat(repository.findBySessionId(ID).orElseThrow().mapping()).isEqualTo(mapping);
+    }
+
+    @Test
+    void a_row_stored_before_mappings_existed_has_the_empty_mapping() {
+        // What an F04 row looks like: mapping_json left at its column default.
+        entityManager.getEntityManager().createNativeQuery("INSERT INTO import_configuration "
+                        + "(session_id, target_schema_json, version, updated_at) VALUES (:id, '{\"fields\": []}', 0, now())")
+                .setParameter("id", ID)
+                .executeUpdate();
+
+        assertThat(repository.findBySessionId(ID).orElseThrow().mapping()).isEqualTo(MappingConfig.empty());
     }
 
     @Test

@@ -24,7 +24,8 @@ public class JsonConfigHasher implements ConfigHasher {
 
     @Override
     public String hash(ImportConfiguration configuration) {
-        byte[] json = JSON.writeValueAsBytes(new HashedContent(TargetSchemaDocument.from(configuration.schema())));
+        byte[] json = JSON.writeValueAsBytes(new HashedContent(
+                TargetSchemaDocument.from(configuration.schema()), MappingDocument.from(configuration.mapping())));
         return HexFormat.of().formatHex(sha256().digest(json));
     }
 
@@ -36,7 +37,7 @@ public class JsonConfigHasher implements ConfigHasher {
         }
     }
 
-    /** The hashed documents, in a fixed order; F05-F07 add mapping, transformations and validations. */
-    private record HashedContent(TargetSchemaDocument schema) {
+    /** The hashed documents, in a fixed order; F06-F07 add transformations and validations. */
+    private record HashedContent(TargetSchemaDocument schema, MappingDocument mapping) {
     }
 }

@@ -2,8 +2,11 @@ package com.universalimporter.infrastructure.persistence;
 
 import com.universalimporter.domain.config.ImportConfiguration;
 import com.universalimporter.domain.mapping.MappingConfig;
+import com.universalimporter.domain.mapping.MappingSpec;
 import com.universalimporter.domain.schema.FieldSpec;
 import com.universalimporter.domain.schema.TargetSchema;
+import com.universalimporter.domain.source.SourceColumn;
+import com.universalimporter.domain.source.SourceSchema;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -37,6 +40,29 @@ class JsonConfigHasherTest {
         UUID other = UUID.fromString("11111111-2222-3333-4444-555555555555");
 
         assertThat(hasher.hash(configuration(ID, null, true))).isEqualTo(hasher.hash(configuration(other, 7L, true)));
+    }
+
+    @Test
+    void a_different_mapping_changes_the_hash() {
+        assertThat(hasher.hash(mapped(sc("name", "Họ tên"), sc("email", "email"))))
+                .isNotEqualTo(hasher.hash(mapped(sc("name", "Họ tên"))));
+    }
+
+    @Test
+    void the_same_mapping_sent_in_another_order_hashes_the_same() {
+        assertThat(hasher.hash(mapped(sc("email", "email"), sc("name", "Họ tên"))))
+                .isEqualTo(hasher.hash(mapped(sc("name", "Họ tên"), sc("email", "email"))));
+    }
+
+    private static MappingSpec sc(String target, String column) {
+        return new MappingSpec(target, "SOURCE_COLUMN", column, null);
+    }
+
+    private static ImportConfiguration mapped(MappingSpec... specs) {
+        ImportConfiguration configuration = configuration(ID, null, true);
+        SourceSchema source = new SourceSchema(List.of(new SourceColumn(0, "Họ tên"), new SourceColumn(1, "email")), 1, null);
+        return configuration.withMapping(MappingConfig.define(List.of(specs), configuration.schema(), source))
+                .configuration();
     }
 
     private static ImportConfiguration configuration(UUID sessionId, Long version, boolean emailRequired) {
