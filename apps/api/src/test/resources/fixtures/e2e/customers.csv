@@ -1,0 +1,5 @@
+Name,Email,Birth Date,Active,Score
+  An Nguyen ,AN@EXAMPLE.COM,25/12/1990,true,10
+Binh,binh@example.com,31/02/1991,yes,x
+Chi,an@example.com,01/01/1992,0,7.5
+,dung@example.com,02/02/1993,1,8

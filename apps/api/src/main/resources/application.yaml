@@ -26,6 +26,12 @@ server:
 importer:
   storage:
     dir: ${IMPORTER_STORAGE_DIR:${java.io.tmpdir}/universal-importer}
+  cleanup:
+    # Deletes sessions not changed for session-ttl, with their files, and storage directories no session owns
+    # (BE-F11). Every instance needs its own storage directory: a directory another database knows is an orphan here.
+    enabled: true
+    session-ttl: ${IMPORTER_SESSION_TTL:24h}
+    interval: PT1H
   xlsx:
     # Zip bomb guard for uploaded workbooks (BE-F03 design X4).
     max-uncompressed-size: ${IMPORTER_XLSX_MAX_UNCOMPRESSED_SIZE:200MB}

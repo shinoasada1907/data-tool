@@ -62,6 +62,52 @@ class SessionLocksTest {
     }
 
     @Test
+    void try_run_runs_when_the_session_is_free() {
+        boolean[] ran = {false};
+
+        assertThat(locks.tryRun(A, () -> ran[0] = true)).isTrue();
+        assertThat(ran[0]).isTrue();
+    }
+
+    @Test
+    void try_run_gives_up_at_once_when_another_thread_holds_the_session() throws Exception {
+        CountDownLatch held = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        boolean[] ran = {false};
+        try (ExecutorService pool = Executors.newSingleThreadExecutor()) {
+            pool.submit(() -> locks.withLock(A, () -> {
+                held.countDown();
+                try {
+                    release.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return null;
+            }));
+            try {
+                assertThat(held.await(5, TimeUnit.SECONDS)).isTrue();
+
+                assertThat(locks.tryRun(A, () -> ran[0] = true)).isFalse();
+                assertThat(ran[0]).isFalse();
+            } finally {
+                release.countDown();
+            }
+        }
+        assertThat(locks.tryRun(A, () -> ran[0] = true)).isTrue();
+    }
+
+    @Test
+    void try_run_releases_the_lock_when_the_action_fails() throws Exception {
+        assertThatThrownBy(() -> locks.tryRun(A, () -> {
+            throw new IllegalStateException("boom");
+        })).hasMessage("boom");
+
+        try (ExecutorService pool = Executors.newSingleThreadExecutor()) {
+            assertThat(pool.submit(() -> locks.tryRun(A, () -> { })).get(2, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    @Test
     void the_lock_is_reentrant() {
         assertThat(locks.withLock(A, () -> locks.withLock(A, () -> 1))).isEqualTo(1);
     }

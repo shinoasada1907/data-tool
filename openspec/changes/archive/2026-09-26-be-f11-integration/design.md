@@ -43,6 +43,11 @@
 ## Decisions
 
 ### F11-D1. Dọn session hết hạn
+
+> *(Sửa sau review, xem tasks 10.2b)*:
+> - Thứ tự đổi thành **row trước, file sau**. Row được xoá bằng `DELETE … WHERE id = :id AND updated_at < :cutoff`, nên việc kiểm lại và việc xoá là một lệnh nguyên tử trong DB.
+> - File không xoá được thì thành mồ côi và được dọn sau. Người dùng không bao giờ thấy một session còn row mà mất file nguồn.
+> - Phần dưới đây giữ nguyên làm lịch sử.
 - `SessionCleanupService.cleanupExpired(Instant now)` trả `CleanupReport(deletedSessions, deletedOrphans, skipped, failures)`.
 - `cutoff = now − sessionTtl`. Lấy `findIdsUpdatedBefore(cutoff, 500)`, sắp theo `updatedAt` tăng dần; mỗi lần chạy xử lý tối đa 500 session.
 - Với mỗi id, gọi `locks.tryRun(id, …)`:
@@ -55,12 +60,29 @@
 - *Phương án khác*: xoá theo `createdAt`. Loại, vì một session vẫn đang được cấu hình sẽ bị xoá giữa chừng.
 
 ### F11-D2. Dọn thư mục mồ côi
+
+> *(Bổ sung sau review)*: có ba lớp bảo vệ, vì chỉ cần đặt sai một biến môi trường là mất hàng loạt dữ liệu.
+> 1. **Chủ sở hữu storage**:
+>    - Bảng `installation` (V11) giữ một UUID cố định cho mỗi database.
+>    - Lần dọn đầu tiên ghi UUID này vào `{root}/.owner`, nếu storage trống hoặc có chứa session mà DB biết.
+>    - `.owner` khác, hoặc storage chưa đánh dấu mà chỉ chứa session lạ, thì bỏ qua bước dọn mồ côi, tính `failures` và ghi `log.error`.
+> 2. **Cầu dao**: hơn 10 mồ côi, và nhiều hơn một nửa số thư mục, thì không xoá gì.
+> 3. **Link và junction**:
+>    - `listEntries` bỏ qua link và junction.
+>    - Xoá bằng `FileTrees.deleteTree`: gỡ link, không đi vào trong. Dùng cả cho `FileResultStore`.
+>    - Đã thử trên máy: `Files.walk` đi vào NTFS junction và xoá cả file bên ngoài.
+>
+> Mồ côi phải cũ hơn `max(TTL, 1h)`, vì upload một file XLSX lớn có thể mất lâu giữa lúc tạo thư mục và lúc lưu row.
 - `FileStorage.listEntries()` chỉ trả thư mục con có tên parse được thành UUID, kèm `lastModified` của thư mục đó. Thư mục hoặc file có tên khác bị **bỏ qua hoàn toàn**, không bao giờ bị xoá.
 - Một thư mục là mồ côi khi `lastModified < cutoff` và `!sessions.existsById(id)`. Mồ côi có thể sinh ra khi app chết giữa lúc upload và lúc ghi DB, hoặc khi xoá DB thành công mà xoá storage lỗi.
 - Điều kiện `lastModified` bảo vệ upload đang dở: thư mục vừa tạo thì `lastModified` là thời điểm hiện tại.
 
 ### F11-D3. Lịch chạy và cấu hình
-- `SessionCleanupScheduler.run()` được gắn `@Scheduled(initialDelayString = "PT0S", fixedDelayString = "${importer.cleanup.interval:PT1H}")`, nên chạy ngay khi khởi động rồi lặp mỗi giờ.
+- ~~`SessionCleanupScheduler.run()` được gắn `@Scheduled(initialDelayString = "PT0S", fixedDelayString = "${importer.cleanup.interval:PT1H}")`, nên chạy ngay khi khởi động rồi lặp mỗi giờ.~~ *(Sau review)*: `SessionCleanupScheduler` cài `SchedulingConfigurer`, đăng ký `FixedDelayTask(run, properties.interval(), 0)`. Chu kỳ lấy từ `CleanupProperties` đã được kiểm, nên chỉ có một nguồn giá trị và một mặc định.
+- *(Sau review)* `CleanupProperties`:
+  - số trần của `session-ttl` là giờ (`@DurationUnit(HOURS)`), của `interval` là phút;
+  - dưới 1 phút thì app không khởi động;
+  - **LÝ DO**: Boot đọc `Duration` không đơn vị là mili-giây, nên `IMPORTER_SESSION_TTL=24` sẽ xoá mọi session ngay lúc khởi động.
 - `run()` bắt mọi exception và ghi `log.error`, để luồng scheduler không bao giờ chết. Log một dòng `info` gồm các số đếm trong report, không có dữ liệu người dùng.
 - Class được gắn `@ConditionalOnProperty("importer.cleanup.enabled", matchIfMissing = true)`. Integration test của cleanup đặt `false` để gọi service trực tiếp, tránh chạy song song với scheduler.
 - `@EnableScheduling` đặt ở `SchedulingConfig`, thuộc package infrastructure.
@@ -71,6 +93,8 @@
 CREATE INDEX idx_import_session_updated_at ON import_session (updated_at);
 ```
 Dùng số 10 để chừa V2–V9 cho F02–F08, vì các change đó đang được viết song song. Flyway chấp nhận có khoảng trống giữa các số version. Sau F11, migration mới phải dùng số lớn hơn 10.
+
+*(Sau review)*: thêm `V11__create_installation.sql` (bảng `installation`, một UUID cố định cho database), dùng làm chủ sở hữu storage (F11-D2). Migration mới sau F11 dùng số lớn hơn 11.
 
 ### F11-D5. Kiểm contract lỗi bằng bảng
 - `ErrorContractIntegrationTest` dựng sẵn 4 session:

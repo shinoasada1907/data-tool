@@ -1,7 +1,7 @@
 # api-docs Specification
 
 ## Purpose
-TBD - created by archiving change be-api-docs. Update Purpose after archive.
+Cung cấp tài liệu API sinh từ code đang chạy: Swagger UI tại `/swagger-ui.html` và OpenAPI 3 tại `/v3/api-docs`.
 ## Requirements
 ### Requirement: Tài liệu API trực tuyến
 Hệ thống SHALL cung cấp giao diện Swagger UI tại `/swagger-ui.html` và tài liệu OpenAPI 3 dạng JSON tại `/v3/api-docs`. Tài liệu SHALL được sinh từ code đang chạy, nên luôn liệt kê đủ mọi endpoint `/api/...` hiện có. Tài liệu MUST có tiêu đề `Universal Importer API`.
