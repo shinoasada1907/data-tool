@@ -303,7 +303,7 @@
   }
   ```
 
-- [ ] 8.1 Viết `ValidationConfigControllerTest` với `@WebMvcTest(ValidationConfigController.class)` và `@MockitoBean` cho service:
+- [x] 8.1 Viết `ValidationConfigControllerTest` với `@WebMvcTest(ValidationConfigController.class)` và `@MockitoBean` cho service:
   | Body | Stub | Mong đợi |
   |---|---|---|
   | `{"validations":[{"targetField":"email","type":"unique"}]}` | trả response kèm `warnings=[]` | 200; `$.warnings.length()`=0 |
@@ -312,10 +312,14 @@
   | body hợp lệ | ném `DomainException(CONFIG_INVALID, …, items)` | 422; `$.errors[0].code`=`CONFIG_INVALID` |
   | body hợp lệ | ném `SESSION_NOT_FOUND` | 404 |
   | body hợp lệ | ném `SESSION_STATE_INVALID` | 409 |
-- [ ] 8.2 Chạy `./mvnw -q test -Dtest=ValidationConfigControllerTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 8.3 Tạo controller và DTO; thêm `validations` vào `config` của session DTO.
-- [ ] 8.4 Chạy lại lệnh ở 8.2. Mong đợi: PASS.
-- [ ] 8.5 Commit: `feat(api): PUT validations endpoint`
+- [x] 8.2 Chạy `./mvnw -q test -Dtest=ValidationConfigControllerTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 8.3 Tạo controller và DTO; thêm `validations` vào `config` của session DTO.
+  - Đặt ở `api.validation` (xem task 1). Làm thêm:
+    - test `params: null` / `{}` / `[]` → 200, `[null]` và `targetField` là số → 400;
+    - `ImportSessionControllerTest` kiểm `$.config.validations.validations`;
+    - `ApiDocsIntegrationTest` kiểm path `/validations`.
+- [x] 8.4 Chạy lại lệnh ở 8.2. Mong đợi: PASS.
+- [x] 8.5 Commit: `feat(api): PUT validations endpoint`
 
 ## 9. Integration test qua HTTP thật
 
