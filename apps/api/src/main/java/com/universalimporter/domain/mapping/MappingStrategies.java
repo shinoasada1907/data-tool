@@ -9,7 +9,7 @@ public final class MappingStrategies {
 
     private final Map<MappingType, MappingStrategy> strategies = new EnumMap<>(MappingType.class);
 
-    private MappingStrategies(List<MappingStrategy> strategies) {
+    public MappingStrategies(List<MappingStrategy> strategies) {
         strategies.forEach(strategy -> this.strategies.put(strategy.type(), strategy));
     }
 

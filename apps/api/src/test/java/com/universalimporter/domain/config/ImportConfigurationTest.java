@@ -8,6 +8,8 @@ import com.universalimporter.domain.schema.FieldSpec;
 import com.universalimporter.domain.schema.TargetSchema;
 import com.universalimporter.domain.transformation.TransformationConfig;
 import com.universalimporter.domain.transformation.TransformationStep;
+import com.universalimporter.domain.validation.ValidationConfig;
+import com.universalimporter.domain.validation.ValidationRuleConfig;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -96,7 +98,7 @@ class ImportConfigurationTest {
         ImportConfiguration configuration = new ImportConfiguration(ID,
                 schema(new FieldSpec("name", "string", true, 0), new FieldSpec("phone", "string", false, 1)),
                 new MappingConfig(List.of(constant("phone"))),
-                new TransformationConfig(List.of(trim("name", 0), trim("phone", 0))), 3L);
+                new TransformationConfig(List.of(trim("name", 0), trim("phone", 0))), ValidationConfig.empty(), 3L);
 
         ConfigChange change = configuration.withSchema(schema(new FieldSpec("name", "string", true, 0)));
 
@@ -122,10 +124,51 @@ class ImportConfigurationTest {
         ImportConfiguration configuration = new ImportConfiguration(ID,
                 schema(new FieldSpec("name", "string", true, 0), new FieldSpec("note", "string", false, 1)),
                 MappingConfig.empty(),
-                new TransformationConfig(List.of(trim("note", 0), trim("name", 1), trim("name", 0))), null);
+                new TransformationConfig(List.of(trim("note", 0), trim("name", 1), trim("name", 0))),
+                ValidationConfig.empty(), null);
 
         assertThat(configuration.transformations().transformations())
                 .containsExactly(trim("name", 0), trim("name", 1), trim("note", 0));
+    }
+
+    @Test
+    void with_schema_prunes_validations_last() {
+        ImportConfiguration configuration = new ImportConfiguration(ID,
+                schema(new FieldSpec("name", "string", true, 0), new FieldSpec("phone", "string", false, 1)),
+                MappingConfig.empty(), new TransformationConfig(List.of(trim("phone", 0))),
+                new ValidationConfig(List.of(rule("phone", "unique"), rule("name", "email"))), 3L);
+
+        ConfigChange change = configuration.withSchema(schema(new FieldSpec("name", "number", true, 0)));
+
+        assertThat(change.configuration().validations().validations()).isEmpty();
+        assertThat(change.warnings()).extracting(ProblemItem::message).containsExactly(
+                "Transformations removed because field 'phone' no longer exists.",
+                "Validation rules removed because field 'phone' no longer exists.",
+                "Rule 'email' removed because field 'name' is no longer of type string.");
+    }
+
+    @Test
+    void with_validations_replaces_them_and_passes_the_warnings_on() {
+        ImportConfiguration configuration = configuration(schema(new FieldSpec("name", "string", true, 0)),
+                MappingConfig.empty());
+        List<ProblemItem> warnings = List.of(new ProblemItem("name", "RULE_IMPLIED_BY_SCHEMA", "ignored"));
+
+        ConfigChange change = configuration.withValidations(new ValidationConfig(List.of(rule("name", "unique"))), warnings);
+
+        assertThat(change.configuration().validations().validations()).containsExactly(rule("name", "unique"));
+        assertThat(change.warnings()).isEqualTo(warnings);
+    }
+
+    @Test
+    void validations_are_always_kept_in_schema_then_rule_order() {
+        ImportConfiguration configuration = new ImportConfiguration(ID,
+                schema(new FieldSpec("name", "string", true, 0), new FieldSpec("note", "string", false, 1)),
+                MappingConfig.empty(), TransformationConfig.empty(),
+                new ValidationConfig(List.of(rule("note", "unique"), rule("name", "unique"), rule("name", "email"))),
+                null);
+
+        assertThat(configuration.validations().validations())
+                .containsExactly(rule("name", "email"), rule("name", "unique"), rule("note", "unique"));
     }
 
     @Test
@@ -145,7 +188,11 @@ class ImportConfigurationTest {
     }
 
     private static ImportConfiguration configuration(TargetSchema schema, MappingConfig mapping) {
-        return new ImportConfiguration(ID, schema, mapping, TransformationConfig.empty(), 3L);
+        return new ImportConfiguration(ID, schema, mapping, TransformationConfig.empty(), ValidationConfig.empty(), 3L);
+    }
+
+    private static ValidationRuleConfig rule(String field, String type) {
+        return new ValidationRuleConfig(field, type, null);
     }
 
     private static TransformationStep trim(String field, int order) {

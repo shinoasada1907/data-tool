@@ -1,8 +1,14 @@
 package com.universalimporter.infrastructure.config;
 
+import com.universalimporter.domain.mapping.MappingStrategies;
+import com.universalimporter.domain.pipeline.DefaultImportPipeline;
+import com.universalimporter.domain.pipeline.ImportPipeline;
 import com.universalimporter.domain.transformation.TransformationConfigValidator;
 import com.universalimporter.domain.transformation.TransformationEngine;
 import com.universalimporter.domain.transformation.TransformationRegistry;
+import com.universalimporter.domain.validation.FieldValidator;
+import com.universalimporter.domain.validation.ValidationConfigValidator;
+import com.universalimporter.domain.validation.ValidationRegistry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -23,5 +29,25 @@ public class EngineConfig {
     @Bean
     TransformationConfigValidator transformationConfigValidator(TransformationRegistry registry) {
         return new TransformationConfigValidator(registry);
+    }
+
+    @Bean
+    ValidationRegistry validationRegistry() {
+        return ValidationRegistry.standard();
+    }
+
+    @Bean
+    FieldValidator fieldValidator(ValidationRegistry registry) {
+        return new FieldValidator(registry);
+    }
+
+    @Bean
+    ValidationConfigValidator validationConfigValidator() {
+        return new ValidationConfigValidator();
+    }
+
+    @Bean
+    ImportPipeline importPipeline(TransformationEngine transformationEngine, FieldValidator fieldValidator) {
+        return new DefaultImportPipeline(MappingStrategies.standard(), transformationEngine, fieldValidator);
     }
 }

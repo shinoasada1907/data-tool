@@ -12,6 +12,8 @@ import com.universalimporter.domain.source.SourceColumn;
 import com.universalimporter.domain.source.SourceSchema;
 import com.universalimporter.domain.transformation.TransformationConfig;
 import com.universalimporter.domain.transformation.TransformationStep;
+import com.universalimporter.domain.validation.ValidationConfig;
+import com.universalimporter.domain.validation.ValidationRuleConfig;
 import com.universalimporter.support.TestcontainersConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -110,6 +112,19 @@ class JpaImportConfigurationRepositoryTest {
     }
 
     @Test
+    void reads_back_the_saved_validations() {
+        ValidationConfig validations = new ValidationConfig(List.of(
+                new ValidationRuleConfig("name", "unique", null), new ValidationRuleConfig("email", "unique", null)));
+        ImportConfiguration configuration = ImportConfiguration.empty(ID).withSchema(SCHEMA).configuration()
+                .withValidations(validations, List.of()).configuration();
+
+        repository.save(configuration, T0);
+        flushAndClear();
+
+        assertThat(repository.findBySessionId(ID).orElseThrow().validations()).isEqualTo(validations);
+    }
+
+    @Test
     void a_row_stored_before_mappings_existed_has_the_empty_mapping() {
         // What an F04 row looks like: mapping_json left at its column default.
         entityManager.getEntityManager().createNativeQuery("INSERT INTO import_configuration "
@@ -119,6 +134,7 @@ class JpaImportConfigurationRepositoryTest {
 
         assertThat(repository.findBySessionId(ID).orElseThrow().mapping()).isEqualTo(MappingConfig.empty());
         assertThat(repository.findBySessionId(ID).orElseThrow().transformations()).isEqualTo(TransformationConfig.empty());
+        assertThat(repository.findBySessionId(ID).orElseThrow().validations()).isEqualTo(ValidationConfig.empty());
     }
 
     @Test

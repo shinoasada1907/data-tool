@@ -33,7 +33,8 @@ public class JsonConfigHasher implements ConfigHasher {
     static String canonicalJson(ImportConfiguration configuration) {
         return JSON.writeValueAsString(new HashedContent(TargetSchemaDocument.from(configuration.schema()),
                 MappingDocument.from(configuration.mapping()),
-                TransformationsDocument.from(configuration.transformations())));
+                TransformationsDocument.from(configuration.transformations()),
+                ValidationsDocument.from(configuration.validations())));
     }
 
     private static MessageDigest sha256() {
@@ -45,10 +46,10 @@ public class JsonConfigHasher implements ConfigHasher {
     }
 
     /**
-     * The hashed documents, in a fixed order; F07 adds validations. Map entries (transformation params) are
-     * sorted by key, so the order a client sent them in does not matter.
+     * The hashed documents, in a fixed order. Map entries (params) are sorted by key, so the order a client sent
+     * them in does not matter.
      */
     private record HashedContent(TargetSchemaDocument schema, MappingDocument mapping,
-                                 TransformationsDocument transformations) {
+                                 TransformationsDocument transformations, ValidationsDocument validations) {
     }
 }
