@@ -11,6 +11,12 @@
 
 F06 dựa vào các thứ dưới đây. Tên trong ngoặc là tên giả định. Task 1 của tasks.md đối chiếu với code F04/F05 đã merge và sửa tên trong file này nếu khác.
 
+> **Đã đối chiếu (2026-09-26):** bảng kết quả nằm ở task 1 của `tasks.md`. Tóm tắt:
+> - ~~`SessionConfiguration`~~ → `ImportConfiguration`.
+> - Khung prune là `FieldScopedSection` / `ConfigPruner`; thêm hàm `prunedMessage` để giữ message của spec F06.
+> - Plan thiếu phần lưu và hash `transformations_json`, nên đã thêm vào.
+> - Controller đặt ở `api.transformation`.
+
 - **F04**: `TargetSchema` / `TargetField(name, type, required, order)` / `FieldType { STRING, NUMBER, BOOLEAN, DATE, EMAIL }`, JSON viết thường.
   - `SessionConfiguration` gom 4 phần config, lưu trong `import_configuration` (V3), mỗi phần là một cột jsonb do app tự serialize.
   - Service cấu hình session (`ConfigurationService`) lo phần chung cho mọi PUT: khoá session (D11); kiểm session không `FAILED`; lưu config; tính lại readiness và status (D2); trả `ConfigUpdateResult` (F04).

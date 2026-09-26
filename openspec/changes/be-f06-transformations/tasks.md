@@ -32,15 +32,32 @@
 **Files:**
 - Modify (nếu cần): `openspec/changes/be-f06-transformations/{design.md,tasks.md}`
 
-- [ ] 1.1 Đọc code F04/F05 đã merge và ghi lại tên thật của các thứ sau:
+- [x] 1.1 Đọc code F04/F05 đã merge và ghi lại tên thật của các thứ sau:
   - `TargetSchema`, `TargetField`, `FieldType`;
   - aggregate config (`SessionConfiguration`);
   - service cấu hình session (`ConfigurationService`), hàm cập nhật dùng chung, cách trả `ConfigUpdateResult`;
   - khung prune (cách PUT `/schema` gọi prune từng phần và gom warning);
   - khoá session;
   - lớp serialize JSON của config.
-- [ ] 1.2 Nếu tên khác giả định trong `design.md` (mục "Giả định về F02–F05"): sửa `design.md` và các task dưới đây cho khớp, gạch ngang tên cũ và ghi LÝ DO. Nếu F04 chưa có khung prune: dừng lại, hỏi người dùng. Không tự dựng một khung prune song song.
-- [ ] 1.3 Commit (nếu có sửa): `docs(openspec): align be-f06 plan with merged F04/F05 names`
+- [x] 1.2 Nếu tên khác giả định trong `design.md` (mục "Giả định về F02–F05"): sửa `design.md` và các task dưới đây cho khớp, gạch ngang tên cũ và ghi LÝ DO. Nếu F04 chưa có khung prune: dừng lại, hỏi người dùng. Không tự dựng một khung prune song song.
+- [x] 1.3 Commit (nếu có sửa): `docs(openspec): align be-f06 plan with merged F04/F05 names`
+
+**Kết quả đối chiếu (2026-09-26, code `dev` @ b8ff03c):**
+
+| Giả định trong plan | Tên thật / cách làm | Ảnh hưởng tới F06 |
+|---|---|---|
+| `TargetSchema`, `TargetField`, `FieldType` | Đúng như giả định (`domain.schema`); `FieldType.code()` là chữ thường | Không |
+| ~~`SessionConfiguration`~~ | `domain.config.ImportConfiguration(sessionId, schema, mapping, version)` | Thêm thành phần `transformations` và `withTransformations(...)` |
+| `ConfigurationService`, hàm cập nhật chung | `application.configuration.ConfigurationService`, hàm private `update(UUID, BiFunction<ImportSession, ImportConfiguration, ConfigChange>)`, trả `ConfigUpdateResult(session, configuration, readiness, warnings)` | `updateTransformations` validate bên trong `update` (cần schema hiện tại, nằm trong khoá và transaction) |
+| Khung prune | `FieldScopedSection<S>` và `ConfigPruner.prune(section, fieldNames, warnings)`, gọi trong `ImportConfiguration.withSchema`. Message cố định `"<label> for this field was removed because the field no longer exists."` | Spec F06 dùng message khác (`Transformations removed because field 'x' no longer exists.`). ~~Tự dựng khung prune~~ → mở rộng khung F04 bằng hàm `default String prunedMessage(String field)` trong `FieldScopedSection` (mặc định giữ message cũ); `TransformationConfig` override. Bước `dateFormat` hết hợp lệ do đổi kiểu thì tự xử lý trong `prunedFor`, như F04 S3 đã chừa cho F07 |
+| `Pruned<T>` | F04 không có kiểu tương đương | Tạo `domain.config.Pruned<T>(T section, List<ProblemItem> warnings)`, F07 dùng lại |
+| Khoá session | `application.common.SessionLocks` (bảng khoá cố định), đã bọc sẵn trong `update` | Không phải làm gì |
+| Serialize JSON config | Mỗi phần có một document riêng trong `infrastructure.persistence` (`TargetSchemaDocument`, `MappingDocument`), `JpaImportConfigurationRepository` đọc/ghi từng cột, `JsonConfigHasher` hash các document | **Plan thiếu task lưu và hash transformations** → thêm task 7b |
+| Thứ tự chuẩn hoá (T5) | Sau review F05: thứ tự chuẩn là bất biến của `ImportConfiguration` (constructor gọi `mapping.inSchemaOrder(schema)`) | `TransformationConfig.normalized(schema)` cũng được gọi trong constructor, để schema đổi thứ tự không làm hash đổi |
+| ~~`MAIN/api/importsession/TransformationConfigController`~~ | F04/F05 đặt controller theo phần cấu hình: `api.schema`, `api.mapping` | Đặt ở `api.transformation` |
+| ~~`TEST/application/importsession/UpdateTransformationsTest`~~ | Test service cấu hình nằm ở `application.configuration` | Đặt ở `TEST/application/configuration/UpdateTransformationsTest` |
+| `EngineConfig` tạo registry bằng list | `MappingStrategies.standard()` của F05 | Thêm `TransformationRegistry.standard()`; `EngineConfig` và test dùng chung |
+| Log WARN trong engine (domain) | Domain chỉ được dùng `java.*` (ArchUnit) | Dùng `java.lang.System.Logger`; Spring Boot chuyển JUL → SLF4J |
 
 ## 2. Mã lỗi theo row và tiện ích giá trị rỗng
 
