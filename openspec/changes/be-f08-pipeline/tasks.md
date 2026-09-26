@@ -109,7 +109,7 @@
 - Consumes: `StorageProperties` (F01).
 - Produces: đúng các chữ ký ở design P5.
 
-- [ ] 3.1 Viết `FileResultStoreTest`, dùng `@TempDir root` và `new FileResultStore(new StorageProperties(root), jsonMapper)`:
+- [x] 3.1 Viết `FileResultStoreTest`, dùng `@TempDir root` và `new FileResultStore(new StorageProperties(root), jsonMapper)`:
   | Case | Mong đợi |
   |---|---|
   | `begin(id)` → accept row 2 hợp lệ `{name:"An", age:BigDecimal("30"), dob:LocalDate(1990,12,25)}` → accept row 3 lỗi → `commit(summary)` | `result/valid.ndjson` đúng bằng `{"rowNumber":2,"values":{"name":"An","age":30,"dob":"1990-12-25"}}\n`<br>`invalid.ndjson` có 1 dòng, có `"errors":[…]` và `"step":null`<br>`summary.json` có `configHash`<br>không còn `result.tmp-*` |
@@ -120,14 +120,18 @@
   | Đã có `result/` từ lần trước, `begin` → `commit` lần mới | `result/` mang nội dung mới; không còn `result.old-*` |
   | `findSummary(id)` khi chưa có kết quả | `Optional.empty()` |
   | `delete(id)` | `result/` biến mất; `source.bin` còn nguyên |
-- [ ] 3.2 Chạy `./mvnw -q test -Dtest=FileResultStoreTest`. Mong đợi: FAIL, vì lỗi compile.
-- [ ] 3.3 Viết `FileResultStore`:
+- [x] 3.2 Chạy `./mvnw -q test -Dtest=FileResultStoreTest`. Mong đợi: FAIL, vì lỗi compile.
+- [x] 3.3 Viết `FileResultStore`:
+  - ~~`new FileResultStore(new StorageProperties(root), jsonMapper)`~~ → `new FileResultStore(StorageProperties)`, tự dựng mapper riêng. **LÝ DO:** định dạng file kết quả không được đổi theo cấu hình JSON của API (giống D8).
+  - Mỗi dòng dựng bằng `LinkedHashMap` theo đúng thứ tự key của design P5, không dựa vào thứ tự property record của Jackson.
+  - `delete` xoá cả `result.tmp-*` và `result.old-*` còn sót (các lệnh ghi đã chạy lần lượt theo D11).
+  - Ghi chú cho F09: Windows không đổi tên được thư mục đang có file mở. Vì vậy đọc kết quả phải chạy trong khoá session, nếu không thì `commit` có thể hỏng khi một request GET đang đọc.
   - Dùng `JsonMapper` của Jackson 3, bật `WRITE_BIGDECIMAL_AS_PLAIN`.
   - Đổi `LocalDate` sang `toString()` trước khi ghi.
   - Ghi từng dòng, kết thúc bằng `\n`.
   - Thay kết quả cũ bằng 3 bước rename như design P5.
-- [ ] 3.4 Chạy lại lệnh ở 3.2. Mong đợi: PASS.
-- [ ] 3.5 Commit: `feat(infra): file-based result store with atomic replacement`
+- [x] 3.4 Chạy lại lệnh ở 3.2. Mong đợi: PASS.
+- [x] 3.5 Commit: `feat(infra): file-based result store with atomic replacement`
 
 ## 4. ProcessService
 
