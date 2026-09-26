@@ -355,9 +355,9 @@
 - Test: `TEST/api/ReprocessIntegrationTest.java`, `TEST/api/SessionLifecycleIntegrationTest.java`
 
 **Interfaces:**
-- Consumes: fixture và config CSV của task 7, `ImportFlowClient` (F09).
+- Consumes: fixture và config CSV của task 7 (`support/E2eFlow`), ~~`ImportFlowClient` (F09)~~ `HttpTestClient`.
 
-- [ ] 8.1 Viết `ReprocessIntegrationTest`:
+- [x] 8.1 Viết `ReprocessIntegrationTest`:
   | Bước | Mong đợi |
   |---|---|
   | chạy happy path CSV tới hết process | `valid` 1, `invalid` 3 |
@@ -365,7 +365,7 @@
   | `POST /process` | `valid` 2, `invalid` 2 |
   | `GET /result?view=valid` | `rowNumber` = `[2, 4]`; `values.email` của row 4 = `an@example.com` |
   | PUT lại đúng `{"validations":[]}` | 200; `session.status` vẫn là `PROCESSED`; `GET /result?view=valid` trả 200 với row `[2, 4]` |
-- [ ] 8.2 Viết `SessionLifecycleIntegrationTest`:
+- [x] 8.2 Viết `SessionLifecycleIntegrationTest`:
   | Bước | Mong đợi |
   |---|---|
   | upload `customers.csv` | `CONFIGURING` |
@@ -381,8 +381,8 @@
   | `GET /api/import-sessions/{id}` | `status` = `FAILED` |
   | PUT schema | 409 `SESSION_STATE_INVALID`; `GET` session vẫn `FAILED` |
   | `GET /result` | 409 `RESULT_NOT_AVAILABLE` |
-- [ ] 8.3 Chạy `./mvnw -q test -Dtest=ReprocessIntegrationTest,SessionLifecycleIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, rồi chạy lại.
-- [ ] 8.4 Commit: `test(api): reprocess and full session lifecycle`
+- [x] 8.3 Chạy `./mvnw -q test -Dtest=ReprocessIntegrationTest,SessionLifecycleIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, rồi chạy lại.
+- [x] 8.4 Commit: `test(api): reprocess and full session lifecycle`
 
 ## 9. Không CORS; README ở gốc repo
 
