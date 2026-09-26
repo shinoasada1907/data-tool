@@ -428,7 +428,8 @@ public class FileResultStore implements ResultStore {
                 errors.add(toError(error));
             }
         }
-        return new RowResult(json.get("rowNumber").asInt(), valid, values, errors);
+        // A line with errors is invalid wherever it was found: the export's last guard relies on it (F10-D2).
+        return new RowResult(json.get("rowNumber").asInt(), valid && errors.isEmpty(), values, errors);
     }
 
     private static Object plain(JsonNode value) {
