@@ -65,6 +65,11 @@ List<TargetField> currentFields(UUID sessionId);   // trong tasks này gọi là
   - Nếu có lỗi **sau khi** đã gửi byte đầu tiên thì không thể đổi status nữa. Hệ thống ghi log `error` (có `sessionId`, không có dữ liệu), ném lỗi ra để Spring đóng kết nối, và MUST NOT chèn JSON lỗi vào giữa file.
   - FE thấy tải thất bại, vì `fetch` báo lỗi mạng.
 - Stream nguồn luôn được đóng trong `finally` của `writeTo`.
+- *(Bổ sung khi làm)*:
+  - Bước 1 và 3 là **một** lệnh `ResultQueryService.openCurrent(id, view)`: kiểm và mở row cùng lúc dưới khoá session, rồi nhả khoá.
+  - Stream trả về là stream tách rời (xem be-f09): ghi file không giữ khoá, và không bị ảnh hưởng hay chặn bởi lần process hoặc lần đổi config kế tiếp.
+  - Lỗi khi đang ghi: controller gọi `HttpServletResponse.flushBuffer()` để commit, vì Spring 7 bọc stream bằng `NonFlushingOutputStream`, rồi ném lại. `GlobalExceptionHandler` thấy response đã commit thì ném lỗi ra cho Tomcat, Tomcat cắt kết nối (`CLOSE_NOW`). Nhờ vậy client thấy tải thất bại, không bao giờ nhận file ngắn trông như trọn vẹn, và không có JSON lỗi chèn vào file.
+  - Writer JSON chỉ đóng generator khi thành công, vì đóng thì tự thêm `]`.
 - *Phương án khác*: ghi toàn bộ ra file tạm rồi mới gửi. Loại, vì tốn đĩa gấp đôi, trong khi D7 đã bảo đảm file nguồn không bị ghi dở.
 
 ### F10-D2. Chỉ row hợp lệ vào file valid

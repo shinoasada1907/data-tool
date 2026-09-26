@@ -79,7 +79,7 @@
   public final class ExportFileName { public static String of(String originalFileName, String suffix); }
   ```
 
-- [ ] 2.1 Viết `CsvFormulaGuardTest` (parameterized):
+- [x] 2.1 Viết `CsvFormulaGuardTest` (parameterized):
   | Input | Output |
   |---|---|
   | `=SUM(A1)` | `'=SUM(A1)` |
@@ -92,7 +92,7 @@
   | `'quoted` | `'quoted` |
   | `""` | `""` |
   | `null` | `null` |
-- [ ] 2.2 Viết `ExportFileNameTest` và phần test `ExportFormat.parse`:
+- [x] 2.2 Viết `ExportFileNameTest` và phần test `ExportFormat.parse`:
   | Input | Output |
   |---|---|
   | `of("customers.csv", "-valid.json")` | `customers-valid.json` |
@@ -104,12 +104,13 @@
   | `of("", "-valid.csv")` | `export-valid.csv` |
   | `parse("JSON")`, `parse("csv")` | `JSON`, `CSV` |
   | `parse(null)`, `parse("xml")` | `DomainException(REQUEST_INVALID)` |
-- [ ] 2.3 Chạy `./mvnw -q test -Dtest=CsvFormulaGuardTest,ExportFileNameTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 2.4 Tạo 3 class ở phần Interfaces:
+- [x] 2.3 Chạy `./mvnw -q test -Dtest=CsvFormulaGuardTest,ExportFileNameTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 2.4 Tạo 3 class ở phần Interfaces:
   - `escape`: thêm `'` khi ký tự đầu nằm trong `{'=', '+', '-', '@', '\t', '\r'}`.
-  - `of`: bỏ đuôi sau dấu `.` cuối cùng (nếu dấu `.` không nằm ở đầu chuỗi), rồi thay `["\\/\p{Cntrl}]` bằng `_`. Phần tên rỗng thì dùng `export`.
-- [ ] 2.5 Chạy lại lệnh ở 2.3. Mong đợi: PASS.
-- [ ] 2.6 Commit: `feat(domain): CSV formula guard and export file names`
+  - `of`: bỏ đuôi sau dấu `.` cuối cùng ~~(nếu dấu `.` không nằm ở đầu chuỗi)~~, rồi thay `["\\/\p{Cntrl}]` bằng `_`. Phần tên rỗng (hoặc toàn khoảng trắng) thì dùng `export`.
+    - **LÝ DO gạch**: điều kiện này mâu thuẫn với chính bảng test 2.2 và với spec: `of(".csv", "-valid.json")` phải ra `export-valid.json`, tức là `.csv` cũng bị bỏ đuôi. Làm theo spec.
+- [x] 2.5 Chạy lại lệnh ở 2.3. Mong đợi: PASS.
+- [x] 2.6 Commit: `feat(domain): CSV formula guard and export file names`
 
 ## 3. Writer: JSON, CSV dữ liệu hợp lệ, CSV báo cáo lỗi
 
@@ -144,7 +145,7 @@
   - `row2` = `RowResult(2, true, {name:"An", score:new BigDecimal("10"), active:true, dob:"1990-12-25", note:null}, [])`
   - `row5` = `RowResult(5, true, {name:"Em", score:new BigDecimal("7.5"), active:false, dob:"1991-01-02", note:"x"}, [])`
 
-- [ ] 3.1 Viết `JsonValidRowsExporterTest`, dùng `JsonMapper.builder().enable(StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN).build()`:
+- [x] 3.1 Viết `JsonValidRowsExporterTest`, dùng `JsonMapper.builder().enable(StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN).build()`:
   | Rows | Output (so khớp chính xác chuỗi UTF-8) |
   |---|---|
   | không có row | `[]` |
@@ -156,7 +157,11 @@
   | fields `=cmd() STRING`, row `{"=cmd()": "x"}` | `[{"=cmd()":"x"}]` (key không bị escape) |
   | `row2`, `RowResult(3, false, …, [lỗi])`, `row5` | chỉ có row 2 và 5 |
   | stream ném `UncheckedIOException` ở phần tử thứ 2 | exception lan ra ngoài; phần đã ghi không chứa `"code"` |
-- [ ] 3.2 Viết `CsvValidRowsExporterTest`. Đọc kết quả bằng `CsvTestReader`, và kiểm thêm chuỗi raw:
+  - **Thêm**: phần đã ghi cũng **không** được kết thúc bằng `]`.
+    - **LÝ DO**: `JsonGenerator.close()` tự đóng mảng đang mở (`AUTO_CLOSE_CONTENT`), nên một export hỏng giữa chừng sẽ thành file JSON hợp lệ nhưng thiếu row.
+    - Writer chỉ đóng generator khi thành công. Kiểm ngược: đóng trong `finally` thì test đỏ.
+  - **Thêm**: writer không đóng `OutputStream` của container (có test).
+- [x] 3.2 Viết `CsvValidRowsExporterTest`. Đọc kết quả bằng `CsvTestReader`, và kiểm thêm chuỗi raw:
   | Rows | Mong đợi |
   |---|---|
   | không có row | raw đúng bằng BOM + `name,score,active,dob,note\r\n` |
@@ -170,7 +175,7 @@
   | fields `email EMAIL`, giá trị `=cmd@x.io` | đọc lại ra `'=cmd@x.io` |
   | fields `=cmd() STRING, score NUMBER`, row `{"=cmd()": "x", score: new BigDecimal("1")}` | header đọc lại ra `['=cmd(), score]`; dòng dữ liệu ra `[x, 1]` |
   | có một `RowResult` với `valid=false` | row đó không có trong file |
-- [ ] 3.3 Viết `CsvErrorReportExporterTest`. Row lỗi mẫu:
+- [x] 3.3 Viết `CsvErrorReportExporterTest`. Row lỗi mẫu:
   - `row3`: lỗi `(3, "email", "VALIDATION", "email", null, "VALIDATION_EMAIL", "Not a valid email address", " ABC ")`
   - `row4`: lỗi `(4, "dob", "TRANSFORMATION", "dateFormat", 0, "TRANSFORMATION_FAILED", "Does not match pattern dd/MM/yyyy", "31/02/2024")`, rồi `(4, "score", "VALIDATION", "type", null, "VALIDATION_TYPE", "Not a number", "x")`
 
@@ -183,20 +188,20 @@
   | `fieldName` = `=cmd()` | ô `fieldName` đọc lại ra `'=cmd()` |
   | `rule` = `-rule` | ô `rule` đọc lại ra `'-rule` |
   | `sourceValue` = null | ô `sourceValue` đọc lại ra `""` |
-- [ ] 3.4 Chạy `./mvnw -q test -Dtest=JsonValidRowsExporterTest,CsvValidRowsExporterTest,CsvErrorReportExporterTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 3.5 Tạo 2 port và 3 writer theo F10-D3, F10-D4, F10-D5:
-  - Writer JSON dùng `mapper.createGenerator(out)` và đi theo `fields`.
+- [x] 3.4 Chạy `./mvnw -q test -Dtest=JsonValidRowsExporterTest,CsvValidRowsExporterTest,CsvErrorReportExporterTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 3.5 Tạo 2 port và 3 writer theo F10-D3, F10-D4, F10-D5:
+  - Writer JSON dùng `mapper.createGenerator(out)` và đi theo `fields`. Generator chỉ `close()` khi thành công (xem 3.1). CSV cũng vậy, chỉ `flush()` khi thành công.
   - Writer CSV ghi BOM trước, rồi dùng `new CSVPrinter(new OutputStreamWriter(out, UTF_8), CSVFormat.RFC4180)`, và `flush()` ở cuối.
   - Row không hợp lệ bị bỏ qua, kèm `log.warn` có `rowNumber`.
   - `CsvFormulaGuard.escape` áp cho: ô header và ô dữ liệu kiểu `STRING`/`EMAIL` của CSV dữ liệu; các cột `fieldName`, `rule`, `message`, `sourceValue` của báo cáo lỗi.
-- [ ] 3.6 Chạy lại lệnh ở 3.4. Mong đợi: PASS.
-- [ ] 3.7 Commit: `feat(infra): JSON and CSV exporters with formula-injection guard`
+- [x] 3.6 Chạy lại lệnh ở 3.4. Mong đợi: PASS.
+- [x] 3.7 Commit: `feat(infra): JSON and CSV exporters with formula-injection guard`
 
 ## 4. Use case: ExportService (kiểm và mở nguồn trước khi stream)
 
 **Files:**
 - Create: `MAIN/application/export/ExportBody.java`, `MAIN/application/export/ExportDownload.java`, `MAIN/application/export/ExportService.java`
-- Test: `TEST/application/export/ExportServiceTest.java`. Mở rộng `TEST/support/FakeResultStore.java` (của F09) với cờ `failOnOpen` và biến `closed`.
+- Test: `TEST/application/export/ExportServiceTest.java`. Mở rộng ~~`TEST/support/FakeResultStore.java`~~ `TEST/support/InMemoryResultStore.java` (của F09) với ~~cờ `failOnOpen` và biến `closed`~~ `failReads()` và `closedStreams()`.
 
 **Interfaces:**
 - Consumes: `ResultQueryService.requireCurrentSummary` (F09), `ResultStore`, `ResultView` (F08), `TargetSchemaProvider` (F04), `ImportSessionRepository` (F01), `ValidRowsExporter`, `ErrorReportExporter`, `ExportFileName` (tasks 2–3).
@@ -216,8 +221,8 @@
   }
   ```
 
-- [ ] 4.1 Viết `ExportServiceTest`:
-  - `ResultQueryService` là mock Mockito.
+- [x] 4.1 Viết `ExportServiceTest`:
+  - ~~`ResultQueryService` là mock Mockito.~~ Dùng `ResultQueryService` thật với repository in-memory. **LÝ DO**: `openCurrent` vừa kiểm vừa mở stream; nếu mock thì không còn kiểm được việc kiểm tra và mở xảy ra đúng một lần dưới khoá.
   - `FakeResultStore` có sẵn row 2 hợp lệ và row 3 lỗi.
   - Session có `originalFileName` = `customers.csv`.
   - Các writer là bản thật của task 3.
@@ -229,10 +234,15 @@
   | `requireCurrentSummary` ném `DomainException(RESULT_NOT_AVAILABLE)` | ném lại đúng exception đó; không gọi `store.readRows` |
   | `store.failOnOpen` = true | `DomainException(EXPORT_FAILED)` |
   | `prepareErrorReport(id)` rồi `writeTo` | `fileName` = `customers-errors.csv`; nội dung là báo cáo lỗi của row 3; store được đọc với view `INVALID` |
-- [ ] 4.2 Chạy `./mvnw -q test -Dtest=ExportServiceTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 4.3 Tạo 3 class theo F10-D1. Chọn exporter theo `format()`. Gọi `readRows` ngay trong `prepare…()`, không để dành tới lúc chạy `writeTo`.
-- [ ] 4.4 Chạy lại lệnh ở 4.2. Mong đợi: PASS.
-- [ ] 4.5 Commit: `feat(app): prepare exports and fail fast before streaming`
+  - **Thêm**:
+    - session không tồn tại → 404;
+    - kết quả bị xoá sau khi prepare thì file vẫn là kết quả đã kiểm (stream tách rời);
+    - **ghi file không giữ khoá session**: một thread khác lấy được khoá trong lúc `writeTo` đang chạy.
+- [x] 4.2 Chạy `./mvnw -q test -Dtest=ExportServiceTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 4.3 Tạo 3 class theo F10-D1. Chọn exporter theo `format()`. ~~Gọi `readRows` ngay trong `prepare…()`~~ Gọi `ResultQueryService.openCurrent` ngay trong `prepare…()`, không để dành tới lúc chạy `writeTo`. `UncheckedIOException` khi mở → `EXPORT_FAILED`.
+  - Constructor thật: `(ImportSessionRepository, ResultQueryService, List<ValidRowsExporter>, ErrorReportExporter)`. **LÝ DO**: xem 1.1; không cần `ResultStore` hay `TargetSchemaProvider` riêng.
+- [x] 4.4 Chạy lại lệnh ở 4.2. Mong đợi: PASS.
+- [x] 4.5 Commit: `feat(app): prepare exports and fail fast before streaming`
 
 ## 5. API: ExportController và timeout async
 
@@ -251,7 +261,7 @@
   //         Content-Disposition = ContentDisposition.attachment().filename(download.fileName(), UTF_8).build()
   ```
 
-- [ ] 5.1 Viết `ExportControllerTest` với `@WebMvcTest(ExportController.class)` và `@MockitoBean ExportService`. Với response 200 thì dùng `request().asyncStarted()` rồi `asyncDispatch(...)`.
+- [x] 5.1 Viết `ExportControllerTest` với `@WebMvcTest(ExportController.class)` và `@MockitoBean ExportService`. Với response 200 thì dùng `request().asyncStarted()` rồi `asyncDispatch(...)`.
   | Request | Stub | Mong đợi |
   |---|---|---|
   | `GET …/export?format=json` | trả `ExportDownload("customers-valid.json", "application/json", out -> out.write("[]".getBytes()))` | 200; `Content-Type` = `application/json`; `Content-Disposition` chứa `attachment` và `filename*=UTF-8''customers-valid.json`; body = `[]` |
@@ -262,14 +272,20 @@
   | `GET …/export?format=json` | ném `DomainException(EXPORT_FAILED, …)` | 500; `$.code` = `EXPORT_FAILED` |
   | `GET …/errors/export` | trả `ExportDownload("khách hàng-errors.csv", "text/csv;charset=UTF-8", …)` | 200; `Content-Disposition` chứa `filename*=UTF-8''kh%C3%A1ch%20h%C3%A0ng-errors.csv` |
   | `GET …/errors/export` | ném `DomainException(SESSION_NOT_FOUND, …)` | 404; `$.code` = `SESSION_NOT_FOUND` |
-- [ ] 5.2 Chạy `./mvnw -q test -Dtest=ExportControllerTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 5.3 Tạo `ExportController`:
+- [x] 5.2 Chạy `./mvnw -q test -Dtest=ExportControllerTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 5.3 Tạo `ExportController`:
   - `format` nhận dạng `@RequestParam(required = false) String`, rồi gọi `ExportFormat.parse`.
   - `StreamingResponseBody` gọi `download.body().writeTo(out)`. Gặp `IOException` hoặc `RuntimeException` thì `log.error("Export stream failed for session {}", id, e)` rồi ném lại.
+  - **Thêm** (phát hiện khi viết test "lỗi giữa chừng không chèn JSON lỗi"):
+    - Ném lại thôi là **chưa đủ**. Lỗi quay về `GlobalExceptionHandler.handleUnexpected`, handler này ghi ProblemDetail **nối tiếp** vào body đang dở, và kết thúc response như bình thường.
+    - Sửa phần controller: khi lỗi, gọi `HttpServletResponse.flushBuffer()` để commit response. Không gọi `out.flush()` được, vì Spring 7 bọc stream trong `StreamUtils.NonFlushingOutputStream`.
+    - Sửa phần handler: response đã commit thì ném lỗi ngược ra, để Tomcat cắt kết nối.
+    - Kiểm với Tomcat thật (`a_failure_midway_drops_the_download_instead_of_sending_a_short_file`): client nhận `IOException: closed`.
+    - Kiểm ngược: bỏ nhánh "đã commit" trong handler thì client nhận một response **trọn vẹn** mà không thấy lỗi.
 
   Thêm `spring.mvc.async.request-timeout: 5m` vào `application.yaml`.
-- [ ] 5.4 Chạy lại lệnh ở 5.2. Mong đợi: PASS.
-- [ ] 5.5 Commit: `feat(api): export and error report download endpoints`
+- [x] 5.4 Chạy lại lệnh ở 5.2. Mong đợi: PASS.
+- [x] 5.5 Commit: `feat(api): export and error report download endpoints`
 
 ## 6. Integration test qua HTTP thật
 
@@ -277,7 +293,7 @@
 - Test: `TEST/api/export/ExportApiIntegrationTest.java`
 
 **Interfaces:**
-- Consumes: toàn bộ app (F01–F09), `TestcontainersConfiguration` (F01), `ImportFlowClient` (F09), `CsvTestReader` (task 3).
+- Consumes: toàn bộ app (F01–F09), `TestcontainersConfiguration` (F01), ~~`ImportFlowClient` (F09)~~ `HttpTestClient` (thêm `download(path)` đọc byte), `CsvTestReader` (task 3).
 - Dùng `@SpringBootTest(webEnvironment = RANDOM_PORT)`, `@Import(TestcontainersConfiguration.class)`, và `static @TempDir storageDir` gắn vào `importer.storage.dir`.
 - File `customers.csv` dùng trong test:
   ```
@@ -291,7 +307,7 @@
   - mapping: 4 field `SOURCE_COLUMN`
   - transformations và validations rỗng
 
-- [ ] 6.1 Viết `ExportApiIntegrationTest`:
+- [x] 6.1 Viết `ExportApiIntegrationTest`:
   | Case | Mong đợi |
   |---|---|
   | `GET /export?format=json` trước khi process | 409; `code` = `RESULT_NOT_AVAILABLE` |
@@ -303,8 +319,9 @@
   | `GET /api/import-sessions/{randomUUID}/export?format=csv` | 404; `code` = `SESSION_NOT_FOUND` |
   | `GET /api/import-sessions/{randomUUID}/errors/export` | 404; `code` = `SESSION_NOT_FOUND` |
   | xoá `storageDir/{id}/result/valid.ndjson`, rồi `GET /export?format=json` | 500; `Content-Type` chứa `application/problem+json`; `code` = `EXPORT_FAILED` |
-- [ ] 6.2 Chạy `./mvnw -q test -Dtest=ExportApiIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính (không nới lỏng test), rồi chạy lại.
-- [ ] 6.3 Commit: `test(api): export endpoints end-to-end`
+  - **Thêm**: làm hỏng dòng 2 của `valid.ndjson`, rồi tải JSON → client phải thấy tải thất bại (kết nối bị cắt), không được nhận một file ngắn trông như trọn vẹn.
+- [x] 6.2 Chạy `./mvnw -q test -Dtest=ExportApiIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính (không nới lỏng test), rồi chạy lại.
+- [x] 6.3 Commit: `test(api): export endpoints end-to-end`
 
 ## 7. Kiểm tra toàn bộ và hoàn tất
 
