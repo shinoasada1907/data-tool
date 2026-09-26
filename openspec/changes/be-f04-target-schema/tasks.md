@@ -144,17 +144,17 @@
 **Interfaces:**
 - Produces: `@Component public class SessionLocks { public <T> T withLock(UUID sessionId, Supplier<T> action); }`
 
-- [ ] 4.1 Viết `SessionLocksTest`:
+- [x] 4.1 Viết `SessionLocksTest`:
   | Case | Mong đợi |
   |---|---|
   | Hai thread cùng `withLock(id, …)`, mỗi action ngủ 100ms và ghi thời điểm bắt đầu/kết thúc | hai khoảng thời gian không chồng nhau |
   | Hai thread với hai id khác nhau, dùng `CountDownLatch` để cả hai action chờ nhau | cả hai hoàn tất trong 2 giây (không bị khoá lẫn nhau) |
   | Action ném `RuntimeException` | exception được ném lại; `withLock(id, …)` lần sau vẫn chạy được (khoá đã nhả) |
   | `withLock(id, () -> withLock(id, () -> 1))` | trả `1` (khoá reentrant) |
-- [ ] 4.2 Chạy `./mvnw -q test -Dtest=SessionLocksTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 4.3 Cài bằng `ConcurrentHashMap<UUID, ReentrantLock>`, `lock()` rồi `finally unlock()`.
-- [ ] 4.4 Chạy lại lệnh ở 4.2. Mong đợi: PASS.
-- [ ] 4.5 Commit: `feat(app): per-session write locks`
+- [x] 4.2 Chạy `./mvnw -q test -Dtest=SessionLocksTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 4.3 Cài bằng `ConcurrentHashMap<UUID, ReentrantLock>`, `lock()` rồi `finally unlock()`.
+- [x] 4.4 Chạy lại lệnh ở 4.2. Mong đợi: PASS.
+- [x] 4.5 Commit: `feat(app): per-session write locks`
 
 ## 5. Luồng cập nhật cấu hình và `updateSchema`
 

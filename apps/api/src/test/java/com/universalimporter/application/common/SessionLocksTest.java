@@ -1,0 +1,88 @@
+package com.universalimporter.application.common;
+
+import org.junit.jupiter.api.Test;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+class SessionLocksTest {
+
+    private static final UUID A = UUID.fromString("0b6f0c52-8a8e-4d5c-9a55-2f3c1c3f7e11");
+    private static final UUID B = UUID.fromString("11111111-2222-3333-4444-555555555555");
+
+    private final SessionLocks locks = new SessionLocks();
+
+    @Test
+    void actions_on_the_same_session_never_overlap() throws Exception {
+        try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
+            Future<long[]> first = pool.submit(() -> locks.withLock(A, SessionLocksTest::timedSleep));
+            Future<long[]> second = pool.submit(() -> locks.withLock(A, SessionLocksTest::timedSleep));
+            List<long[]> spans = List.of(first.get(5, TimeUnit.SECONDS), second.get(5, TimeUnit.SECONDS));
+
+            long[] earlier = spans.get(0)[0] <= spans.get(1)[0] ? spans.get(0) : spans.get(1);
+            long[] later = earlier == spans.get(0) ? spans.get(1) : spans.get(0);
+            assertThat(later[0]).isGreaterThanOrEqualTo(earlier[1]);
+        }
+    }
+
+    @Test
+    void actions_on_different_sessions_run_side_by_side() throws Exception {
+        // Each action waits for the other to start: only possible if neither blocks the other.
+        CountDownLatch bothStarted = new CountDownLatch(2);
+        try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
+            Future<Boolean> onA = pool.submit(() -> locks.withLock(A, () -> meet(bothStarted)));
+            Future<Boolean> onB = pool.submit(() -> locks.withLock(B, () -> meet(bothStarted)));
+
+            assertThat(onA.get(2, TimeUnit.SECONDS)).isTrue();
+            assertThat(onB.get(2, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    @Test
+    void a_failing_action_rethrows_and_releases_the_lock() throws Exception {
+        IllegalStateException failure = new IllegalStateException("boom");
+
+        assertThatThrownBy(() -> locks.withLock(A, () -> {
+            throw failure;
+        })).isSameAs(failure);
+
+        try (ExecutorService pool = Executors.newSingleThreadExecutor()) {
+            assertThat(pool.submit(() -> locks.withLock(A, () -> "next")).get(2, TimeUnit.SECONDS)).isEqualTo("next");
+        }
+    }
+
+    @Test
+    void the_lock_is_reentrant() {
+        assertThat(locks.withLock(A, () -> locks.withLock(A, () -> 1))).isEqualTo(1);
+    }
+
+    private static long[] timedSleep() {
+        long start = System.nanoTime();
+        try {
+            Thread.sleep(Duration.ofMillis(100));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        }
+        return new long[]{start, System.nanoTime()};
+    }
+
+    private static boolean meet(CountDownLatch bothStarted) {
+        bothStarted.countDown();
+        try {
+            return bothStarted.await(2, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+}
