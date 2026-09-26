@@ -177,7 +177,7 @@
   }
   ```
 
-- [ ] 4.1 Viết `FieldValidatorTest`, dùng registry thật và một `ExplodingRule` chỉ có trong test (type `unique`, luôn ném `IllegalStateException("boom")`; được đăng ký trong một registry riêng):
+- [x] 4.1 Viết `FieldValidatorTest`, dùng registry thật và một `ExplodingRule` chỉ có trong test (type `unique`, luôn ném `IllegalStateException("boom")`; được đăng ký trong một registry riêng):
   | Field | User rules | Value | Mong đợi |
   |---|---|---|---|
   | `email` (EMAIL, required) | `[unique]` | `""` | failure `("required", VALIDATION_REQUIRED)` |
@@ -189,10 +189,10 @@
   | `active` (BOOLEAN) | `[]` | `"1"` | `value = Boolean.TRUE` |
   | `country` (STRING, required) | `[]` | `"VN"` | `value = "VN"` |
   | `code` (STRING) | `[unique]` với ExplodingRule | `"x"` | failure `("unique", VALIDATION_UNIQUE, "Unexpected error while applying rule 'unique'.")`; message không chứa `boom` |
-- [ ] 4.2 Chạy `./mvnw -q test -Dtest=FieldValidatorTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 4.3 Tạo các class theo design V2. Thứ tự rule cố định trong code. Lỗi email của field kiểu EMAIL gán `rule = "email"`.
-- [ ] 4.4 Chạy lại lệnh ở 4.2. Mong đợi: PASS.
-- [ ] 4.5 Commit: `feat(domain): field validator with fixed rule order and first-error policy`
+- [x] 4.2 Chạy `./mvnw -q test -Dtest=FieldValidatorTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 4.3 Tạo các class theo design V2. Thứ tự rule cố định trong code. Lỗi email của field kiểu EMAIL gán `rule = "email"`.
+- [x] 4.4 Chạy lại lệnh ở 4.2. Mong đợi: PASS.
+- [x] 4.5 Commit: `feat(domain): field validator with fixed rule order and first-error policy`
 
 ## 5. Kiểm và chuẩn hoá cấu hình validation
 
