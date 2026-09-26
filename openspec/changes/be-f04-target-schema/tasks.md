@@ -76,22 +76,22 @@
   public interface ConfigHasher { String hash(ImportConfiguration configuration); }
   ```
 
-- [ ] 2.1 Viết `ConfigPrunerTest`. Trong test tạo một record giả `FakeSection(Set<String> fields) implements FieldScopedSection<FakeSection>` với `sectionLabel()` là `"Mapping"`:
+- [x] 2.1 Viết `ConfigPrunerTest`. Trong test tạo một record giả `FakeSection(Set<String> fields) implements FieldScopedSection<FakeSection>` với `sectionLabel()` là `"Mapping"`:
   | Case | Mong đợi |
   |---|---|
   | `prune(FakeSection{a,b,c}, {a}, warnings)` | trả `FakeSection{a}`. `warnings` = `[("b","CONFIG_PRUNED","Mapping for this field was removed because the field no longer exists."), ("c", …)]`, xếp theo tên field |
   | `prune(FakeSection{a}, {a,b}, warnings)` | giữ nguyên; `warnings` rỗng |
   | `prune(FakeSection{Email}, {email}, warnings)` | `Email` bị bỏ, vì so khớp chính xác |
-- [ ] 2.2 Viết `ReadinessEvaluatorTest` với `ReadinessEvaluator.standard()`:
+- [x] 2.2 Viết `ReadinessEvaluatorTest` với `ReadinessEvaluator.standard()`:
   | Config | Mong đợi |
   |---|---|
   | `empty(id)` | `ready` false; issues `[(null,"SCHEMA_EMPTY","Target schema has no fields.")]` |
   | Schema có 1 field optional | `ready` true; issues rỗng |
-- [ ] 2.3 Viết `ImportConfigurationTest`: `empty(id).withSchema(schema)` → `configuration.schema()` là `schema`; `warnings` rỗng; `version` giữ nguyên `null`.
-- [ ] 2.4 Chạy `./mvnw -q test -Dtest=ConfigPrunerTest,ReadinessEvaluatorTest,ImportConfigurationTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 2.5 Cài 12 file ở phần Files.
-- [ ] 2.6 Chạy lại lệnh ở 2.4. Mong đợi: PASS. Chạy thêm `./mvnw -q test -Dtest=ArchitectureTest`: PASS.
-- [ ] 2.7 Commit: `feat(domain): configuration aggregate with auto-prune and readiness`
+- [x] 2.3 Viết `ImportConfigurationTest`: `empty(id).withSchema(schema)` → `configuration.schema()` là `schema`; `warnings` rỗng; `version` giữ nguyên `null`.
+- [x] 2.4 Chạy `./mvnw -q test -Dtest=ConfigPrunerTest,ReadinessEvaluatorTest,ImportConfigurationTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 2.5 Cài 12 file ở phần Files.
+- [x] 2.6 Chạy lại lệnh ở 2.4. Mong đợi: PASS. Chạy thêm `./mvnw -q test -Dtest=ArchitectureTest`: PASS.
+- [x] 2.7 Commit: `feat(domain): configuration aggregate with auto-prune and readiness`
 
 ## 3. Persistence cấu hình (Flyway V3) và `JsonConfigHasher`
 
