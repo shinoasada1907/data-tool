@@ -229,7 +229,22 @@
 
 ## 8. Kiểm tra toàn bộ và hoàn tất
 
-- [ ] 8.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm ArchitectureTest (`domain.mapping` chỉ dùng `java.*` và `domain.*`).
-- [ ] 8.2 Chạy app thật và thử bằng `curl`: upload, PUT schema, PUT mapping (hợp lệ, sai cột, map trùng), GET session.
-- [ ] 8.3 Tick checkbox, ghi LÝ DO cho mọi chỗ làm khác kế hoạch. Commit: `docs(openspec): complete be-f05 tasks`
-- [ ] 8.4 Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f05-mapping-engine -y`.
+- [x] 8.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm ArchitectureTest (`domain.mapping` chỉ dùng `java.*` và `domain.*`).
+  - Kết quả 2026-09-26: 43 suite, 372 test, 0 failure, 0 error.
+- [x] 8.2 Chạy app thật và thử bằng `curl`: upload, PUT schema, PUT mapping (hợp lệ, sai cột, map trùng), GET session.
+  - Chạy ở cổng 8081 từ worktree BE (8080 là app của người dùng). Kết quả:
+    - PUT schema `[name*, email*, country]` → `CONFIGURING`, issue `TARGET_FIELD_REQUIRED` cho `name` và `email`;
+    - PUT mapping `country`, `name` → mapping theo thứ tự schema `[name, country]`, warning và issue cho `email`;
+    - cột `Name` → 422 `SOURCE_COLUMN_NOT_FOUND`;
+    - map trùng kèm type lạ → 422 `MAPPING_INVALID`, 2 lỗi;
+    - map đủ → `READY`.
+  - Lưu ý khi thử tay trên Windows: `curl.exe` gửi tham số `-d` theo code page ANSI, nên chuỗi tiếng Việt thành byte không phải UTF-8 và server trả 400. Phải gửi body bằng `--data-binary @file.json` (file UTF-8). Server không có lỗi: test integration gửi UTF-8 đều xanh.
+- [x] 8.2b (thêm) Review bằng agent `senior-reviewer` trên `dev...feature/be-f05-mapping-engine`: không có blocker. Đã sửa:
+  - **Thứ tự mapping khi schema đổi thứ tự:** mapping giữ thứ tự cũ, nên hash đổi dù nội dung không đổi. Đưa việc sắp xếp thành bất biến của `ImportConfiguration`; **LÝ DO** ghi ở design M1. Test:
+    - `ImportConfigurationTest`: 2 case;
+    - `ConfigurationServiceTest`: session `PROCESSED` nhận lại cùng mapping (cùng hoặc khác thứ tự) vẫn giữ `PROCESSED`, mapping đổi thì sang `READY`; sau khi đổi thứ tự schema, gửi lại mapping cũ không đổi gì.
+  - **`updateMapping`:** `orElseThrow()` trần → `IllegalStateException` có message nếu session quá `UPLOADED` mà thiếu source schema.
+  - **`MappingIntegrationTest`:** thêm case 422 `MAPPING_INVALID` gồm 3 item (trong đó có `field: null`) qua HTTP thật.
+  - Để lại: vòng phụ thuộc package `domain.config` ↔ `domain.mapping`. Vòng này có sẵn trong thiết kế S2/S3/S4: cấu hình gom các section, và section cài interface của `config`. Gỡ hẳn cần thiết kế lại, nên nếu làm thì làm trước F06/F07.
+- [x] 8.3 Tick checkbox, ghi LÝ DO cho mọi chỗ làm khác kế hoạch. Commit: `docs(openspec): complete be-f05 tasks`
+- [x] 8.4 ~~Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f05-mapping-engine -y`.~~ → `openspec archive be-f05-mapping-engine -y` trên nhánh feature, rồi tự merge vào `dev` và xoá nhánh. **LÝ DO:** luật nhánh người dùng chốt 2026-09-26 (như F04).
