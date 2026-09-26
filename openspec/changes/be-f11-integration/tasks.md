@@ -44,8 +44,19 @@
   - fixture XLSX của F03;
   - nhánh `FAILED` của `POST /process`: thiếu file trả 500 `INTERNAL_ERROR`, file sai cấu trúc trả 422 `FILE_PARSE_ERROR`.
 
-- [ ] 1.1 Đọc code F02–F10 đã merge. So các giả định trên với code thật. Chỗ nào khác thì sửa design.md và file này theo tên thật (gạch dòng cũ, ghi LÝ DO).
-- [ ] 1.2 Chạy `\d import_configuration` trong psql (trên DB của docker compose) để kiểm FK có `ON DELETE CASCADE` không. Nếu không có, ghi vào 2.5 rằng `deleteById` phải xoá `import_configuration` trước.
+- [x] 1.1 Đọc code F02–F10 đã merge. So các giả định trên với code thật. Chỗ nào khác thì sửa design.md và file này theo tên thật (gạch dòng cũ, ghi LÝ DO).
+  - Kết quả đối chiếu:
+    - ~~`SessionLocks#tryRun` có sẵn~~ → F08 chỉ có `withLock(UUID, Supplier)` (chờ tới khi lấy được khoá). F11 thêm `tryRun(UUID, Runnable) → boolean` dùng `ReentrantLock.tryLock()`.
+      - Khoá chia theo 1024 stripe, nên một session khác cùng stripe đang bận cũng làm session này bị `skipped`; lần chạy sau sẽ xử lý.
+    - ~~`ImportFlowClient` (F09)~~ → `support/HttpTestClient` (`upload`, `putJson`, `post`, `get`, và `download` của F10). **LÝ DO**: F09 không tạo `ImportFlowClient` mà dùng lại helper sẵn có.
+    - ~~Fixture XLSX của F03 là file nhị phân~~ → F03 sinh XLSX bằng code (`support/XlsxFixtures`, fastexcel). F11 cũng sinh `customers.xlsx` bằng code (thêm `XlsxFixtures.e2eCustomers`), không commit file nhị phân.
+      - **LÝ DO**: đọc test là thấy từng ô và kiểu của ô, không phải unzip ra xem `t="b"`. Sinh lại được, và diff được khi sửa.
+    - `ResultQueryService.requireCurrentSummary` đã được F09 đổi thành `openCurrent`. F11 không dùng tới.
+    - Nhánh FAILED của `POST /process`: thiếu file → 500 `INTERNAL_ERROR` → `FAILED`, đúng như giả định.
+      - Sau review F08: 500 chỉ làm session `FAILED` khi chính file không đọc được; lỗi ghi kết quả hoặc bug thì không đổi trạng thái session.
+    - Migration hiện có: V1–V3. V10 để lại khoảng trống, Flyway chấp nhận.
+    - Chưa có `README.md` ở gốc repo; FE có `apps/web/README.md`, phiên FE sẽ viết tiếp nó ở FE-F11. README gốc link sang đó, không chép lại.
+- [x] 1.2 ~~Chạy `\d import_configuration` trong psql~~ Đọc thẳng `V3__create_import_configuration.sql`: `session_id UUID PRIMARY KEY REFERENCES import_session (id) ON DELETE CASCADE`. Có cascade, nên `deleteById` chỉ cần xoá `import_session`. Test 2.1 vẫn kiểm việc này trên DB thật.
 
 ## 2. Mở rộng port cho việc dọn dẹp, kèm migration V10
 
@@ -74,7 +85,7 @@
   CREATE INDEX idx_import_session_updated_at ON import_session (updated_at);
   ```
 
-- [ ] 2.1 Thêm case vào `JpaImportSessionRepositoryTest`. `t0` là `Instant` chính xác tới micro giây; các session được lưu bằng `ImportSession.restore(…, updatedAt, …)`.
+- [x] 2.1 Thêm case vào `JpaImportSessionRepositoryTest`. `t0` là `Instant` chính xác tới micro giây; các session được lưu bằng `ImportSession.restore(…, updatedAt, …)`.
   | Case | Mong đợi |
   |---|---|
   | A (`t0−25h`), B (`t0−23h`), C (`t0−48h`); `findIdsUpdatedBefore(t0−24h, 10)` | `[C, A]` |
@@ -83,21 +94,24 @@
   | `deleteById(A)` rồi `findById(A)` | `Optional.empty()`; gọi `deleteById(randomUUID)` không ném lỗi |
   | A có row `import_configuration` (PUT schema qua repository của F04), rồi `deleteById(A)` | không vi phạm FK; không còn config của A |
   | native query `select indexname from pg_indexes where tablename = 'import_session'` | có `idx_import_session_updated_at` |
-- [ ] 2.2 Thêm case vào `LocalFileStorageTest`:
+- [x] 2.2 Thêm case vào `LocalFileStorageTest`:
   | Case | Mong đợi |
   |---|---|
   | `root` có thư mục `{u1}`, `{u2}`, thư mục `backup` và file `x.txt` | `listEntries()` trả đúng 2 phần tử `u1`, `u2`; `lastModified` bằng `Files.getLastModifiedTime` của từng thư mục |
   | `root` chưa tồn tại | `listEntries()` trả danh sách rỗng |
-- [ ] 2.3 Chạy `./mvnw -q test -Dtest=JpaImportSessionRepositoryTest,LocalFileStorageTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 2.4 Tạo `V10`, `StoredEntry`; thêm method vào 2 port.
-- [ ] 2.5 Cài đặt method mới:
-  - Adapter JPA: dùng query derived hoặc `@Query("select s.id from ImportSessionEntity s where s.updatedAt < :cutoff order by s.updatedAt")` kèm `Limit`. `deleteById` xoá config trước nếu kết quả 1.2 là không có cascade.
+- [x] 2.3 Chạy `./mvnw -q test -Dtest=JpaImportSessionRepositoryTest,LocalFileStorageTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 2.4 Tạo `V10`, `StoredEntry`; thêm method vào 2 port.
+- [x] 2.5 Cài đặt method mới:
+  - Adapter JPA: dùng query derived hoặc `@Query("select s.id from ImportSessionEntity s where s.updatedAt < :cutoff order by s.updatedAt")` kèm ~~`Limit`~~ `Pageable` (`PageRequest.of(0, limit)`). `deleteById` xoá config trước nếu kết quả 1.2 là không có cascade.
+    - Kết quả 1.2: có cascade. `deleteById` là bulk JPQL `delete … where s.id = :id` (`@Modifying @Transactional`): không cần nạp entity, và id không tồn tại thì chỉ xoá 0 dòng.
+  - `listEntries` chỉ nhận tên ở dạng chuẩn (`UUID.toString()` phải bằng đúng tên thư mục). **LÝ DO**: `UUID.fromString` nhận cả dạng rút gọn như `1-2-3-4-5`, nên thư mục tên đó sẽ bị coi là thư mục của session.
+  - Test tạo session bằng `ImportSession.create(id, file, t)` (khi đó `updatedAt = t`), ~~`restore`~~. **LÝ DO**: merge một entity đã có version, với id chưa có trong DB, thì Hibernate báo optimistic lock.
   - `LocalFileStorage.listEntries`: `Files.list(root)` → chỉ thư mục có tên parse được bằng `UUID.fromString`, bỏ qua các tên khác.
   - Cập nhật 2 fake:
     - `InMemoryFileStorage` có `lastModified` đặt được, và tập `failDeleteFor` để giả lập lỗi xoá.
     - `InMemoryImportSessionRepository` có tập `failDeleteFor` để giả lập lỗi xoá DB.
-- [ ] 2.6 Chạy lại lệnh ở 2.3. Mong đợi: PASS.
-- [ ] 2.7 Commit: `feat(infra): cleanup queries, storage listing and updated_at index (V10)`
+- [x] 2.6 Chạy lại lệnh ở 2.3. Mong đợi: PASS.
+- [x] 2.7 Commit: `feat(infra): cleanup queries, storage listing and updated_at index (V10)`
 
 ## 3. Use case: SessionCleanupService
 

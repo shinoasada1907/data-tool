@@ -11,8 +11,13 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
+
+import com.universalimporter.domain.importsession.StoredEntry;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -79,6 +84,31 @@ class LocalFileStorageTest {
         fresh.save(ID, stream("x"));
 
         assertThat(missingRoot.resolve(ID.toString()).resolve("source.bin")).hasContent("x");
+    }
+
+    @Test
+    void only_session_directories_are_listed_with_their_last_change() throws IOException {
+        UUID u1 = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
+        UUID u2 = UUID.fromString("bbbbbbbb-0000-0000-0000-000000000002");
+        Path d1 = Files.createDirectories(root.resolve(u1.toString()));
+        Path d2 = Files.createDirectories(root.resolve(u2.toString()));
+        Files.setLastModifiedTime(d1, FileTime.from(Instant.parse("2026-09-01T00:00:00Z")));
+        Files.createDirectories(root.resolve("backup"));
+        Files.writeString(root.resolve("x.txt"), "x");
+        Files.writeString(root.resolve("cccccccc-0000-0000-0000-000000000003"), "a file named like a session");
+
+        List<StoredEntry> entries = storage.listEntries();
+
+        assertThat(entries).containsExactlyInAnyOrder(
+                new StoredEntry(u1, Instant.parse("2026-09-01T00:00:00Z")),
+                new StoredEntry(u2, Files.getLastModifiedTime(d2).toInstant()));
+    }
+
+    @Test
+    void a_missing_root_lists_nothing() {
+        LocalFileStorage fresh = new LocalFileStorage(new StorageProperties(root.resolve("missing")));
+
+        assertThat(fresh.listEntries()).isEmpty();
     }
 
     private static InputStream stream(String text) {

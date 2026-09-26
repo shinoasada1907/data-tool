@@ -4,9 +4,12 @@ import com.universalimporter.domain.importsession.ImportSession;
 import com.universalimporter.domain.importsession.ImportSessionRepository;
 import com.universalimporter.domain.importsession.SourceFile;
 import com.universalimporter.domain.source.SourceSchema;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,6 +38,21 @@ public class JpaImportSessionRepository implements ImportSessionRepository {
     @Override
     public Optional<ImportSession> findById(UUID id) {
         return jpa.findById(id).map(JpaImportSessionRepository::toDomain);
+    }
+
+    @Override
+    public List<UUID> findIdsUpdatedBefore(Instant cutoff, int limit) {
+        return jpa.findIdsUpdatedBefore(cutoff, PageRequest.of(0, limit));
+    }
+
+    @Override
+    public boolean existsById(UUID id) {
+        return jpa.existsById(id);
+    }
+
+    @Override
+    public void deleteById(UUID id) {
+        jpa.deleteSession(id);
     }
 
     private static ImportSessionEntity toEntity(ImportSession session) {

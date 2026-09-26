@@ -15,6 +15,22 @@ import java.util.UUID;
 public class InMemoryFileStorage implements FileStorage {
 
     private final Map<UUID, byte[]> files = new HashMap<>();
+    private final Map<UUID, java.time.Instant> lastModified = new HashMap<>();
+    private final java.util.Set<UUID> failDeleteFor = new java.util.HashSet<>();
+
+    /** A session directory with this last change time, holding a file or not (an orphan, say). */
+    public void directory(UUID sessionId, java.time.Instant modified) {
+        lastModified.put(sessionId, modified);
+    }
+
+    /** Deleting these sessions' files fails, as when a file is locked. */
+    public void failDeleteFor(UUID... ids) {
+        failDeleteFor.addAll(java.util.List.of(ids));
+    }
+
+    public boolean holds(UUID sessionId) {
+        return files.containsKey(sessionId) || lastModified.containsKey(sessionId);
+    }
 
     public boolean isEmpty() {
         return files.isEmpty();
@@ -46,6 +62,18 @@ public class InMemoryFileStorage implements FileStorage {
 
     @Override
     public void delete(UUID sessionId) {
+        if (failDeleteFor.contains(sessionId)) {
+            throw new UncheckedIOException(new IOException("file in use"));
+        }
         files.remove(sessionId);
+        lastModified.remove(sessionId);
+    }
+
+    @Override
+    public java.util.List<com.universalimporter.domain.importsession.StoredEntry> listEntries() {
+        java.util.Set<UUID> ids = new java.util.TreeSet<>(files.keySet());
+        ids.addAll(lastModified.keySet());
+        return ids.stream().map(id -> new com.universalimporter.domain.importsession.StoredEntry(id,
+                lastModified.getOrDefault(id, java.time.Instant.EPOCH))).toList();
     }
 }

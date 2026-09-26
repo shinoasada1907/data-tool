@@ -1,6 +1,7 @@
 package com.universalimporter.infrastructure.storage;
 
 import com.universalimporter.domain.importsession.FileStorage;
+import com.universalimporter.domain.importsession.StoredEntry;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -11,6 +12,9 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Comparator;
 import java.util.List;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -69,6 +73,40 @@ public class LocalFileStorage implements FileStorage {
         } catch (IOException e) {
             throw new UncheckedIOException("Cannot delete the files of session " + sessionId, e);
         }
+    }
+
+    /** Only directories named after a session id; any other name is someone else's and is left alone. */
+    @Override
+    public List<StoredEntry> listEntries() {
+        if (Files.notExists(root)) {
+            return List.of();
+        }
+        List<StoredEntry> entries = new ArrayList<>();
+        try (Stream<Path> children = Files.list(root)) {
+            for (Path child : children.filter(Files::isDirectory).toList()) {
+                Optional<UUID> id = sessionId(child.getFileName().toString());
+                if (id.isPresent()) {
+                    entries.add(new StoredEntry(id.get(), lastModified(child)));
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("Cannot list the storage directory", e);
+        }
+        return entries;
+    }
+
+    private static Optional<UUID> sessionId(String name) {
+        try {
+            UUID id = UUID.fromString(name);
+            // UUID.fromString also accepts short forms such as "1-2-3-4-5"; only the canonical name is a session.
+            return id.toString().equals(name) ? Optional.of(id) : Optional.empty();
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
+    }
+
+    private static Instant lastModified(Path directory) throws IOException {
+        return Files.getLastModifiedTime(directory).toInstant();
     }
 
     private Path sessionDir(UUID sessionId) {

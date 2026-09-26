@@ -13,6 +13,12 @@ public class InMemoryImportSessionRepository implements ImportSessionRepository 
 
     private final Map<UUID, ImportSession> sessions = new HashMap<>();
     private boolean failOnSave;
+    private final java.util.Set<UUID> failDeleteFor = new java.util.HashSet<>();
+
+    /** Deleting these sessions fails, as when the database is down. */
+    public void failDeleteFor(UUID... ids) {
+        failDeleteFor.addAll(java.util.List.of(ids));
+    }
 
     public void failOnSave() {
         this.failOnSave = true;
@@ -34,5 +40,28 @@ public class InMemoryImportSessionRepository implements ImportSessionRepository 
     @Override
     public Optional<ImportSession> findById(UUID id) {
         return Optional.ofNullable(sessions.get(id));
+    }
+
+    @Override
+    public java.util.List<UUID> findIdsUpdatedBefore(java.time.Instant cutoff, int limit) {
+        return sessions.values().stream()
+                .filter(session -> session.updatedAt().isBefore(cutoff))
+                .sorted(java.util.Comparator.comparing(ImportSession::updatedAt))
+                .limit(limit)
+                .map(ImportSession::id)
+                .toList();
+    }
+
+    @Override
+    public boolean existsById(UUID id) {
+        return sessions.containsKey(id);
+    }
+
+    @Override
+    public void deleteById(UUID id) {
+        if (failDeleteFor.contains(id)) {
+            throw new IllegalStateException("database is down");
+        }
+        sessions.remove(id);
     }
 }

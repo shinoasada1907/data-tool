@@ -1,6 +1,7 @@
 package com.universalimporter.domain.importsession;
 
 import java.io.InputStream;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -17,4 +18,7 @@ public interface FileStorage {
 
     /** Removes everything stored for the session; does nothing when there is nothing to remove. */
     void delete(UUID sessionId);
+
+    /** Every session that has something stored; anything not named after a session is left out, never touched. */
+    List<StoredEntry> listEntries();
 }
