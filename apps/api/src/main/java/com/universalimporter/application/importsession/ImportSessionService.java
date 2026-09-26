@@ -2,6 +2,8 @@ package com.universalimporter.application.importsession;
 
 import com.universalimporter.domain.common.DomainException;
 import com.universalimporter.domain.common.ErrorCode;
+import com.universalimporter.domain.config.ImportConfiguration;
+import com.universalimporter.domain.config.ImportConfigurationRepository;
 import com.universalimporter.domain.importsession.FileStorage;
 import com.universalimporter.domain.importsession.FileTypeDetector;
 import com.universalimporter.domain.importsession.ImportSession;
@@ -31,13 +33,15 @@ public class ImportSessionService {
     private static final Logger log = LoggerFactory.getLogger(ImportSessionService.class);
 
     private final ImportSessionRepository repository;
+    private final ImportConfigurationRepository configurations;
     private final FileStorage storage;
     private final Clock clock;
     private final SourceParsers sourceParsers;
 
-    public ImportSessionService(ImportSessionRepository repository, FileStorage storage, Clock clock,
-                                SourceParsers sourceParsers) {
+    public ImportSessionService(ImportSessionRepository repository, ImportConfigurationRepository configurations,
+                                FileStorage storage, Clock clock, SourceParsers sourceParsers) {
         this.repository = repository;
+        this.configurations = configurations;
         this.storage = storage;
         this.clock = clock;
         this.sourceParsers = sourceParsers;
@@ -46,8 +50,9 @@ public class ImportSessionService {
     /**
      * Validates the file, stores it under a new session id, reads it once when a parser exists for its type,
      * and creates the session (spec: import-session, source-parsing). On any failure nothing is left behind.
+     * A new session has no configuration yet.
      */
-    public ImportSession upload(String originalFileName, InputStreamSource content) {
+    public SessionDetails upload(String originalFileName, InputStreamSource content) {
         String name = OriginalFileName.sanitize(originalFileName);
         SourceFileType type = FileTypeDetector.detect(name, readHead(content));
         UUID id = UUID.randomUUID();
@@ -66,12 +71,20 @@ public class ImportSessionService {
         }
         // Metadata only: the file content never goes to the log.
         log.info("Created import session {} ({}, {} bytes, {})", id, type, size, session.status());
-        return session;
+        return SessionDetails.of(session, ImportConfiguration.empty(id));
     }
 
     public ImportSession get(UUID id) {
         return repository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.SESSION_NOT_FOUND, "Import session not found."));
+    }
+
+    /** The session with its stored configuration; a session never configured has the empty one. */
+    public SessionDetails details(UUID id) {
+        ImportSession session = get(id);
+        ImportConfiguration configuration = configurations.findBySessionId(id)
+                .orElseGet(() -> ImportConfiguration.empty(id));
+        return SessionDetails.of(session, configuration);
     }
 
     /** Reads the stored copy, so what is inspected is exactly what later steps will read. */

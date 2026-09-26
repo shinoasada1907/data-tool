@@ -34,7 +34,7 @@ public class ImportSessionController {
                     + "413 FILE_TOO_LARGE, 422 FILE_EMPTY or FILE_PARSE_ERROR.")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     ResponseEntity<ImportSessionDto> upload(@RequestPart("file") MultipartFile file) {
-        ImportSession session = service.upload(file.getOriginalFilename(), file);
+        ImportSession session = service.upload(file.getOriginalFilename(), file).session();
         return ResponseEntity.created(URI.create("/api/import-sessions/" + session.id()))
                 .body(ImportSessionDto.from(session));
     }

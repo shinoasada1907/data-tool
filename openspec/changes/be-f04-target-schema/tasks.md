@@ -179,7 +179,7 @@
   ```
 - Test dùng `TransactionTemplate` với một `PlatformTransactionManager` giả (chỉ gọi callback) và `ConfigHasher` giả (`c -> c.schema().toString()`).
 
-- [ ] 5.1 Viết `ConfigurationServiceTest`:
+- [x] 5.1 Viết `ConfigurationServiceTest`:
   | Case | Mong đợi |
   |---|---|
   | Session `CONFIGURING`, `updateSchema(id, [f("note","string",false,0)])` | `session.status` `READY`; `readiness.ready` true; `warnings` rỗng; repository cấu hình có schema mới |
@@ -190,14 +190,15 @@
   | Session `PROCESSED`, cấu hình đang có schema S, `updateSchema` với đúng S | `session.status` vẫn `PROCESSED`; `updatedAt` không đổi |
   | Session `PROCESSED`, `updateSchema` với schema khác | `session.status` `READY` |
   | Sau mỗi lần gọi | action chạy bên trong `SessionLocks.withLock(id, …)` (dùng một `SessionLocks` giả để ghi lại) |
-- [ ] 5.2 Sửa `ImportSessionServiceTest`:
+- [x] 5.2 Sửa `ImportSessionServiceTest`:
   - `upload` hợp lệ → `SessionDetails` có `configuration.schema().isEmpty()` true; `readiness` có issue `SCHEMA_EMPTY`.
   - `details(id)` sau `updateSchema` → trả cấu hình đã lưu.
   - `details(randomUUID)` → `SESSION_NOT_FOUND`.
-- [ ] 5.3 Chạy `./mvnw -q test -Dtest=ConfigurationServiceTest,ImportSessionServiceTest`. Mong đợi: FAIL.
-- [ ] 5.4 Cài theo design S6. `SessionDetails` được lắp từ `session`, `configurations.findBySessionId(...).orElse(empty)` và `ReadinessEvaluator.standard().evaluate(...)`.
-- [ ] 5.5 Chạy lại lệnh ở 5.3. Mong đợi: PASS.
-- [ ] 5.6 Commit: `feat(app): shared configuration update flow and PUT schema use case`
+- [x] 5.3 Chạy `./mvnw -q test -Dtest=ConfigurationServiceTest,ImportSessionServiceTest`. Mong đợi: FAIL.
+- [x] 5.4 Cài theo design S6. `SessionDetails` được lắp từ `session`, `configurations.findBySessionId(...).orElse(empty)` và `ReadinessEvaluator.standard().evaluate(...)`.
+  - Làm thêm ngoài kế hoạch: `ImportSessionController.upload` và stub `upload` trong `ImportSessionControllerTest` được sửa tối thiểu (`.session()`, trả `SessionDetails`) ngay ở task này. `get(UUID)` được giữ lại tới task 6. **LÝ DO:** `upload` đổi kiểu trả về. Maven compile toàn bộ test một lượt, nên không sửa thì không chạy được test của task 5.
+- [x] 5.5 Chạy lại lệnh ở 5.3. Mong đợi: PASS.
+- [x] 5.6 Commit: `feat(app): shared configuration update flow and PUT schema use case`
 
 ## 6. API: PUT /schema; session có thêm config và readiness
 

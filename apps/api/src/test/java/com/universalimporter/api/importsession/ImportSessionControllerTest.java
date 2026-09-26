@@ -1,6 +1,8 @@
 package com.universalimporter.api.importsession;
 
 import com.universalimporter.application.importsession.ImportSessionService;
+import com.universalimporter.application.importsession.SessionDetails;
+import com.universalimporter.domain.config.ImportConfiguration;
 import com.universalimporter.domain.common.DomainException;
 import com.universalimporter.domain.common.ErrorCode;
 import com.universalimporter.domain.importsession.ImportSession;
@@ -47,7 +49,7 @@ class ImportSessionControllerTest {
 
     @Test
     void upload_passes_the_file_to_the_service_and_answers_201_with_location() throws Exception {
-        when(service.upload(eq("customers.csv"), any())).thenReturn(SESSION);
+        when(service.upload(eq("customers.csv"), any())).thenReturn(SessionDetails.of(SESSION, ImportConfiguration.empty(ID)));
 
         mockMvc.perform(multipart("/api/import-sessions")
                         .file(new MockMultipartFile("file", "customers.csv", "text/csv", bytes("a,b\n1,2"))))

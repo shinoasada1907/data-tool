@@ -2,14 +2,19 @@ package com.universalimporter.application.importsession;
 
 import com.universalimporter.domain.common.DomainException;
 import com.universalimporter.domain.common.ErrorCode;
+import com.universalimporter.domain.common.ProblemItem;
+import com.universalimporter.domain.config.ImportConfiguration;
 import com.universalimporter.domain.importsession.ImportSession;
 import com.universalimporter.domain.importsession.SessionStatus;
 import com.universalimporter.domain.importsession.SourceFileType;
+import com.universalimporter.domain.schema.FieldSpec;
+import com.universalimporter.domain.schema.TargetSchema;
 import com.universalimporter.domain.source.SourceColumn;
 import com.universalimporter.domain.source.SourceParser;
 import com.universalimporter.domain.source.SourceSchema;
 import com.universalimporter.support.FakeSourceParser;
 import com.universalimporter.support.InMemoryFileStorage;
+import com.universalimporter.support.InMemoryImportConfigurationRepository;
 import com.universalimporter.support.InMemoryImportSessionRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ByteArrayResource;
@@ -34,12 +39,13 @@ class ImportSessionServiceTest {
             new SourceSchema(List.of(new SourceColumn(0, "name"), new SourceColumn(1, "email")), 2, null);
 
     private final InMemoryImportSessionRepository repository = new InMemoryImportSessionRepository();
+    private final InMemoryImportConfigurationRepository configurations = new InMemoryImportConfigurationRepository();
     private final InMemoryFileStorage storage = new InMemoryFileStorage();
     /** No parser at all: the F01 behaviour, where an upload stops at UPLOADED. */
     private final ImportSessionService service = serviceWith();
 
     private ImportSessionService serviceWith(SourceParser... parsers) {
-        return new ImportSessionService(repository, storage, Clock.fixed(NOW, ZoneOffset.UTC),
+        return new ImportSessionService(repository, configurations, storage, Clock.fixed(NOW, ZoneOffset.UTC),
                 new SourceParsers(List.of(parsers)));
     }
 
@@ -47,7 +53,7 @@ class ImportSessionServiceTest {
     void upload_with_a_parser_inspects_the_stored_file_and_moves_the_session_to_configuring() {
         FakeSourceParser csv = FakeSourceParser.forType(SourceFileType.CSV).returning(SCHEMA);
 
-        ImportSession session = serviceWith(csv).upload("customers.csv", content("name,email\nAn,an@x.com\n"));
+        ImportSession session = serviceWith(csv).upload("customers.csv", content("name,email\nAn,an@x.com\n")).session();
 
         assertThat(session.status()).isEqualTo(SessionStatus.CONFIGURING);
         assertThat(session.sourceSchema()).contains(SCHEMA);
@@ -78,7 +84,7 @@ class ImportSessionServiceTest {
     void without_a_parser_for_the_type_the_session_stays_uploaded() {
         ImportSessionService service = serviceWith(FakeSourceParser.forType(SourceFileType.CSV).returning(SCHEMA));
 
-        ImportSession session = service.upload("a.xlsx", new ByteArrayResource(new byte[]{0x50, 0x4B, 0x03, 0x04}));
+        ImportSession session = service.upload("a.xlsx", new ByteArrayResource(new byte[]{0x50, 0x4B, 0x03, 0x04})).session();
 
         assertThat(session.status()).isEqualTo(SessionStatus.UPLOADED);
         assertThat(session.sourceSchema()).isEmpty();
@@ -95,7 +101,7 @@ class ImportSessionServiceTest {
 
     @Test
     void upload_stores_the_file_and_creates_an_uploaded_session() {
-        ImportSession session = service.upload("customers.csv", content("a,b\n1,2"));
+        ImportSession session = service.upload("customers.csv", content("a,b\n1,2")).session();
 
         assertThat(session.status()).isEqualTo(SessionStatus.UPLOADED);
         assertThat(session.sourceFile().fileType()).isEqualTo(SourceFileType.CSV);
@@ -108,7 +114,7 @@ class ImportSessionServiceTest {
 
     @Test
     void upload_keeps_only_the_sanitized_base_name() {
-        ImportSession session = service.upload("../x.csv", content("a"));
+        ImportSession session = service.upload("../x.csv", content("a")).session();
 
         assertThat(session.sourceFile().originalFileName()).isEqualTo("x.csv");
     }
@@ -142,18 +148,33 @@ class ImportSessionServiceTest {
     }
 
     @Test
-    void get_returns_the_stored_session() {
-        ImportSession uploaded = service.upload("customers.csv", content("a,b"));
+    void upload_comes_with_an_empty_configuration_that_is_not_ready() {
+        SessionDetails details = serviceWith(FakeSourceParser.forType(SourceFileType.CSV).returning(SCHEMA))
+                .upload("customers.csv", content("name,email\nAn,an@x.com\n"));
 
-        ImportSession found = service.get(uploaded.id());
-
-        assertThat(found.id()).isEqualTo(uploaded.id());
-        assertThat(found.status()).isEqualTo(SessionStatus.UPLOADED);
+        assertThat(details.configuration().sessionId()).isEqualTo(details.session().id());
+        assertThat(details.configuration().schema().isEmpty()).isTrue();
+        assertThat(details.readiness().ready()).isFalse();
+        assertThat(details.readiness().issues()).extracting(ProblemItem::code).containsExactly("SCHEMA_EMPTY");
     }
 
     @Test
-    void get_of_an_unknown_id_is_session_not_found() {
-        assertThatThrownBy(() -> service.get(UUID.fromString("11111111-2222-3333-4444-555555555555")))
+    void details_returns_the_stored_session_and_configuration() {
+        ImportSession uploaded = service.upload("customers.csv", content("a,b")).session();
+        TargetSchema schema = TargetSchema.define(List.of(new FieldSpec("email", "email", true, 0)));
+        configurations.save(ImportConfiguration.empty(uploaded.id()).withSchema(schema).configuration(), NOW);
+
+        SessionDetails found = service.details(uploaded.id());
+
+        assertThat(found.session().id()).isEqualTo(uploaded.id());
+        assertThat(found.session().status()).isEqualTo(SessionStatus.UPLOADED);
+        assertThat(found.configuration().schema()).isEqualTo(schema);
+        assertThat(found.readiness().ready()).isTrue();
+    }
+
+    @Test
+    void details_of_an_unknown_id_is_session_not_found() {
+        assertThatThrownBy(() -> service.details(UUID.fromString("11111111-2222-3333-4444-555555555555")))
                 .isInstanceOfSatisfying(DomainException.class,
                         ex -> assertThat(ex.code()).isEqualTo(ErrorCode.SESSION_NOT_FOUND));
     }
