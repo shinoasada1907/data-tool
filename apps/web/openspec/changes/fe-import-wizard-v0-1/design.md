@@ -177,6 +177,7 @@ FE chỉ kiểm **cấu hình**: tên field, field required chưa map, hằng r�
   - Khi focus tới một control vừa được gắn lỗi, state lỗi được render xong trước (`flushSync`), rồi mới focus. Screen reader đọc ô lúc nó nhận focus; `aria-describedby` gắn sau đó không được đọc lại (review FE-F04).
   - Bước Schema (FE-F04): "Thêm field" → ô tên của field mới; "Lên"/"Xuống" tới biên thì nút vừa bấm bị khoá → nút chiều ngược lại của cùng field; "Xoá" → ô tên của field kề bên, hết field thì nút "Thêm field"; lưu lỗi → ô tên của field lỗi đầu tiên, hoặc tiêu đề bước.
   - Tiêu đề bước có `align-self: flex-start`, để viền focus ôm theo chữ thay vì kéo hết chiều ngang.
+- **Vùng nội dung căn giữa, rộng tối đa 1280px** (người dùng yêu cầu ngày 2026-09-26). Trước đó là 1120px và dồn trái, nên trên màn khoảng 2000px bên phải trống gần 600px. Màn laptop khoảng 1440px không đổi, vì vùng nội dung vẫn dùng hết bề ngang. Thay cho con số 1120px ở design D5 của change `fe-app-shell` (đã archive).
   - Vùng live của bước Xem trước là một `<p role="status">` luôn nằm trong DOM: "Đang tải…" rồi "Xem trước x / y dòng". `Spinner` chỉ để nhìn (`aria-hidden`) (FE-F02).
 - Thả file ra ngoài vùng upload: chặn ở `window` (`dragover`/`drop`, đặt `dropEffect = 'none'`), để trình duyệt không mở file và rời khỏi app. Input bị khoá có `pointer-events: none`, để sự kiện thả rơi vào vùng upload.
 - Sắp xếp bằng nút Lên/Xuống thay vì kéo-thả, vì dùng được bằng bàn phím và không cần thêm thư viện.

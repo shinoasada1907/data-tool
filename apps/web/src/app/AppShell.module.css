@@ -120,6 +120,8 @@
   flex-direction: column;
   gap: 28px;
   max-width: var(--content-max-width);
+  /* Căn giữa trong phần bên phải sidebar: trên màn rộng, nội dung không dồn sát sidebar. */
+  margin-inline: auto;
 }
 
 .pageHeader {
