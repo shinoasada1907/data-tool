@@ -55,6 +55,18 @@ public class InMemoryResultStore implements ResultStore {
 
     private int rowsRead;
     private int opened;
+    private int closed;
+    private boolean failReads;
+
+    /** Row streams closed so far. */
+    public int closedStreams() {
+        return closed;
+    }
+
+    /** Opening rows fails from now on, as when a result file has gone missing. */
+    public void failReads() {
+        this.failReads = true;
+    }
 
     /** Row streams opened so far. */
     public int opened() {
@@ -124,6 +136,9 @@ public class InMemoryResultStore implements ResultStore {
 
     @Override
     public Stream<RowResult> readRows(UUID sessionId, ResultView view, long skip) {
+        if (failReads) {
+            throw new UncheckedIOException(new IOException("valid.ndjson is missing"));
+        }
         opened++;
         // A copy: like the file store's detached reader, later changes to the store do not reach it.
         List<RowResult> rows = List.copyOf(stored(sessionId).map(Stored::rows)
@@ -131,7 +146,8 @@ public class InMemoryResultStore implements ResultStore {
         return rows.stream()
                 .filter(row -> row.valid() == (view == ResultView.VALID))
                 .skip(skip)
-                .peek(row -> rowsRead++);
+                .peek(row -> rowsRead++)
+                .onClose(() -> closed++);
     }
 
     @Override
