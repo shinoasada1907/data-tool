@@ -207,6 +207,8 @@ export const messages = {
     transformationRule: (rule: string, step: number | null) =>
       step === null ? `biến đổi ${rule}` : `biến đổi ${rule} ở bước ${step}`,
     validationRule: (rule: string) => `rule ${rule}`,
+    /** BE ghi lỗi bất ngờ khi map bằng `rule = "mapping"`, `step = null` (BE-F08): mapping không phải bước biến đổi. */
+    mappingRule: 'lỗi khi map giá trị',
     sourceValue: 'Giá trị nguồn',
     filtersLabel: 'Lọc dòng lỗi',
     fieldFilter: 'Lọc theo field',

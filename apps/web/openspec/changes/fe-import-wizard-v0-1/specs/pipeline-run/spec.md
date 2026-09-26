@@ -21,7 +21,7 @@ Khi bấm "Chạy xử lý", FE SHALL thực hiện tuần tự và dừng ngay 
 3. `POST .../process`;
 4. `GET .../result`: `view=invalid` nếu `invalid > 0`, ngược lại `view=valid`; `page=0`.
 
-Nếu thành công, wizard sang bước Result & Export. Nếu lỗi, wizard ở lại bước hiện tại và hiển thị lỗi; phần đã lưu thành công trước đó vẫn được giữ trạng thái đã lưu.
+Khi process thành công, wizard sang bước Result & Export, và bước đó gửi request 4. Nếu lỗi ở bước 1–3, wizard ở lại bước hiện tại và hiển thị lỗi; phần đã lưu thành công trước đó vẫn được giữ trạng thái đã lưu. Nếu request 4 lỗi, lỗi hiện ở bước Result & Export kèm nút "Thử lại" chỉ gửi lại request 4, không chạy lại process.
 
 #### Scenario: Chạy thành công
 - **WHEN** transformation và validation đều chưa lưu, user bấm "Chạy xử lý" và mọi request thành công
@@ -47,9 +47,21 @@ Nếu thành công, wizard sang bước Result & Export. Nếu lỗi, wizard ở
 - **WHEN** POST process trả `422` với `code: "FILE_PARSE_ERROR"` (session đã chuyển sang `FAILED`)
 - **THEN** FE hiển thị thông điệp của `FILE_PARSE_ERROR` kèm `detail` ở dòng phụ, và hiện ngay nút "Upload lại" như requirement "Session không dùng được nữa"
 
-#### Scenario: Lỗi máy chủ khi process
-- **WHEN** POST process trả `500` với `code: "INTERNAL_ERROR"`
+#### Scenario: Lỗi máy chủ khi process, session vẫn dùng được
+- **WHEN** POST process trả `500` với `code: "INTERNAL_ERROR"`, và `GET /api/import-sessions/{id}` cho biết session không ở trạng thái `FAILED`
 - **THEN** FE hiển thị lỗi chung, ở lại bước hiện tại, và nút "Chạy xử lý" bấm lại được
+
+#### Scenario: Lỗi máy chủ khi process, session đã hỏng
+- **WHEN** POST process trả `500` với `code: "INTERNAL_ERROR"`, và `GET /api/import-sessions/{id}` cho biết session đã `FAILED`
+- **THEN** FE hiển thị lỗi chung kèm nút "Upload lại"
+
+#### Scenario: Process lỗi khi đã có kết quả
+- **WHEN** đã có kết quả, user chạy lại và POST process trả `422 FILE_PARSE_ERROR`
+- **THEN** kết quả bị đánh dấu cũ, vì BE đã xoá nó
+
+#### Scenario: Tải trang kết quả đầu lỗi
+- **WHEN** POST process thành công nhưng GET result trả `503`
+- **THEN** wizard ở bước Result & Export, hiển thị lỗi kèm nút "Thử lại"; bấm "Thử lại" chỉ gửi lại GET result
 
 ### Requirement: Trạng thái đang xử lý
 Trong lúc trình tự lưu và chạy đang diễn ra, FE SHALL hiển thị chỉ báo "Đang xử lý…" và MUST khoá nút "Chạy xử lý", các nút điều hướng và stepper, để không gửi trùng request.

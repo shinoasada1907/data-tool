@@ -20,7 +20,11 @@ interface DataTableProps<Row> {
   rowKey: (row: Row) => Key
   /** Chữ ẩn đọc kèm ô bị đánh dấu (`flagged`). */
   flaggedLabel?: string
-  /** Nội dung chi tiết đặt ngay dưới một dòng, trải hết chiều ngang; null thì dòng đó không có chi tiết. */
+  /**
+   * Nội dung chi tiết đặt ngay dưới một dòng, trải hết chiều ngang và dính bên trái khi cuộn ngang; null thì dòng đó
+   * không có chi tiết. Ô chi tiết chỉ gắn với ô số dòng (`headers`), để screen reader không đọc mọi tiêu đề cột trước
+   * nó (review FE-F08/F09). Cần có cột `rowNumber`.
+   */
   detail?: (row: Row) => ReactNode
 }
 
@@ -30,6 +34,7 @@ interface DataTableProps<Row> {
  */
 export function DataTable<Row>({ label, columns, rows, rowKey, flaggedLabel, detail }: DataTableProps<Row>) {
   const captionId = useId()
+  const rowHeaderId = (index: number) => `${captionId}-row-${index}`
 
   return (
     <div role="region" aria-labelledby={captionId} tabIndex={0} className={styles.scroll}>
@@ -47,7 +52,7 @@ export function DataTable<Row>({ label, columns, rows, rowKey, flaggedLabel, det
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => {
+          {rows.map((row, index) => {
             const rowDetail = detail?.(row)
             return (
               <Fragment key={rowKey(row)}>
@@ -55,7 +60,7 @@ export function DataTable<Row>({ label, columns, rows, rowKey, flaggedLabel, det
                   {columns.map((column) => {
                     if (column.rowNumber) {
                       return (
-                        <th key={column.key} scope="row" data-row-number>
+                        <th key={column.key} id={rowHeaderId(index)} scope="row" data-row-number>
                           {column.cell(row)}
                         </th>
                       )
@@ -73,7 +78,9 @@ export function DataTable<Row>({ label, columns, rows, rowKey, flaggedLabel, det
                 </tr>
                 {rowDetail != null && (
                   <tr data-detail>
-                    <td colSpan={columns.length}>{rowDetail}</td>
+                    <td colSpan={columns.length} headers={rowHeaderId(index)}>
+                      <div className={styles.detail}>{rowDetail}</div>
+                    </td>
                   </tr>
                 )}
               </Fragment>

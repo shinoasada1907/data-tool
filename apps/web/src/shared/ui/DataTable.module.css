@@ -56,11 +56,18 @@
   box-shadow: inset 4px 0 0 var(--color-danger);
 }
 
-/* Dòng chi tiết ngay dưới dòng dữ liệu: không kẻ lại viền trên, nội dung dính bên trái khi cuộn ngang. */
+/* Dòng chi tiết ngay dưới dòng dữ liệu: không kẻ lại viền trên. */
 .table tbody tr[data-detail] > td {
   padding-top: 0;
   border-top: 0;
   background: var(--color-surface);
+}
+
+/* Nội dung chi tiết hẹp hơn bảng và dính bên trái, nên luôn đọc được khi bảng rộng đang cuộn ngang. */
+.detail {
+  position: sticky;
+  left: 14px;
+  max-width: 72ch;
 }
 
 .table [data-row-number] {

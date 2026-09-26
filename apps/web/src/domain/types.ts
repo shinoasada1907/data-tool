@@ -82,7 +82,10 @@ export interface PipelineSummary {
   invalid: number
   /** Số lỗi theo mã, key sắp theo tên mã. */
   errorCountsByCode: Readonly<Record<string, number>>
-  /** Số lỗi theo field, key theo thứ tự schema lúc chạy. */
+  /**
+   * Số lỗi theo field. BE gửi theo thứ tự schema, nhưng JS đưa key dạng số ("1", "2024") lên đầu object sau
+   * `JSON.parse`: muốn thứ tự schema thì duyệt theo `ResultState.columns`, không theo key.
+   */
   errorCountsByField: Readonly<Record<string, number>>
   processedAt: string
 }

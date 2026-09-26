@@ -1,10 +1,10 @@
 import { useState, type RefObject } from 'react'
 import { ApiError } from '../../api/apiError'
-import { getResult, postProcess, putTransformations, putValidations } from '../../api/endpoints'
-import { toPipelineSummary, toResultPage, toTransformationConfigDto, toValidationConfigDto } from '../../api/mappers'
+import { getSessionStatus, postProcess, putTransformations, putValidations } from '../../api/endpoints'
+import { toPipelineSummary, toTransformationConfigDto, toValidationConfigDto } from '../../api/mappers'
 import { checkTransformations } from '../../domain/configRules'
 import { normalizeFieldName } from '../../domain/schemaRules'
-import type { FieldKey, ResultQuery } from '../../domain/types'
+import type { FieldKey, PipelineSummary, ResultQuery } from '../../domain/types'
 import { codeMessage } from '../../shared/describeError'
 import { useWizard } from '../../wizard/context'
 import { canEnter } from '../../wizard/guards'
@@ -24,8 +24,8 @@ interface RunPipelineOptions {
 
 /**
  * Trình tự "Chạy xử lý" (spec pipeline-run), dùng chung cho nút "Chạy xử lý" ở bước Biến đổi & kiểm tra và "Chạy lại"
- * ở bước Kết quả: PUT transformations và validations nếu chưa lưu, POST process, rồi GET trang kết quả đầu. Dừng ở
- * bước lỗi đầu tiên; phần đã lưu thành công trước đó giữ trạng thái đã lưu.
+ * ở bước Kết quả: PUT transformations và validations nếu chưa lưu, rồi POST process. Dừng ở bước lỗi đầu tiên; phần
+ * đã lưu thành công trước đó giữ trạng thái đã lưu. Process xong thì sang bước Kết quả, và bước đó tự tải trang đầu.
  */
 export function useRunPipeline({ headingRef, focusField }: RunPipelineOptions) {
   const { state, dispatch } = useWizard()
@@ -41,6 +41,7 @@ export function useRunPipeline({ headingRef, focusField }: RunPipelineOptions) {
     clearBeforeSave()
     // Đúng bản đang có lúc bấm: phần sửa bị khoá trong lúc chạy, và `sectionSaved` so tham chiếu với bản này.
     const fields = schema.draft
+    let sessionFailed: boolean | undefined
     try {
       // runBusy tăng bộ đếm bận ngay trong sự kiện click, trước lần `await` đầu, nên nút đã khoá trước cú bấm thứ hai
       // của bấm đúp (spec pipeline-run, "Bấm đúp"; có test).
@@ -53,11 +54,18 @@ export function useRunPipeline({ headingRef, focusField }: RunPipelineOptions) {
           await putValidations(session.id, toValidationConfigDto(fields, validations.draft))
           dispatch({ type: 'sectionSaved', section: 'validations', draft: validations.draft })
         }
-        const summary = toPipelineSummary(await postProcess(session.id))
+        let summary: PipelineSummary
+        try {
+          summary = toPipelineSummary(await postProcess(session.id))
+        } catch (error) {
+          const outcome = await afterProcessFailure(session.id, error)
+          sessionFailed = outcome.sessionFailed
+          if (!outcome.resultKept) dispatch({ type: 'resultUnavailable' })
+          throw error
+        }
         const query: ResultQuery = { view: summary.invalid > 0 ? 'invalid' : 'valid', page: 0, field: null, code: null }
-        const page = toResultPage(await getResult(session.id, query))
         const columns = fields.map((field) => normalizeFieldName(field.name))
-        dispatch({ type: 'processCompleted', summary, columns, query, page })
+        dispatch({ type: 'processCompleted', summary, columns, query })
       })
     } catch (error) {
       reportFailure(error)
@@ -66,7 +74,6 @@ export function useRunPipeline({ headingRef, focusField }: RunPipelineOptions) {
     }
 
     function reportFailure(error: unknown) {
-      const shownFields = focusField ? fields : []
       const focus = focusField ?? (() => false)
       if (error instanceof ApiError && error.code === 'SESSION_NOT_READY') {
         // Readiness issue là danh sách việc cần làm, không phải lỗi của ô nào: liệt kê trong khối lỗi, bằng thông
@@ -78,13 +85,40 @@ export function useRunPipeline({ headingRef, focusField }: RunPipelineOptions) {
         report(error, [], focus, headingRef.current, { fieldErrors })
         return
       }
-      // Process gặp FILE_PARSE_ERROR thì session đã FAILED: chạy lại vô ích, chỉ còn cách upload lại (design D12).
-      const reupload = error instanceof ApiError && error.code === 'FILE_PARSE_ERROR' ? true : undefined
-      report(error, shownFields, focus, headingRef.current, { reupload })
+      report(error, focusField ? fields : [], focus, headingRef.current, { reupload: sessionFailed })
     }
   }
 
   return { run, running, blockedReason, serverErrors, failure, clearOnEdit }
+}
+
+interface ProcessFailureOutcome {
+  /** true: session đã FAILED, chỉ còn cách upload lại; undefined: theo luật chung (`isSessionUnusable`). */
+  sessionFailed: boolean | undefined
+  /** BE còn giữ kết quả của lần chạy trước, nên kết quả đang có trên FE vẫn dùng được. */
+  resultKept: boolean
+}
+
+/**
+ * Process lỗi thì BE có thể đã xoá kết quả cũ (design D12, D18; BE-F08):
+ * - 422 (lỗi đọc file nguồn): session thành `FAILED` và kết quả bị xoá.
+ * - 5xx: cùng một `500 INTERNAL_ERROR` cho ba nguyên nhân: đọc file lỗi (session `FAILED`), lưu kết quả lỗi hoặc bug
+ *   (session giữ nguyên, kết quả cũ còn). Body không phân biệt được, nên hỏi lại trạng thái session.
+ * - Lỗi khác (409, 404, hết giờ, mất mạng): không biết BE đã làm gì, coi như kết quả không còn; sai thì chỉ tốn một lần
+ *   chạy lại.
+ */
+async function afterProcessFailure(sessionId: string, error: unknown): Promise<ProcessFailureOutcome> {
+  if (!(error instanceof ApiError) || error.kind !== 'http' || error.status === null) {
+    return { sessionFailed: undefined, resultKept: false }
+  }
+  if (error.status === 422) return { sessionFailed: true, resultKept: false }
+  if (error.status < 500) return { sessionFailed: undefined, resultKept: false }
+  try {
+    const status = await getSessionStatus(sessionId)
+    return { sessionFailed: status === 'FAILED', resultKept: status === 'PROCESSED' }
+  } catch {
+    return { sessionFailed: undefined, resultKept: false }
+  }
 }
 
 /** Lý do không chạy được: thiếu schema/mapping đã lưu, hoặc còn tham số transformation thiếu (spec pipeline-run). */

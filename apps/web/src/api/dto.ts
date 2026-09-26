@@ -128,7 +128,8 @@ export interface PipelineResultDto {
   page: { number: number; size: number; totalElements: number; totalPages: number }
   /**
    * Row hợp lệ: `values` đã ép kiểu. Row lỗi: chuỗi sau transformation, hoặc null ở field có
-   * transformation lỗi. FE hiển thị theo thứ tự schema, không theo thứ tự key.
+   * transformation lỗi. FE hiển thị theo thứ tự schema, không theo thứ tự key. Số mà JS không giữ đúng
+   * chữ số (quá dài, có 0 ở cuối) đến tay FE dưới dạng chuỗi nguyên văn (`getResult` đọc với `exactNumbers`).
    */
   rows: { rowNumber: number; valid: boolean; values: Record<string, unknown>; errors: ImportErrorDto[] }[]
 }

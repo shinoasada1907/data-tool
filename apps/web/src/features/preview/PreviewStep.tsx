@@ -1,41 +1,23 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { ApiError, isRetryable, isSessionUnusable } from '../../api/apiError'
+import { ApiError } from '../../api/apiError'
 import { getPreview } from '../../api/endpoints'
 import { toSourcePreview } from '../../api/mappers'
 import type { PreviewRow, SessionInfo, SourcePreview } from '../../domain/types'
-import { describeApiError, type ErrorText } from '../../shared/describeError'
 import { messages, stepLabels } from '../../shared/messages'
 import { DataTable, EmptyCell, type DataTableColumn } from '../../shared/ui/DataTable'
 import { EmptyState } from '../../shared/ui/EmptyState'
-import { ErrorBanner } from '../../shared/ui/ErrorBanner'
 import { Spinner } from '../../shared/ui/Spinner'
 import { useWizard } from '../../wizard/context'
 import { canEnter } from '../../wizard/guards'
+import { toLoadFailure, type LoadFailure } from '../../wizard/loadFailure'
+import { LoadFailureBanner } from '../../wizard/LoadFailureBanner'
 import { StepActions } from '../../wizard/StepActions'
 import styles from './PreviewStep.module.css'
-
-interface Failure {
-  text: ErrorText
-  /** Lỗi mạng/5xx thì thử lại được; session hết hạn hoặc hỏng thì chỉ còn cách upload lại (design D12). */
-  action: 'retry' | 'reupload' | null
-}
-
-function toFailure(error: unknown): Failure {
-  if (!(error instanceof ApiError)) {
-    // Lỗi lập trình (mapper, reducer…): user chỉ thấy câu chung, nên stack phải nằm ở console.
-    console.error(error)
-    return { text: { headline: messages.unexpected }, action: null }
-  }
-
-  const text = describeApiError(error) ?? { headline: messages.unexpected }
-  if (isSessionUnusable(error)) return { text, action: 'reupload' }
-  return { text, action: isRetryable(error) ? 'retry' : null }
-}
 
 export function PreviewStep() {
   const { state, dispatch } = useWizard()
   const { session, preview } = state
-  const [failure, setFailure] = useState<Failure | null>(null)
+  const [failure, setFailure] = useState<LoadFailure | null>(null)
   const [attempt, setAttempt] = useState(0)
   const titleId = useId()
   const titleRef = useRef<HTMLHeadingElement>(null)
@@ -49,27 +31,12 @@ export function PreviewStep() {
       .then((dto) => dispatch({ type: 'previewLoaded', sessionId: session.id, preview: toSourcePreview(dto) }))
       .catch((error: unknown) => {
         if (error instanceof ApiError && error.kind === 'aborted') return
-        setFailure(toFailure(error))
+        setFailure(toLoadFailure(error))
       })
     return () => controller.abort()
   }, [session, preview, attempt, dispatch])
 
   if (!session) return null
-
-  const failureAction =
-    failure?.action === 'retry'
-      ? {
-          label: messages.retry,
-          onClick: () => {
-            // Nút này biến mất cùng khối lỗi; giữ focus trong bước thay vì để rơi về đầu trang (design D14).
-            titleRef.current?.focus()
-            setFailure(null)
-            setAttempt((count) => count + 1)
-          },
-        }
-      : failure?.action === 'reupload'
-        ? { label: messages.sessionUnusableAction, onClick: () => dispatch({ type: 'reset' }) }
-        : undefined
 
   const nextGuard = canEnter('schema', state)
 
@@ -88,7 +55,16 @@ export function PreviewStep() {
           : !failure && messages.preview.loading}
       </p>
 
-      {failure && <ErrorBanner text={failure.text} action={failureAction} />}
+      {failure && (
+        <LoadFailureBanner
+          failure={failure}
+          retryFocusRef={titleRef}
+          onRetry={() => {
+            setFailure(null)
+            setAttempt((count) => count + 1)
+          }}
+        />
+      )}
       {!preview && !failure && <Spinner label={messages.preview.loading} />}
 
       {preview && (

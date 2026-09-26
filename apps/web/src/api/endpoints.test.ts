@@ -1,14 +1,26 @@
-import { http, HttpResponse } from 'msw'
-import { describe, expect, test } from 'vitest'
+import { delay, http, HttpResponse } from 'msw'
+import { describe, expect, onTestFinished, test, vi } from 'vitest'
 import {
   configUpdateFixture,
+  importSessionFixture,
   csvPreviewFixture,
   pipelineResultFixture,
   pipelineSummaryFixture,
   problemFixture,
 } from '../mocks/fixtures'
 import { server } from '../mocks/node'
-import { getPreview, getResult, postProcess, putMapping, putSchema, putTransformations, putValidations } from './endpoints'
+import { DEFAULT_TIMEOUT_MS } from './client'
+import {
+  getPreview,
+  getResult,
+  getSessionStatus,
+  postProcess,
+  PROCESS_TIMEOUT_MS,
+  putMapping,
+  putSchema,
+  putTransformations,
+  putValidations,
+} from './endpoints'
 
 describe('getPreview', () => {
   test('gọi GET /api/import-sessions/{id}/preview?limit=50 và trả về SourcePreviewDto', async () => {
@@ -166,5 +178,74 @@ describe('getResult', () => {
     await expect(getResult('s-1', { view: 'valid', page: 0, field: null, code: null })).rejects.toMatchObject({
       code: 'INVALID_RESPONSE',
     })
+  })
+})
+
+describe('getSessionStatus', () => {
+  test('GET /api/import-sessions/{id} trả status của session', async () => {
+    server.use(
+      http.get('/api/import-sessions/:id', ({ params }) =>
+        HttpResponse.json(importSessionFixture({ id: String(params.id), status: 'FAILED' })),
+      ),
+    )
+
+    await expect(getSessionStatus('s-1')).resolves.toBe('FAILED')
+  })
+
+  test('body 200 thiếu status thì báo INVALID_RESPONSE', async () => {
+    server.use(http.get('/api/import-sessions/:id', () => HttpResponse.json({ id: 's-1' })))
+
+    await expect(getSessionStatus('s-1')).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
+  })
+})
+
+describe('thời gian chờ của process', () => {
+  test('process chờ tới 5 phút mới báo hết giờ (BE chạy đồng bộ), không dừng ở 30 giây như request khác', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
+    server.use(
+      http.post('/api/import-sessions/:id/process', async () => {
+        await delay('infinite')
+        return HttpResponse.json(pipelineSummaryFixture())
+      }),
+    )
+    let failure: unknown = null
+    const settled = postProcess('s-1').catch((error: unknown) => {
+      failure = error
+    })
+
+    await vi.advanceTimersByTimeAsync(DEFAULT_TIMEOUT_MS + 1_000)
+    expect(failure).toBeNull()
+
+    await vi.advanceTimersByTimeAsync(PROCESS_TIMEOUT_MS)
+    await settled
+    expect(failure).toMatchObject({ kind: 'timeout' })
+  })
+})
+
+describe('số trong kết quả giữ đúng chữ số BE gửi', () => {
+  test('số quá độ chính xác của JS và số có 0 ở cuối thành chuỗi nguyên văn; số JS giữ đúng vẫn là number', async () => {
+    const dto = pipelineResultFixture()
+    const body = JSON.stringify({
+      ...dto,
+      rows: [{ ...dto.rows[0], values: { acct: '__ACCT__', price: '__PRICE__', age: 30, big: '__BIG__' } }],
+    })
+      .replace('"__ACCT__"', '12345678901234567890')
+      .replace('"__PRICE__"', '10.50')
+      .replace('"__BIG__"', '1E+21')
+    server.use(
+      http.get('/api/import-sessions/:id/result', () =>
+        new HttpResponse(body, { headers: { 'Content-Type': 'application/json' } }),
+      ),
+    )
+
+    const result = await getResult('s-1', { view: 'invalid', page: 0, field: null, code: null })
+
+    expect(result.rows[0].values).toEqual({ acct: '12345678901234567890', price: '10.50', age: 30, big: '1E+21' })
+    // Số đếm và số trang vẫn là number, để validator và phân trang dùng được.
+    expect(result.summary.total).toBe(120)
+    expect(result.page.number).toBe(0)
   })
 })

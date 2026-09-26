@@ -14,16 +14,20 @@ interface PaginationProps {
 export function Pagination({ page, totalPages, disabled = false, onChange }: PaginationProps) {
   const previousRef = useRef<HTMLButtonElement>(null)
   const nextRef = useRef<HTMLButtonElement>(null)
-  // Trang đích của lần bấm gần nhất: chỉ dời focus khi đã tới đúng trang đó (tải lỗi thì trang không đổi).
+  // Lần bấm gần nhất và trang đích của nó: chỉ dời focus khi đã tới đúng trang đó (tải lỗi thì trang không đổi).
   const pending = useRef<{ target: number; from: 'previous' | 'next' } | null>(null)
 
   useEffect(() => {
     const moved = pending.current
     if (!moved || moved.target !== page) return
     pending.current = null
-    // Nút vừa bấm bị khoá ở trang đầu/cuối: focus sang nút chiều ngược lại (design D14).
-    if (moved.from === 'next' && page + 1 >= totalPages) previousRef.current?.focus()
-    if (moved.from === 'previous' && page <= 0) nextRef.current?.focus()
+    const clicked = moved.from === 'next' ? nextRef.current : previousRef.current
+    const other = moved.from === 'next' ? previousRef.current : nextRef.current
+    // Nút vừa bấm bị khoá ở trang đầu/cuối: focus sang nút chiều ngược lại (design D14). Chỉ khi focus vẫn ở nút đó
+    // hoặc đã rơi về đầu trang: trang tới nơi sau "Thử lại" thì focus đang ở tiêu đề bước, không giật đi.
+    const active = document.activeElement
+    const focusLost = active === null || active === document.body || active === clicked
+    if (clicked?.disabled && focusLost) other?.focus()
   }, [page, totalPages])
 
   function go(from: 'previous' | 'next') {

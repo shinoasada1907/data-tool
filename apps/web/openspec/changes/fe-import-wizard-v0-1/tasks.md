@@ -86,6 +86,8 @@
   - FE-F02 đã xong `getPreview` (`limit=50`), có test với MSW: path, query, và body 200 sai dạng → `INVALID_RESPONSE` (kể cả ô không phải chuỗi hay `null`, vì React không vẽ boolean và vỡ trang với object).
   - FE-F05 đã xong `putMapping`, có test với MSW (method, path, body).
   - FE-F06/F07 đã xong `putTransformations` và `putValidations`, có test với MSW. Hai lệnh này được gọi trong trình tự "Chạy xử lý" (FE-F08).
+  - FE-F08/F09 đã xong `postProcess` (timeout riêng 5 phút, có test bằng fake timer) và `getResult` (`size=50`; `field`/`code` chỉ gửi khi có), có test với MSW.
+  - ~~Không gồm `GET /api/import-sessions/{id}`.~~ **Đổi — LÝ DO:** BE-F08 trả cùng `500 INTERNAL_ERROR` cho ba nguyên nhân (đọc file nguồn lỗi thì session `FAILED`; lưu kết quả lỗi hoặc bug thì session giữ nguyên, kết quả cũ còn), body không phân biệt được. Sau khi process trả 5xx, FE gọi `getSessionStatus` để biết có phải upload lại không, và kết quả cũ còn dùng được không (design D12).
   - FE-F04 đã xong `putSchema`, có test với MSW: method, path, body; `200 {session, warnings}` thì resolve và bỏ qua body; `422` giữ `errors[]`. Body 200 chỉ được kiểm là có `session` (để body HTML từ proxy vẫn báo `INVALID_RESPONSE`).
 - [ ] 3.7 `domain/types.ts` và TDD `api/mappers.ts`:
   - đổi key ↔ tên field; `order` theo vị trí;
@@ -396,6 +398,9 @@
   - process trả `500 INTERNAL_ERROR` → lỗi chung, "Chạy xử lý" bấm lại được.
 
   Đã làm trong hook `useRunPipeline`, dùng chung cho "Chạy xử lý" và "Chạy lại". Thêm so với danh sách trên:
+  - ~~Bước 4 (GET result) nằm trong trình tự, lỗi thì ở lại bước hiện tại.~~ **Đổi sau review FE-F08/F09 — LÝ DO:** GET trang đầu lỗi (mạng chập, 503) mà ở lại bước Biến đổi thì summary vừa có bị vứt, và cách duy nhất là chạy lại cả pipeline (vài phút với file lớn). Nay process xong là sang bước Kết quả (`processCompleted`, `page: null`), và bước đó tự tải trang đầu; lỗi thì khối lỗi có "Thử lại" chỉ tải lại trang, như mọi GET khác. Thứ tự request không đổi.
+  - Process lỗi: 422 (lỗi đọc file) → "Upload lại" ngay. 5xx → hỏi `GET /api/import-sessions/{id}`: `FAILED` thì "Upload lại", còn lại là lỗi chung; không hỏi được thì cũng là lỗi chung. Nút chạy luôn bấm lại được.
+  - Process lỗi thì kết quả đang có bị đánh dấu cũ, vì BE có thể đã xoá nó (session `FAILED`); trừ khi sau 5xx session vẫn `PROCESSED`, nghĩa là BE giữ kết quả cũ.
   - `SESSION_NOT_READY`: readiness issue hiện trong khối lỗi dạng `field: thông điệp FE theo mã` (ví dụ "Email: Field bắt buộc chưa được map"), không gắn vào thẻ field, vì đó là việc cần làm chứ không phải lỗi của ô nào.
   - `CONFIG_INVALID` của PUT: ở bước Biến đổi & kiểm tra, lỗi nằm ngay dưới đầu thẻ field (là mô tả của nhóm) và nhận focus; ở bước Kết quả không có thẻ field nên lỗi nằm trong danh sách của khối lỗi. Sửa bất kỳ rule nào thì lỗi của bản đã gửi biến mất.
   - Có dòng lỗi thì trang đầu là `view=invalid`, không thì `view=valid`; có test cho cả hai.
@@ -424,6 +429,7 @@
   - Cột của bảng là tên field lúc chạy (`result.columns`), không lấy từ key của `values` hay từ schema hiện tại: sau khi đổi tên field, kết quả cũ vẫn đọc đúng cột.
   - Ô có lỗi có nền đỏ và chữ ẩn "(có lỗi)"; dưới dòng là danh sách lỗi (`aria-label` "Lỗi của dòng n"), mỗi lỗi một câu: field, nhãn mã lỗi, mã, rule hoặc "biến đổi `rule` ở bước `step + 1`", giá trị nguồn trong ngoặc kép, message của BE (`lang="en"`). `DataTable` có thêm `flagged` theo cột và `detail` theo dòng.
   - Tab theo mẫu kích hoạt thủ công của WAI-ARIA: mũi tên, Home, End chỉ dời focus; Enter hoặc Space mới tải tab, vì mỗi lần đổi tab là một request.
+  - Giá trị số hiện đúng từng chữ số BE gửi, kể cả số dài hơn độ chính xác của JS và số có 0 ở cuối (`10.50`): `getResult` đọc JSON với `exactNumbers` (design, mục rủi ro). Có test ở mức endpoint và ở bảng.
 - [x] 11.3 Phân trang 50 dòng/trang; đổi trang hoặc đổi tab thì gọi lại GET result. Có test.
   - `shared/ui/Pagination.tsx`. Nút đổi trang không bị khoá trong lúc tải, để giữ focus; cú bấm thứ hai khi trang kế còn đang tải bị bỏ qua (có test). Tới trang đầu hoặc cuối thì nút vừa bấm bị khoá, focus sang nút chiều ngược lại.
   - Trong lúc tải, tab và bộ lọc hiện ngay lựa chọn mới, bảng cũ mờ đi (`aria-busy`); vùng status báo "Đang tải kết quả…" rồi "Dòng lỗi: trang x / y".
@@ -436,6 +442,20 @@
 - [x] 11.6 `GET result` trả `409 RESULT_NOT_AVAILABLE` → dispatch `resultUnavailable`: đánh dấu kết quả là cũ, giữ trang đang xem, hiện cảnh báo và nút "Chạy lại" (design D18). Có test.
   - Focus chuyển tới nút "Chạy lại", vì mọi nút đổi trang, tab, bộ lọc vừa bị khoá. Lỗi tải trang khác hiện khối lỗi có "Thử lại" (gửi lại đúng truy vấn đó) hoặc "Upload lại" (session hỏng).
   - Chạy lại thành công: nút "Chạy lại" biến mất cùng cảnh báo, focus về tiêu đề bước.
+
+> **Review FE-F08/F09** (senior-reviewer, 2026-09-27). Đã sửa, mỗi mục có test và đã làm mutation check:
+> - "Thử lại" ở bước Kết quả làm focus rơi về đầu trang: bản chép từ bước Xem trước bỏ mất dòng focus. Gom khối lỗi của request đọc vào `wizard/LoadFailureBanner.tsx` (và `wizard/loadFailure.ts`), dùng chung cho hai bước, focus nằm trong đó.
+> - Process lỗi mà kết quả cũ vẫn hiện như kết quả hiện hành, trong khi BE đã xoá nó: nay đánh dấu cũ (xem 10.2).
+> - GET trang đầu lỗi thì phải chạy lại cả pipeline: nay bước Kết quả tự tải trang đầu (xem 10.2).
+> - Đổi bộ lọc khi trang trước còn đang tải thì lựa chọn bị bỏ và select nhảy ngược: nay lựa chọn mới nhất thắng. Nó được xếp hàng và tải ngay sau; trang của lựa chọn cũ về tới nơi thì không được vẽ. Chọn lại đúng trang đang tải (bấm đúp "Sau") thì chỉ chờ nó.
+> - Kết quả cũ khoá cả tab đang chọn, tablist mất điểm dừng Tab: nay chỉ khoá tab kia.
+> - Dòng chi tiết lỗi bị gắn với mọi tiêu đề cột: ô chi tiết nay có `headers` trỏ tới ô số dòng. Phần dính bên trái khi cuộn ngang chuyển vào `DataTable`, đúng như comment của nó.
+> - CSS làm mờ khi tải đoán sai phần tử con đầu: nay làm mờ theo class của vùng bảng và phân trang.
+> - Vùng status giữ câu của lần chạy trước: lỗi tải và câu status nay gắn với `summary` của lần chạy, chạy lại là tự hết hiệu lực.
+> - Lỗi bất ngờ khi map (`rule = "mapping"`, `step = null`, BE-F08) bị ghi là "biến đổi mapping": nay là "lỗi khi map giá trị".
+> - Test thiếu: focus ở biên "Trước"; phím ArrowRight, Home, End, Space của tab; PUT transformations lỗi thì dừng ngay; process 404; timeout riêng của process. `Pagination` chỉ dời focus ở biên khi focus còn ở nút vừa bấm (hoặc đã rơi về đầu trang), để trang tới nơi sau "Thử lại" không giật focus khỏi tiêu đề.
+> - Helper test chép lại (`addTrim`, `problemWithErrors`, `RESULT_HEADING`) gom về `test/flows.ts` và `test/http.ts`; sửa hai comment sai.
+> - Câu hỏi của reviewer, vì sao bỏ lượt gọi thay vì latest-wins: không cân nhắc, chỉ mang cơ chế của nút phân trang sang mọi control. Đã đổi như trên.
 
 ## 12. FE-F10 Export (spec result-export)
 

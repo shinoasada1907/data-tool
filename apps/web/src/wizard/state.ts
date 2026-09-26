@@ -30,9 +30,13 @@ export interface ResultState {
   summary: PipelineSummary
   /** Tên field (đã chuẩn hoá) theo thứ tự schema lúc chạy: cột của bảng kết quả, không lấy từ key của `values`. */
   columns: readonly string[]
-  /** Tab, trang và bộ lọc của trang đang xem. */
+  /** Tab, trang và bộ lọc của trang đang xem (hoặc sắp tải, khi `page` còn null). */
   query: ResultQuery
-  page: ResultPage
+  /**
+   * Null khi vừa chạy xong mà trang đầu chưa tải: bước Kết quả tự tải, để GET lỗi thì "Thử lại" chỉ tải lại trang chứ
+   * không chạy lại cả pipeline (review FE-F08/F09).
+   */
+  page: ResultPage | null
   /** Cấu hình đã sửa sau lần chạy này, hoặc BE báo kết quả không còn: chỉ còn xem trang đang có và chạy lại. */
   stale: boolean
 }
@@ -102,14 +106,8 @@ export type WizardAction =
   | { type: 'sectionSaved'; section: 'mapping'; draft: MappingDraft }
   | { type: 'sectionSaved'; section: 'transformations'; draft: TransformationsDraft }
   | { type: 'sectionSaved'; section: 'validations'; draft: ValidationsDraft }
-  /** Trình tự "Chạy xử lý" xong: kết quả mới thay kết quả cũ và wizard sang bước Kết quả. */
-  | {
-      type: 'processCompleted'
-      summary: PipelineSummary
-      columns: readonly string[]
-      query: ResultQuery
-      page: ResultPage
-    }
+  /** Process xong: kết quả mới thay kết quả cũ, wizard sang bước Kết quả và bước đó tải trang `query`. */
+  | { type: 'processCompleted'; summary: PipelineSummary; columns: readonly string[]; query: ResultQuery }
   | { type: 'resultPageLoaded'; query: ResultQuery; page: ResultPage }
   /** `GET result` trả `409 RESULT_NOT_AVAILABLE` (design D18). */
   | { type: 'resultUnavailable' }

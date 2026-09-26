@@ -1,9 +1,11 @@
 import { request } from './client'
 import { RESULT_PAGE_SIZE, type ResultQuery } from '../domain/types'
 import type {
+  ImportSessionDto,
   MappingConfigDto,
   PipelineResultDto,
   PipelineSummaryDto,
+  SessionStatus,
   SourcePreviewDto,
   TargetSchemaDto,
   TransformationConfigDto,
@@ -74,12 +76,24 @@ export function postProcess(sessionId: string): Promise<PipelineSummaryDto> {
   })
 }
 
+/**
+ * Trạng thái hiện tại của session. Chỉ dùng sau khi process trả 5xx: BE-F08 trả cùng `500 INTERNAL_ERROR` cho lỗi đọc
+ * file nguồn (session thành `FAILED`) và lỗi lưu kết quả hay bug (session giữ nguyên), nên phải hỏi lại mới biết.
+ */
+export async function getSessionStatus(sessionId: string): Promise<SessionStatus> {
+  const session = await request(`${SESSIONS}/${encodeURIComponent(sessionId)}`, { validate: hasSessionStatus })
+  return session.status
+}
+
 /** Một trang kết quả của lần chạy gần nhất; `field`/`code` chỉ gửi khi có (spec result-review). */
 export function getResult(sessionId: string, query: ResultQuery): Promise<PipelineResultDto> {
   const params = new URLSearchParams({ view: query.view, page: String(query.page), size: String(RESULT_PAGE_SIZE) })
   if (query.field !== null) params.set('field', query.field)
   if (query.code !== null) params.set('code', query.code)
-  return request(`${SESSIONS}/${encodeURIComponent(sessionId)}/result?${params}`, { validate: isPipelineResultDto })
+  return request(`${SESSIONS}/${encodeURIComponent(sessionId)}/result?${params}`, {
+    validate: isPipelineResultDto,
+    exactNumbers: true,
+  })
 }
 
 /** Chỉ kiểm đó là body của PUT cấu hình (không phải trang HTML từ proxy); nội dung không dùng tới. */
@@ -105,6 +119,10 @@ function isSourcePreviewDto(value: unknown): value is SourcePreviewDto {
         row.values.every((cell) => cell === null || typeof cell === 'string'),
     )
   )
+}
+
+function hasSessionStatus(value: unknown): value is Pick<ImportSessionDto, 'status'> {
+  return isRecord(value) && typeof value.status === 'string'
 }
 
 function isPipelineSummaryDto(value: unknown): value is PipelineSummaryDto {

@@ -544,12 +544,13 @@ describe('kết quả xử lý', () => {
     validations: { draft: {}, saved: true },
     nextFieldSeq: 2,
   }
-  const completed = wizardReducer(ready, { type: 'processCompleted', summary, columns, query, page })
+  const processed = wizardReducer(ready, { type: 'processCompleted', summary, columns, query })
+  const completed = wizardReducer(processed, { type: 'resultPageLoaded', query, page })
   const result = completed.result as ResultState
 
-  test('processCompleted lưu kết quả (chưa cũ) và sang bước Kết quả', () => {
-    expect(completed.step).toBe('result')
-    expect(completed.result).toEqual({ summary, columns, query, page, stale: false })
+  test('processCompleted lưu kết quả (chưa cũ, trang đầu chưa tải) và sang bước Kết quả', () => {
+    expect(processed.step).toBe('result')
+    expect(processed.result).toEqual({ summary, columns, query, page: null, stale: false })
   })
 
   test('resultPageLoaded thay trang đang xem và truy vấn, giữ tóm tắt và cột', () => {
@@ -585,7 +586,7 @@ describe('kết quả xử lý', () => {
 
   test('thao tác không đổi gì (bật rule đã bật) thì kết quả không bị đánh dấu cũ', () => {
     const withUnique = wizardReducer(ready, { type: 'validationToggled', key: 'f1', rule: 'unique', enabled: true })
-    const done = wizardReducer(withUnique, { type: 'processCompleted', summary, columns, query, page })
+    const done = wizardReducer(withUnique, { type: 'processCompleted', summary, columns, query })
 
     const next = wizardReducer(done, { type: 'validationToggled', key: 'f1', rule: 'unique', enabled: true })
 
@@ -606,9 +607,9 @@ describe('kết quả xử lý', () => {
     const newSummary = { ...summary, invalid: 0, valid: 3 }
     const validQuery: ResultQuery = { ...query, view: 'valid' }
 
-    const next = wizardReducer(stale, { type: 'processCompleted', summary: newSummary, columns, query: validQuery, page })
+    const next = wizardReducer(stale, { type: 'processCompleted', summary: newSummary, columns, query: validQuery })
 
-    expect(next.result).toEqual({ summary: newSummary, columns, query: validQuery, page, stale: false })
+    expect(next.result).toEqual({ summary: newSummary, columns, query: validQuery, page: null, stale: false })
   })
 
   test('sessionCreated và reset xoá kết quả', () => {

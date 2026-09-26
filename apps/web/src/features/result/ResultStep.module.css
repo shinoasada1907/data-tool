@@ -142,8 +142,14 @@
   gap: var(--space-4);
 }
 
-/* Đang tải trang khác: trang cũ mờ đi cho tới khi trang mới về. */
-.panel[aria-busy='true'] > :not(:first-child) {
+/* Bảng và phân trang của trang đang xem; mờ đi trong lúc tải trang khác (bộ lọc thì không). */
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.panel[aria-busy='true'] .rows {
   opacity: 0.5;
 }
 
@@ -194,14 +200,11 @@
   color: var(--color-locked);
 }
 
-/* Lỗi dưới dòng: danh sách gọn, dính bên trái khi bảng cuộn ngang để luôn đọc được. */
+/* Lỗi dưới dòng: danh sách gọn, nền đỏ nhạt (DataTable lo phần dính bên trái khi bảng cuộn ngang). */
 .errors {
-  position: sticky;
-  left: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  max-width: min(100%, 72ch);
   margin: 0;
   padding: var(--space-2) var(--space-3);
   border-left: 4px solid var(--color-danger);

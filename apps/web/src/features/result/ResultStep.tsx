@@ -1,20 +1,21 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
+import { useEffect, useEffectEvent, useId, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import { flushSync } from 'react-dom'
-import { ApiError, isRetryable, isSessionUnusable } from '../../api/apiError'
+import { ApiError } from '../../api/apiError'
 import { getResult } from '../../api/endpoints'
 import { toResultPage } from '../../api/mappers'
-import type { PipelineSummary, ResultQuery, ResultRow, ResultView, RowError } from '../../domain/types'
-import { codeMessage, describeApiError, type ErrorText } from '../../shared/describeError'
+import type { PipelineSummary, ResultQuery, ResultRow, ResultView, RowError, SessionInfo } from '../../domain/types'
+import { codeMessage } from '../../shared/describeError'
 import { formatNumber } from '../../shared/format'
 import { messages, stepLabels } from '../../shared/messages'
 import { DataTable, EmptyCell, type DataTableColumn } from '../../shared/ui/DataTable'
 import { EmptyState } from '../../shared/ui/EmptyState'
-import { ErrorBanner } from '../../shared/ui/ErrorBanner'
 import { Pagination } from '../../shared/ui/Pagination'
-import { SpinnerMark } from '../../shared/ui/Spinner'
+import { Spinner, SpinnerMark } from '../../shared/ui/Spinner'
 import { useWizard } from '../../wizard/context'
+import { toLoadFailure, type LoadFailure } from '../../wizard/loadFailure'
+import { LoadFailureBanner } from '../../wizard/LoadFailureBanner'
 import { SaveFailureBanner } from '../../wizard/SaveFailureBanner'
-import { isBusy } from '../../wizard/state'
+import { isBusy, type ResultState } from '../../wizard/state'
 import { StepActions } from '../../wizard/StepActions'
 import { StepHeader } from '../../wizard/StepHeader'
 import { useBusyRequest } from '../../wizard/useBusyRequest'
@@ -24,15 +25,15 @@ import styles from './ResultStep.module.css'
 /** Thứ tự tab trên màn hình. */
 const VIEWS: readonly ResultView[] = ['valid', 'invalid']
 
-interface LoadFailure {
-  text: ErrorText
-  /** Truy vấn bị lỗi, để "Thử lại" gửi lại đúng nó. */
-  query: ResultQuery
-  action: 'retry' | 'reupload' | null
-}
-
 /** Bước 6: tóm tắt và các dòng kết quả của lần chạy gần nhất (spec result-review). */
 export function ResultStep() {
+  const { state } = useWizard()
+  const { session, result } = state
+  if (!session || !result) return null
+  return <ResultContent session={session} result={result} />
+}
+
+function ResultContent({ session, result }: { session: SessionInfo; result: ResultState }) {
   const { state, dispatch } = useWizard()
   const runBusy = useBusyRequest()
   const titleId = useId()
@@ -40,58 +41,83 @@ export function ResultStep() {
   const rerunRef = useRef<HTMLButtonElement>(null)
   const fieldFilterRef = useRef<HTMLSelectElement>(null)
   const pipeline = useRunPipeline({ headingRef: titleRef })
-  const [loadFailure, setLoadFailure] = useState<LoadFailure | null>(null)
-  // Truy vấn đang tải: tab và bộ lọc hiện ngay lựa chọn mới trong lúc chờ, bảng vẫn là trang cũ.
+  // Lỗi tải và câu của vùng status gắn với lần chạy (`summary`): chạy lại thì chúng tự hết hiệu lực.
+  const [loadFailure, setLoadFailure] = useState<LoadFailureOf | null>(null)
+  const [announcement, setAnnouncement] = useState<{ summary: PipelineSummary; text: string } | null>(null)
+  // Truy vấn user chọn gần nhất mà chưa tải xong: tab và bộ lọc hiện ngay lựa chọn đó, bảng vẫn là trang cũ.
   const [pending, setPending] = useState<ResultQuery | null>(null)
-  const [announcement, setAnnouncement] = useState('')
-  const loadingRef = useRef(false)
-  const { session, result } = state
-  const summary = result?.summary
-
-  // Chạy lại thành công: nút "Chạy lại" biến mất cùng cảnh báo và focus rơi về đầu trang; đưa về tiêu đề (design D14).
-  useEffect(() => {
-    if (document.activeElement && document.activeElement !== document.body) return
-    titleRef.current?.focus()
-  }, [summary])
-
-  if (!session || !result) return null
-  const { query, page, stale, columns } = result
+  const inFlight = useRef<ResultQuery | null>(null)
+  const queued = useRef<ResultQuery | null>(null)
+  const { query, page, stale, columns, summary } = result
   const busy = isBusy(state)
   const shown = pending ?? query
+  const failure = loadFailure?.summary === summary ? loadFailure : null
+  // Trang đầu của lần chạy mới chưa tải (hoặc đang tải).
+  const loadingFirstPage = page === null && !stale && failure === null
 
-  async function load(next: ResultQuery) {
+  /**
+   * Tải một trang. Lựa chọn mới nhất thắng: chọn tiếp trong lúc trang trước còn đang tải thì lựa chọn đó được xếp hàng
+   * và tải ngay sau, trang trước không được vẽ ra (review FE-F08/F09; Chrome trên Windows phát `change` ở mỗi lần bấm
+   * mũi tên trên select đang đóng, tasks 8.2). Chọn lại đúng trang đang tải (bấm đúp "Sau") thì chỉ chờ nó.
+   */
+  function load(next: ResultQuery) {
     // Kết quả cũ: BE đã xoá kết quả, chỉ còn "Chạy lại" (design D18).
-    if (!session || loadingRef.current || stale) return
-    loadingRef.current = true
-    setPending(next)
+    if (stale) return
     setLoadFailure(null)
-    try {
-      const loaded = toResultPage(await runBusy(() => getResult(session.id, next)))
-      dispatch({ type: 'resultPageLoaded', query: next, page: loaded })
-      const label = messages.result.tableLabel[next.view]
-      setAnnouncement(
-        loaded.totalElements === 0 ? emptyMessage(next) : messages.result.pageStatus(label, loaded.number + 1, loaded.totalPages),
-      )
-    } catch (error) {
-      if (error instanceof ApiError && error.code === 'RESULT_NOT_AVAILABLE') {
-        // Mọi nút đổi trang, tab, lọc bị khoá ngay: đưa focus tới việc duy nhất còn làm được.
-        flushSync(() => dispatch({ type: 'resultUnavailable' }))
-        rerunRef.current?.focus()
-      } else {
-        setLoadFailure(toLoadFailure(error, next))
-      }
-    } finally {
-      loadingRef.current = false
-      setPending(null)
-    }
+    setPending(next)
+    void fetchPages(next)
   }
 
-  const failureAction =
-    loadFailure?.action === 'retry'
-      ? { label: messages.retry, onClick: () => void load(loadFailure.query) }
-      : loadFailure?.action === 'reupload'
-        ? { label: messages.sessionUnusableAction, onClick: () => dispatch({ type: 'reset' }) }
-        : undefined
+  async function fetchPages(next: ResultQuery) {
+    if (inFlight.current) {
+      queued.current = sameQuery(inFlight.current, next) ? null : next
+      return
+    }
+    let current: ResultQuery | null = next
+    while (current) {
+      const target: ResultQuery = current
+      inFlight.current = target
+      try {
+        const loaded = toResultPage(await runBusy(() => getResult(session.id, target)))
+        if (!queued.current) {
+          dispatch({ type: 'resultPageLoaded', query: target, page: loaded })
+          setAnnouncement({ summary, text: pageAnnouncement(target, loaded.number, loaded.totalPages, loaded.totalElements) })
+        }
+      } catch (error) {
+        if (!queued.current) {
+          if (error instanceof ApiError && error.code === 'RESULT_NOT_AVAILABLE') {
+            // Mọi nút đổi trang, tab, lọc bị khoá ngay: đưa focus tới việc duy nhất còn làm được.
+            inFlight.current = null
+            flushSync(() => {
+              setPending(null)
+              dispatch({ type: 'resultUnavailable' })
+            })
+            rerunRef.current?.focus()
+            return
+          }
+          setLoadFailure({ failure: toLoadFailure(error), query: target, summary })
+          setAnnouncement(null)
+        }
+      }
+      current = queued.current
+      queued.current = null
+    }
+    inFlight.current = null
+    setPending(null)
+  }
+
+  // Vừa chạy xong (vào bước, hoặc "Chạy lại" ngay tại bước): tải trang đầu. Nút "Chạy lại" biến mất cùng cảnh báo nên
+  // focus có thể đã rơi về đầu trang; khi đó đưa về tiêu đề bước (design D14). Là effect event: chỉ chạy khi có lần
+  // chạy mới (`summary` mới), còn `result` và `fetchPages` luôn đọc bản mới nhất.
+  const onNewRun = useEffectEvent(() => {
+    if (result.page === null && !result.stale) void fetchPages(result.query)
+    if (document.activeElement && document.activeElement !== document.body) return
+    titleRef.current?.focus()
+  })
+  useEffect(() => {
+    onNewRun()
+  }, [summary])
+
   const panelId = `${titleId}-panel`
   const filtered = query.field !== null || query.code !== null
 
@@ -100,7 +126,9 @@ export function ResultStep() {
       <StepHeader id={titleId} title={stepLabels.result} intro={messages.result.intro} headingRef={titleRef} />
 
       {pipeline.failure && <SaveFailureBanner failure={pipeline.failure} />}
-      {loadFailure && <ErrorBanner text={loadFailure.text} action={failureAction} />}
+      {failure && (
+        <LoadFailureBanner failure={failure.failure} retryFocusRef={titleRef} onRetry={() => load(failure.query)} />
+      )}
 
       <StaleNotice
         stale={stale}
@@ -111,65 +139,73 @@ export function ResultStep() {
         onRerun={pipeline.run}
       />
 
-      <SummaryCards summary={result.summary} />
+      <SummaryCards summary={summary} />
 
       {/* Luôn có trong DOM (design D14): báo lúc đang tải và trang vừa tải xong. */}
       <p role="status" className="sr-only">
-        {pending ? messages.result.loading : announcement}
+        {pending || loadingFirstPage ? messages.result.loading : announcement?.summary === summary ? announcement.text : ''}
       </p>
 
       <ResultTabs
-        summary={result.summary}
+        summary={summary}
         view={shown.view}
         panelId={panelId}
         disabled={stale}
         onSelect={(view) => {
-          if (view !== shown.view) void load({ view, page: 0, field: null, code: null })
+          if (view !== shown.view) load({ view, page: 0, field: null, code: null })
         }}
       />
 
       <div
         id={panelId}
         role="tabpanel"
-        aria-labelledby={`${panelId}-${query.view}`}
-        aria-busy={pending !== null}
+        aria-labelledby={`${panelId}-${shown.view}`}
+        aria-busy={pending !== null || loadingFirstPage}
         className={styles.panel}
       >
-        {shown.view === 'invalid' && result.summary.invalid > 0 && (
+        {shown.view === 'invalid' && summary.invalid > 0 && (
           <ErrorFilters
             columns={columns}
-            summary={result.summary}
+            summary={summary}
             query={shown}
             disabled={stale}
             fieldFilterRef={fieldFilterRef}
-            onChange={(filter) => void load({ ...shown, ...filter, page: 0 })}
+            onChange={(filter) => load({ ...shown, ...filter, page: 0 })}
             onClear={() => {
               // Nút "Xoá lọc" bị khoá ngay khi hết bộ lọc: giữ focus trong cụm lọc (design D14).
               fieldFilterRef.current?.focus()
-              void load({ ...shown, page: 0, field: null, code: null })
+              load({ ...shown, page: 0, field: null, code: null })
             }}
           />
         )}
 
-        {page.totalElements === 0 ? (
-          <EmptyState title={query.view === 'invalid' && filtered ? messages.result.emptyFiltered : emptyMessage(query)} />
+        {page === null ? (
+          loadingFirstPage && <Spinner label={messages.result.loading} />
         ) : (
-          <>
-            <DataTable
-              label={messages.result.tableLabel[query.view]}
-              columns={resultColumns(columns)}
-              rows={page.rows}
-              rowKey={(row) => row.rowNumber}
-              flaggedLabel={messages.result.flagged}
-              detail={(row) => (row.errors.length > 0 ? <ErrorDetails row={row} /> : null)}
-            />
-            <Pagination
-              page={page.number}
-              totalPages={page.totalPages}
-              disabled={stale}
-              onChange={(number) => void load({ ...query, page: number })}
-            />
-          </>
+          <div className={styles.rows}>
+            {page.totalElements === 0 ? (
+              <EmptyState
+                title={query.view === 'invalid' && filtered ? messages.result.emptyFiltered : messages.result.empty[query.view]}
+              />
+            ) : (
+              <>
+                <DataTable
+                  label={messages.result.tableLabel[query.view]}
+                  columns={resultColumns(columns)}
+                  rows={page.rows}
+                  rowKey={(row) => row.rowNumber}
+                  flaggedLabel={messages.result.flagged}
+                  detail={(row) => (row.errors.length > 0 ? <ErrorDetails row={row} /> : null)}
+                />
+                <Pagination
+                  page={page.number}
+                  totalPages={page.totalPages}
+                  disabled={stale}
+                  onChange={(number) => load({ ...query, page: number })}
+                />
+              </>
+            )}
+          </div>
         )}
       </div>
 
@@ -178,19 +214,22 @@ export function ResultStep() {
   )
 }
 
-function emptyMessage(query: ResultQuery): string {
-  return messages.result.empty[query.view]
+interface LoadFailureOf {
+  failure: LoadFailure
+  /** Truy vấn bị lỗi, để "Thử lại" gửi lại đúng nó. */
+  query: ResultQuery
+  /** Lần chạy mà lỗi này thuộc về. */
+  summary: PipelineSummary
 }
 
-function toLoadFailure(error: unknown, query: ResultQuery): LoadFailure {
-  if (!(error instanceof ApiError)) {
-    // Lỗi lập trình: user chỉ thấy câu chung, nên stack phải nằm ở console.
-    console.error(error)
-    return { text: { headline: messages.unexpected }, query, action: null }
-  }
-  const text = describeApiError(error) ?? { headline: messages.unexpected }
-  if (isSessionUnusable(error)) return { text, query, action: 'reupload' }
-  return { text, query, action: isRetryable(error) ? 'retry' : null }
+function sameQuery(a: ResultQuery, b: ResultQuery): boolean {
+  return a.view === b.view && a.page === b.page && a.field === b.field && a.code === b.code
+}
+
+/** Câu cho vùng status sau khi tải xong một trang (`page` đếm từ 0). */
+function pageAnnouncement(query: ResultQuery, page: number, totalPages: number, totalElements: number): string {
+  if (totalElements === 0) return messages.result.empty[query.view]
+  return messages.result.pageStatus(messages.result.tableLabel[query.view], page + 1, totalPages)
 }
 
 function SummaryCards({ summary }: { summary: PipelineSummary }) {
@@ -312,7 +351,8 @@ function ResultTabs({ summary, view, panelId, disabled, onSelect }: ResultTabsPr
             aria-selected={selected}
             aria-controls={panelId}
             tabIndex={selected ? 0 : -1}
-            disabled={disabled}
+            // Kết quả cũ: chỉ khoá tab kia; tab đang chọn vẫn nhận focus để tablist không mất điểm dừng Tab.
+            disabled={disabled && !selected}
             onKeyDown={(event) => onKeyDown(event, index)}
             onClick={() => onSelect(candidate)}
           >
@@ -449,9 +489,12 @@ function ErrorDetails({ row }: { row: ResultRow }) {
   )
 }
 
-/** `step` đếm từ 0; hiển thị `step + 1` cho khớp số thứ tự bước ở màn Biến đổi & kiểm tra (spec result-review). */
+/**
+ * `step` đếm từ 0; hiển thị `step + 1` cho khớp số thứ tự bước ở màn Biến đổi & kiểm tra (spec result-review).
+ * Lỗi bất ngờ khi map có `rule = "mapping"`, không có bước (BE-F08): mapping không phải một bước biến đổi.
+ */
 function ruleText(error: RowError): string {
-  return error.stage === 'TRANSFORMATION'
-    ? messages.result.transformationRule(error.rule, error.step === null ? null : error.step + 1)
-    : messages.result.validationRule(error.rule)
+  if (error.stage === 'VALIDATION') return messages.result.validationRule(error.rule)
+  if (error.rule === 'mapping' && error.step === null) return messages.result.mappingRule
+  return messages.result.transformationRule(error.rule, error.step === null ? null : error.step + 1)
 }

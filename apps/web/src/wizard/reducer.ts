@@ -49,8 +49,8 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
     case 'sectionSaved':
       return markSaved(state, action)
     case 'processCompleted': {
-      const { summary, columns, query, page } = action
-      return { ...state, step: 'result', result: { summary, columns, query, page, stale: false } }
+      const { summary, columns, query } = action
+      return { ...state, step: 'result', result: { summary, columns, query, page: null, stale: false } }
     }
     case 'resultPageLoaded':
       if (!state.result) return state

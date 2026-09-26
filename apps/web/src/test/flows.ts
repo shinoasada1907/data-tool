@@ -12,6 +12,9 @@ export type User = ReturnType<typeof userEvent.setup>
 
 export const saved = () => HttpResponse.json(configUpdateFixture())
 
+export const RULES_HEADING = { level: 2, name: 'Biến đổi & kiểm tra' } as const
+export const RESULT_HEADING = { level: 2, name: 'Kết quả & export' } as const
+
 export function nextButton() {
   return screen.getByRole('button', { name: /^Tiếp/ })
 }

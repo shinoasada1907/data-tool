@@ -4,6 +4,7 @@ import { problemFixture } from '../mocks/fixtures'
 import { server } from '../mocks/node'
 
 export const UPLOAD_URL = '/api/import-sessions'
+export const SESSION_URL = '/api/import-sessions/:id'
 export const PREVIEW_URL = '/api/import-sessions/:id/preview'
 export const SCHEMA_URL = '/api/import-sessions/:id/schema'
 export const MAPPING_URL = '/api/import-sessions/:id/mapping'
@@ -16,6 +17,18 @@ type Responder = () => Response | Promise<Response>
 
 export function problemResponse(status: number, code: string, detail: string): Response {
   return HttpResponse.json(problemFixture(status, code, detail), {
+    status,
+    headers: { 'Content-Type': 'application/problem+json' },
+  })
+}
+
+/** Problem Detail có `errors[]` (lỗi theo field, readiness issue…). */
+export function problemWithErrors(
+  status: number,
+  code: string,
+  errors: { field: string | null; code: string; message: string }[],
+): Response {
+  return HttpResponse.json(problemFixture(status, code, 'Request failed.', { errors }), {
     status,
     headers: { 'Content-Type': 'application/problem+json' },
   })
@@ -40,6 +53,11 @@ function mockSequence(method: typeof http.get, url: string, responders: Responde
 /** POST /api/import-sessions. */
 export function mockUpload(...responders: Responder[]) {
   return mockSequence(http.post, UPLOAD_URL, responders)
+}
+
+/** GET /api/import-sessions/{id}: FE chỉ gọi để biết session đã FAILED chưa sau khi process lỗi 5xx. */
+export function mockSession(...responders: Responder[]) {
+  return mockSequence(http.get, SESSION_URL, responders)
 }
 
 /** GET /api/import-sessions/{id}/preview. */

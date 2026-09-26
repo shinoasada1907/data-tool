@@ -70,12 +70,12 @@ interface WizardState {
     summary: PipelineSummary
     columns: string[]      // tên field lúc chạy, theo thứ tự schema: cột của bảng kết quả
     query: ResultQuery     // tab, trang, bộ lọc của trang đang xem
-    page: ResultPage       // trang đang xem
+    page: ResultPage | null  // trang đang xem; null khi vừa chạy xong mà trang đầu chưa tải
     stale: boolean
   } | null
 }
 ```
-- Kết quả (FE-F08/F09): `processCompleted` thay kết quả cũ và sang bước Kết quả; `resultPageLoaded` thay trang đang xem; `resultUnavailable` đánh dấu cũ (D18). Mọi action sửa cấu hình đánh dấu cũ khi state thật sự đổi. Bước Kết quả vào được khi điều kiện của bước Biến đổi & kiểm tra còn đúng và đã có kết quả, kể cả kết quả cũ.
+- Kết quả (FE-F08/F09): `processCompleted` thay kết quả cũ, sang bước Kết quả, và bước đó tự tải trang đầu (review FE-F08/F09: GET lỗi thì chỉ tải lại trang, không chạy lại pipeline); `resultPageLoaded` thay trang đang xem; `resultUnavailable` đánh dấu cũ (D18). Mọi action sửa cấu hình đánh dấu cũ khi state thật sự đổi. Bước Kết quả vào được khi điều kiện của bước Biến đổi & kiểm tra còn đúng và đã có kết quả, kể cả kết quả cũ.
 - Bảng chuyển về chưa lưu / đánh dấu cũ: xem spec `import-wizard`. Reducer là nơi duy nhất áp các quy tắc đó.
 - Sửa schema đi qua một action `schemaEdited { edit }` với `edit` là `add` / `update` / `remove` / `move` (FE-F04). Reducer sinh key cho field mới, nên component không phải đoán key.
 - Trong lúc PUT cấu hình đang chạy, phần sửa của bước đó bị khoá (`<fieldset disabled>`), cùng lúc với stepper và nút điều hướng.
@@ -162,7 +162,8 @@ FE chỉ kiểm **cấu hình**: tên field, field required chưa map, hằng r�
   - `code = SESSION_NOT_FOUND` (404): BE xoá session không hoạt động sau 24 giờ;
   - `code = SESSION_STATE_INVALID` (409): session đã `FAILED`, ví dụ do đọc file lỗi lúc process.
 - Khi đó FE báo lỗi kèm nút "Upload lại", và **không** tự reset.
-- Riêng `POST /process` trả `422 FILE_PARSE_ERROR` cũng có nghĩa session đã `FAILED`, nên FE hiện nút "Upload lại" ngay, không để user bấm chạy lại vô ích. `500 INTERNAL_ERROR` thì vẫn là lỗi chung, vì có thể không làm hỏng session. Nếu session đã hỏng thật, lệnh ghi kế tiếp sẽ nhận `409 SESSION_STATE_INVALID` và rơi về luật ở trên.
+- Riêng `POST /process` trả `422 FILE_PARSE_ERROR` cũng có nghĩa session đã `FAILED`, nên FE hiện nút "Upload lại" ngay, không để user bấm chạy lại vô ích.
+- ~~`500 INTERNAL_ERROR` thì vẫn là lỗi chung, vì có thể không làm hỏng session. Nếu session đã hỏng thật, lệnh ghi kế tiếp sẽ nhận `409 SESSION_STATE_INVALID` và rơi về luật ở trên.~~ **Đổi (FE-F08) — LÝ DO:** BE-F08 xác nhận `500 INTERNAL_ERROR` của process có ba nguyên nhân mà body không phân biệt được: đọc file nguồn lỗi (session `FAILED`, kết quả cũ bị xoá), lưu kết quả lỗi (session giữ nguyên, kết quả cũ còn), bug (session giữ nguyên). Luật cũ bắt user bấm thêm một lần chỉ để nhận 409. Nay sau 5xx của process, FE gọi `GET /api/import-sessions/{id}`: `FAILED` thì "Upload lại"; còn lại là lỗi chung và nút chạy bấm lại được. Không hỏi được trạng thái thì cũng là lỗi chung.
 - Nhận biết theo `code`, không theo status. Lý do: BE trả `404` kèm `REQUEST_INVALID` khi gọi sai đường dẫn endpoint; đó chỉ là một lỗi thường, và tự xoá state của user trong trường hợp này là phá hoại.
 
 ### D13. Upload file mới thì xoá toàn bộ cấu hình, nhưng chỉ khi đã có session mới
@@ -285,6 +286,7 @@ src/
   - khoá đổi trang, đổi tab, bộ lọc và export;
   - chỉ còn nút "Chạy lại".
 - Nếu vẫn nhận `409 RESULT_NOT_AVAILABLE` (ví dụ do nguyên nhân phía BE), FE cũng đánh dấu kết quả là cũ và hiện cảnh báo.
+- Process lỗi cũng đánh dấu kết quả là cũ, vì BE có thể đã xoá nó (session `FAILED`, hoặc không biết BE đã làm gì khi hết giờ, mất mạng). Ngoại lệ duy nhất: sau 5xx mà session vẫn `PROCESSED`, BE giữ kết quả cũ (review FE-F08/F09).
 - FE đánh dấu cũ cả khi user sửa rồi sửa ngược lại về đúng cấu hình cũ, dù BE vẫn giữ kết quả (BE so `configHash`, PUT không đổi gì thì giữ `PROCESSED`). Chấp nhận: sớm hơn BE thì chỉ tốn một lần chạy lại, còn muộn hơn thì user xem kết quả không khớp cấu hình.
 
 ### D19. `dateFormat` trên field kiểu `date` luôn xuất ISO
@@ -458,7 +460,8 @@ class ApiError extends Error {
 
 - [Bản chép contract trong file này trôi dần khỏi file của BE] → File BE là chuẩn (xem Context). Mọi thay đổi contract phải sửa ở cả `design.md` này lẫn `dto.ts`, `mappers.ts`, `mocks/`. Task 13.4 kiểm lại với BE thật.
 - [Q1 lệch trong thực tế: `required` và `type` không chạy mà không báo gì] → BE đã xác nhận Q1, nhưng checklist 13.4 vẫn có ca "field required để trống" và ca "sai kiểu", chạy với BE thật.
-- [Số rất lớn (trên khoảng 15 chữ số) hiển thị sai trên bảng kết quả, vì `JSON.parse` dùng số thực double] → Chỉ ảnh hưởng phần hiển thị; file export do BE ghi nên vẫn đúng. Gợi ý user dùng kiểu `string` cho mã số dài.
+- ~~[Số rất lớn (trên khoảng 15 chữ số) hiển thị sai trên bảng kết quả, vì `JSON.parse` dùng số thực double] → Chỉ ảnh hưởng phần hiển thị; file export do BE ghi nên vẫn đúng. Gợi ý user dùng kiểu `string` cho mã số dài.~~ **Đã xử lý ở FE-F09 — LÝ DO:** BE-F09 gửi số đúng từng chữ số và giữ scale (`10.50`), field `number` dài tới 1000 ký tự. `getResult` đọc với `exactNumbers`: reviver của `JSON.parse` so số JS in lại với chuỗi nguồn (`context.source`, JSON.parse source text access), khác thì giữ chuỗi nguồn. Số đếm, số dòng, số trang vẫn là number.
+- [Trình duyệt chưa hỗ trợ `context.source` trong reviver của `JSON.parse`] → Bảng kết quả hiện số đã làm tròn như trước; file export vẫn đúng. Chrome, Edge, Firefox bản hiện hành và Node 22+ đã hỗ trợ.
 - [File export nằm trọn trong RAM trình duyệt] → Bị chặn trên bởi giới hạn upload 20 MB (D10). Về sau đổi sang tải qua link trực tiếp.
 - [Mất state khi tải lại trang hoặc bấm Back của trình duyệt] → cảnh báo `beforeunload` (D12). Về sau có thể khôi phục qua `GET /api/import-sessions/{id}`.
 - [User bấm "Huỷ" sau khi đã gửi 100% file, lúc BE đang đọc file] → BE có thể vẫn tạo session, và FE bỏ qua nó. Session mồ côi này bị BE xoá sau 24 giờ không hoạt động. FE giữ nút Huỷ ở pha này, vì bắt user chờ một máy chủ chậm còn tệ hơn, và hiển thị "Đang đọc file trên máy chủ…" để user biết việc gì đang diễn ra.

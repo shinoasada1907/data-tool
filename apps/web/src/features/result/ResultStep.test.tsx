@@ -1,11 +1,11 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse } from 'msw'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import App from '../../App'
 import type { PipelineResultDto, PipelineSummaryDto } from '../../api/dto'
 import { pipelineResultFixture, pipelineSummaryFixture, validResultFixture } from '../../mocks/fixtures'
-import { fieldRegion, openRulesStep, runButton, saved, stepButton, type User } from '../../test/flows'
+import { fieldRegion, openRulesStep, RESULT_HEADING, runButton, saved, stepButton, type User } from '../../test/flows'
 import {
   gate,
   mockProcess,
@@ -13,10 +13,9 @@ import {
   mockSaveTransformations,
   mockSaveValidations,
   problemResponse,
+  problemWithErrors,
   recordRequests,
 } from '../../test/http'
-
-const RESULT_HEADING = { level: 2, name: 'Kết quả & export' } as const
 
 type ResultResponder = Parameters<typeof mockResult>[number]
 
@@ -129,6 +128,21 @@ describe('bước Kết quả', () => {
     expect(details[0]).toHaveTextContent('Giá trị nguồn: “31/02/2024”')
   })
 
+  test('số dài hơn độ chính xác của JS hiện đủ chữ số, số có 0 ở cuối giữ nguyên như BE gửi', async () => {
+    const user = userEvent.setup()
+    const dto = validResultFixture()
+    const body = JSON.stringify({ ...dto, rows: [{ ...dto.rows[0], values: { ...dto.rows[0].values, '1': '__N__' } }] }).replace(
+      '"__N__"',
+      '12345678901234567890.50',
+    )
+    await openResultStep(user, {
+      summary: pipelineSummaryFixture({ valid: 120, invalid: 0, errorCountsByCode: {}, errorCountsByField: {} }),
+      result: () => new HttpResponse(body, { headers: { 'Content-Type': 'application/json' } }),
+    })
+
+    expect(cell(2, '1')).toHaveTextContent('12345678901234567890.50')
+  })
+
   test('tab Hợp lệ: gọi view=valid ở trang 0; giá trị đã ép kiểu hiện nguyên dạng, null hiện placeholder', async () => {
     const user = userEvent.setup()
     const requests = await openResultStep(user)
@@ -155,6 +169,64 @@ describe('bước Kết quả', () => {
     await user.keyboard('{Enter}')
     await screen.findByRole('table', { name: 'Dòng hợp lệ' })
     expect(requests.queries.at(-1)).toMatchObject({ view: 'valid', page: '0' })
+  })
+
+  test('tab: mũi tên phải vòng về đầu, Home/End tới tab đầu/cuối; Space tải tab đang focus', async () => {
+    const user = userEvent.setup()
+    const requests = await openResultStep(user)
+    tab(/^Lỗi/).focus()
+
+    await user.keyboard('{ArrowRight}')
+    expect(tab(/^Hợp lệ/)).toHaveFocus()
+    await user.keyboard('{End}')
+    expect(tab(/^Lỗi/)).toHaveFocus()
+    await user.keyboard('{Home}')
+    expect(tab(/^Hợp lệ/)).toHaveFocus()
+    expect(requests.calls()).toBe(1)
+
+    await user.keyboard(' ')
+    await screen.findByRole('table', { name: 'Dòng hợp lệ' })
+    expect(requests.queries.at(-1)).toMatchObject({ view: 'valid', page: '0' })
+  })
+
+  test('dòng chi tiết lỗi chỉ gắn với ô số dòng của nó, không với mọi tiêu đề cột', async () => {
+    const user = userEvent.setup()
+    await openResultStep(user)
+
+    const detailCell = screen.getByRole('list', { name: 'Lỗi của dòng 3' }).closest('td')!
+    const rowHeader = within(dataRow(3)).getByRole('rowheader')
+    expect(rowHeader.id).not.toBe('')
+    expect(detailCell).toHaveAttribute('headers', rowHeader.id)
+  })
+
+  test('lỗi bất ngờ khi map (rule "mapping", không có bước): ghi là lỗi khi map, không phải một bước biến đổi', async () => {
+    const user = userEvent.setup()
+    const mappingError = pipelineResultFixture({
+      rows: [
+        {
+          rowNumber: 4,
+          valid: false,
+          values: { Email: null, 'Họ tên': 'Lê Chi', '1': 7, '2024': 'A03' },
+          errors: [
+            {
+              rowNumber: 4,
+              fieldName: 'Email',
+              stage: 'TRANSFORMATION',
+              rule: 'mapping',
+              step: null,
+              code: 'TRANSFORMATION_FAILED',
+              message: 'Unexpected error while mapping the value.',
+              sourceValue: 'x',
+            },
+          ],
+        },
+      ],
+    })
+    await openResultStep(user, { result: pagesByView({ invalid: mappingError }) })
+
+    const detail = within(screen.getByRole('list', { name: 'Lỗi của dòng 4' })).getByRole('listitem')
+    expect(detail).toHaveTextContent('lỗi khi map giá trị')
+    expect(detail).not.toHaveTextContent('biến đổi mapping')
   })
 
   describe('phân trang', () => {
@@ -197,6 +269,43 @@ describe('bước Kết quả', () => {
 
       expect(await screen.findByText('Trang 2 / 3')).toBeInTheDocument()
       expect(requests.queries.map((query) => query.page)).toEqual(['0', '1'])
+    })
+
+    test('"Thử lại" tải được trang cuối: focus ở tiêu đề bước, không bị giật sang "Trước"', async () => {
+      const user = userEvent.setup()
+      const twoPages = pipelineResultFixture({ page: { number: 0, size: 50, totalElements: 60, totalPages: 2 } })
+      const pages = pagesByView({ invalid: twoPages })
+      let failNext = true
+      await openResultStep(user, {
+        result: (query) => {
+          if (query.page === '1' && failNext) {
+            failNext = false
+            return problemResponse(503, 'INTERNAL_ERROR', 'Service unavailable.')
+          }
+          return pages(query)
+        },
+      })
+      await user.click(screen.getByRole('button', { name: 'Sau' }))
+      const alert = await screen.findByRole('alert')
+
+      await user.click(within(alert).getByRole('button', { name: 'Thử lại' }))
+
+      expect(await screen.findByText('Trang 2 / 2')).toBeInTheDocument()
+      expect(screen.getByRole('heading', RESULT_HEADING)).toHaveFocus()
+    })
+
+    test('"Trước" về trang đầu thì nút bị khoá, focus sang "Sau"', async () => {
+      const user = userEvent.setup()
+      const twoPages = pipelineResultFixture({ page: { number: 0, size: 50, totalElements: 60, totalPages: 2 } })
+      await openResultStep(user, { result: pagesByView({ invalid: twoPages }) })
+      await user.click(screen.getByRole('button', { name: 'Sau' }))
+      await screen.findByText('Trang 2 / 2')
+
+      await user.click(screen.getByRole('button', { name: 'Trước' }))
+
+      expect(await screen.findByText('Trang 1 / 2')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Trước' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Sau' })).toHaveFocus()
     })
 
     test('đổi tab quay về trang 0', async () => {
@@ -267,6 +376,50 @@ describe('bước Kết quả', () => {
       expect(screen.getByRole('combobox', { name: 'Lọc theo field' })).toHaveFocus()
     })
 
+    // Chrome trên Windows phát `change` ở mỗi lần bấm mũi tên trên select đang đóng (tasks 8.2): lựa chọn mới trong lúc
+    // lựa chọn trước còn đang tải phải được giữ và tải sau đó, không bị bỏ.
+    test('đổi bộ lọc khi lựa chọn trước còn đang tải: giữ lựa chọn mới nhất và tải nó', async () => {
+      const user = userEvent.setup()
+      const pages = pagesByView()
+      const first = gate()
+      const second = gate()
+      // Mỗi truy vấn một dòng khác nhau, để thấy trang nào đang được vẽ.
+      const withRow = (rowNumber: number) =>
+        HttpResponse.json(pipelineResultFixture({ rows: [{ ...pipelineResultFixture().rows[0], rowNumber, errors: [] }] }))
+      const requests = await openResultStep(user, {
+        summary,
+        result: async (query) => {
+          if (query.code && query.field) {
+            await second.promise
+            return withRow(9)
+          }
+          if (query.code) {
+            await first.promise
+            return withRow(7)
+          }
+          return pages(query)
+        },
+      })
+
+      await user.selectOptions(screen.getByRole('combobox', { name: 'Lọc theo mã lỗi' }), 'VALIDATION_EMAIL')
+      await user.selectOptions(screen.getByRole('combobox', { name: 'Lọc theo field' }), 'Email')
+      expect(screen.getByRole('combobox', { name: 'Lọc theo field' })).toHaveValue('Email')
+      first.open()
+      // Trang của lựa chọn cũ về tới nơi khi lựa chọn mới đang chờ: không được vẽ ra.
+      await vi.waitFor(() => expect(requests.calls()).toBe(3))
+      expect(dataRow(3)).toBeInTheDocument()
+      second.open()
+
+      await vi.waitFor(() =>
+        expect(requests.queries.at(-1)).toEqual({ view: 'invalid', page: '0', size: '50', code: 'VALIDATION_EMAIL', field: 'Email' }),
+      )
+      await vi.waitFor(() => expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-busy', 'false'))
+      expect(requests.calls()).toBe(3)
+      expect(dataRow(9)).toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: 'Lọc theo field' })).toHaveValue('Email')
+      expect(screen.getByRole('combobox', { name: 'Lọc theo mã lỗi' })).toHaveValue('VALIDATION_EMAIL')
+    })
+
     test('bộ lọc chỉ có ở tab Lỗi', async () => {
       const user = userEvent.setup()
       await openResultStep(user)
@@ -329,6 +482,8 @@ describe('bước Kết quả', () => {
       expect(screen.getByRole('button', { name: 'Chạy lại' })).toBeEnabled()
       expect(dataRow(3)).toBeInTheDocument()
       expect(tab(/^Hợp lệ/)).toBeDisabled()
+      // Tab đang chọn vẫn bấm Tab tới được: tablist không được mất điểm nhận focus.
+      expect(tab(/^Lỗi/)).toBeEnabled()
       expect(screen.getByRole('button', { name: 'Sau' })).toBeDisabled()
       expect(screen.getByRole('combobox', { name: 'Lọc theo mã lỗi' })).toBeDisabled()
       // Stepper: bước Biến đổi & kiểm tra không còn "đã xong" khi kết quả đã cũ.
@@ -350,21 +505,52 @@ describe('bước Kết quả', () => {
       expect(tab(/^Hợp lệ/)).toBeEnabled()
     })
 
+    test('"Chạy lại" xong: vùng status không còn nói về trang của kết quả cũ', async () => {
+      const user = userEvent.setup()
+      const threePages = pipelineResultFixture({ page: { number: 0, size: 50, totalElements: 120, totalPages: 3 } })
+      await openResultStep(user, { result: pagesByView({ invalid: threePages }) })
+      await user.click(screen.getByRole('button', { name: 'Sau' }))
+      await screen.findByText('Trang 2 / 3')
+      await makeStale(user)
+
+      await user.click(screen.getByRole('button', { name: 'Chạy lại' }))
+
+      expect(await screen.findByText('Dòng lỗi: trang 1 / 3', { selector: '[role="status"]' })).toBeInTheDocument()
+    })
+
+    test('"Chạy lại" ngay tại bước, nhưng BE báo kết quả không còn khi tải trang đầu: cảnh báo cũ, không bảng, không câu status cũ', async () => {
+      const user = userEvent.setup()
+      const threePages = pipelineResultFixture({ page: { number: 0, size: 50, totalElements: 120, totalPages: 3 } })
+      let calls = 0
+      await openResultStep(user, {
+        result: () => {
+          calls += 1
+          return calls === 1
+            ? HttpResponse.json(threePages)
+            : problemResponse(409, 'RESULT_NOT_AVAILABLE', 'Result is not available.')
+        },
+      })
+      // 409 khi đổi trang: kết quả cũ mà vẫn ở lại bước (vùng status còn câu "trang 1 / 3").
+      await user.click(screen.getByRole('button', { name: 'Sau' }))
+      await screen.findByRole('button', { name: 'Chạy lại' })
+
+      await user.click(screen.getByRole('button', { name: 'Chạy lại' }))
+
+      await vi.waitFor(() => expect(calls).toBe(3))
+      expect(await screen.findByRole('button', { name: 'Chạy lại' })).toHaveFocus()
+      expect(screen.queryByRole('table')).not.toBeInTheDocument()
+      // Câu của vùng status thuộc về lần chạy trước, không còn đúng.
+      expect(screen.queryByText(/trang \d+ \/ \d+/, { selector: '[role="status"]' })).not.toBeInTheDocument()
+    })
+
     test('"Chạy lại" lỗi: khối lỗi hiện ngay ở bước Kết quả, lỗi theo field nằm trong danh sách', async () => {
       const user = userEvent.setup()
       await openResultStep(user)
       await makeStale(user)
       mockSaveValidations(() =>
-        HttpResponse.json(
-          {
-            type: 'about:blank',
-            title: 'Unprocessable Entity',
-            status: 422,
-            code: 'CONFIG_INVALID',
-            errors: [{ field: 'Họ tên', code: 'CONFIG_INVALID', message: "Duplicate rule 'unique' for field 'Họ tên'." }],
-          },
-          { status: 422, headers: { 'Content-Type': 'application/problem+json' } },
-        ),
+        problemWithErrors(422, 'CONFIG_INVALID', [
+          { field: 'Họ tên', code: 'CONFIG_INVALID', message: "Duplicate rule 'unique' for field 'Họ tên'." },
+        ]),
       )
 
       await user.click(screen.getByRole('button', { name: 'Chạy lại' }))
@@ -417,6 +603,8 @@ describe('bước Kết quả', () => {
     await user.click(within(alert).getByRole('button', { name: 'Thử lại' }))
 
     expect(await screen.findByText('Trang 2 / 3')).toBeInTheDocument()
+    // Nút "Thử lại" biến mất cùng khối lỗi: focus về tiêu đề bước, không rơi về đầu trang (design D14).
+    expect(screen.getByRole('heading', RESULT_HEADING)).toHaveFocus()
     expect(requests.queries.slice(-2)).toEqual([
       { view: 'invalid', page: '1', size: '50' },
       { view: 'invalid', page: '1', size: '50' },

@@ -14,6 +14,11 @@ export interface RequestOptions<T> {
   validate: (value: unknown) => value is T
   signal?: AbortSignal
   timeoutMs?: number
+  /**
+   * Số JSON mà kiểu number của JS làm sai (quá khoảng 15 chữ số, hay có 0 ở cuối như `10.50`) được giữ nguyên văn dưới
+   * dạng chuỗi. Dùng cho dữ liệu của user (giá trị ô trong kết quả): BE gửi đúng từng chữ số (BE-F09).
+   */
+  exactNumbers?: boolean
 }
 
 /**
@@ -22,7 +27,7 @@ export interface RequestOptions<T> {
  */
 export async function request<T>(
   path: string,
-  { method = 'GET', body, validate, signal, timeoutMs = DEFAULT_TIMEOUT_MS }: RequestOptions<T>,
+  { method = 'GET', body, validate, signal, timeoutMs = DEFAULT_TIMEOUT_MS, exactNumbers = false }: RequestOptions<T>,
 ): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json, application/problem+json' }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
@@ -61,7 +66,7 @@ export async function request<T>(
     throw errorFromHttpResponse(response.status, response.headers.get('Content-Type'), text)
   }
 
-  const value = parseJson(text)
+  const value = parseJson(text, exactNumbers)
   if (value === undefined || !validate(value)) {
     throw new ApiError({ kind: 'http', status: response.status, code: 'INVALID_RESPONSE' })
   }
@@ -72,10 +77,20 @@ function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError'
 }
 
-function parseJson(body: string): unknown {
+function parseJson(body: string, exactNumbers: boolean): unknown {
   try {
-    return JSON.parse(body)
+    return exactNumbers ? JSON.parse(body, keepNumberText) : JSON.parse(body)
   } catch {
     return undefined
   }
+}
+
+/**
+ * Reviver giữ chữ số: số nào mà JS in lại khác chuỗi nguồn (bị làm tròn, mất 0 ở cuối, viết dạng mũ) thì trả chuỗi
+ * nguồn. Số in lại y nguyên (mọi số đếm, số dòng, số trang) vẫn là number. Trình duyệt chưa có `context.source`
+ * (JSON.parse source text access) thì giữ số đã làm tròn như trước.
+ */
+function keepNumberText(_key: string, value: unknown, context?: { source?: string }): unknown {
+  if (typeof value !== 'number' || context?.source === undefined) return value
+  return String(value) === context.source ? value : context.source
 }
