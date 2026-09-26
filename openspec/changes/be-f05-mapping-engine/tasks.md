@@ -160,7 +160,7 @@
 **Interfaces:**
 - Produces: `public ConfigUpdateResult updateMapping(UUID sessionId, List<MappingSpec> mappings);`
 
-- [ ] 5.1 Thêm test vào `ConfigurationServiceTest`. Session `CONFIGURING` có source columns `["Họ tên","email"]` và schema `[name(required), email(required), note]`.
+- [x] 5.1 Thêm test vào `ConfigurationServiceTest`. Session `CONFIGURING` có source columns `["Họ tên","email"]` và schema `[name(required), email(required), note]`.
   | Case | Mong đợi |
   |---|---|
   | `updateMapping` map `name`, `email` | `status` `READY`; `warnings` = `[note TARGET_FIELD_UNMAPPED]` |
@@ -169,10 +169,10 @@
   | Id không tồn tại | ném `SESSION_NOT_FOUND` |
   | Session `FAILED` | ném `SESSION_STATE_INVALID` |
   | Sau khi `READY`, gọi `updateSchema` bỏ field `email` | `warnings` chứa `("email","CONFIG_PRUNED",…)`; mapping không còn `email` |
-- [ ] 5.2 Chạy `./mvnw -q test -Dtest=ConfigurationServiceTest`. Mong đợi: FAIL.
-- [ ] 5.3 Cài theo design M5. `updateSchema` đổi sang `BiFunction` nhưng hành vi giữ nguyên.
-- [ ] 5.4 Chạy lại lệnh ở 5.2. Mong đợi: PASS, cả các case F04 cũ.
-- [ ] 5.5 Commit: `feat(app): PUT mapping use case`
+- [x] 5.2 Chạy `./mvnw -q test -Dtest=ConfigurationServiceTest`. Mong đợi: FAIL.
+- [x] 5.3 Cài theo design M5. `updateSchema` đổi sang `BiFunction` nhưng hành vi giữ nguyên.
+- [x] 5.4 Chạy lại lệnh ở 5.2. Mong đợi: PASS, cả các case F04 cũ.
+- [x] 5.5 Commit: `feat(app): PUT mapping use case`
 
 ## 6. API: PUT /mapping
 
