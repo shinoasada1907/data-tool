@@ -173,17 +173,19 @@
 - Modify: hàm cập nhật dùng chung trong service cấu hình session của F04 (tên thật lấy từ task 1)
 - Test: `TEST/application/importsession/ConfigChangeInvalidatesResultTest.java`
 
-- [ ] 5.1 Viết test, bắt đầu với session PROCESSED, `FakeResultStore` đang có kết quả, và readiness đạt:
+- [x] 5.1 Viết test, bắt đầu với session PROCESSED, `FakeResultStore` đang có kết quả, và readiness đạt:
   | Case | Mong đợi |
   |---|---|
   | `updateTransformations` với config khác | `resultStore.delete(id)` được gọi; status thành READY |
   | `updateValidations` với đúng config đang lưu (hash không đổi) | không gọi `delete`; status vẫn PROCESSED |
   | `updateMapping` làm field required mất mapping | `delete` được gọi; status thành CONFIGURING |
   | Session FAILED gọi `updateTransformations` | `DomainException(SESSION_STATE_INVALID)`; không lưu gì |
-- [ ] 5.2 Chạy `./mvnw -q test -Dtest=ConfigChangeInvalidatesResultTest`. Mong đợi: FAIL.
-- [ ] 5.3 Viết: so `configHash` trước và sau khi thay đổi; nếu khác và session đang PROCESSED thì `resultStore.delete(id)` rồi chuyển status theo D2.
-- [ ] 5.4 Chạy lại lệnh ở 5.2, và toàn bộ test PUT của F04–F07. Mong đợi: PASS.
-- [ ] 5.5 Commit: `feat(app): invalidate stored results when configuration changes`
+- [x] 5.2 Chạy `./mvnw -q test -Dtest=ConfigChangeInvalidatesResultTest`. Mong đợi: FAIL.
+- [x] 5.3 Viết: so `configHash` trước và sau khi thay đổi; nếu khác và session đang PROCESSED thì `resultStore.delete(id)` rồi chuyển status theo D2.
+  - `resultStore.delete(id)` chạy **sau khi transaction commit**, vẫn trong khoá session, ~~không phải trong transaction~~. **LÝ DO:** nếu xoá trước commit mà commit thất bại, kết quả vẫn còn đúng sẽ bị mất oan. Đổi lại có một rủi ro nhỏ ngược chiều: commit xong mà xoá lỗi (IO) thì request trả 500, cấu hình đã đổi nhưng kết quả cũ còn. F09/F10 so `configHash` nên sẽ không phục vụ kết quả cũ đó.
+  - `ConfigurationService` nhận thêm `ResultStore`. Test đặt tại `application.configuration` (xem task 1) và dùng `JsonConfigHasher` thật để so hash.
+- [x] 5.4 Chạy lại lệnh ở 5.2, và toàn bộ test PUT của F04–F07. Mong đợi: PASS.
+- [x] 5.5 Commit: `feat(app): invalidate stored results when configuration changes`
 
 ## 6. API: POST /process
 
