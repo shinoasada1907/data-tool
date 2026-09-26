@@ -94,9 +94,11 @@ public final class ReadinessEvaluator {
   - `ReadinessIssueCode { SCHEMA_EMPTY, TARGET_FIELD_REQUIRED }`
 
 ### S5. `SessionLocks`, trong `application.common`
-- Cài bằng `ConcurrentHashMap<UUID, ReentrantLock>`; hàm `<T> T withLock(UUID sessionId, Supplier<T> action)`.
+- ~~Cài bằng `ConcurrentHashMap<UUID, ReentrantLock>`~~ → cài bằng **bảng khoá cố định** 1024 `ReentrantLock`, chọn khoá theo `Math.floorMod(sessionId.hashCode(), 1024)`. Hàm vẫn là `<T> T withLock(UUID sessionId, Supplier<T> action)`.
+  **LÝ DO** (review 2026-09-26): map tạo entry trước khi biết session có tồn tại hay không. Client gửi UUID bừa thì map phình mãi (nguy cơ OOM). `forget` của F11 không dọn được các id đó, và còn có race: xoá khoá lúc một thread khác đang giữ nó, sẽ có hai khoá cho cùng một session. Bảng cố định giới hạn được bộ nhớ và không cần dọn. Cái giá là hai session trùng ô phải chờ nhau (xác suất 1/1024); với V0.1 như vậy là chấp nhận được.
 - Khoá bao **ngoài** transaction, và chỉ nhả sau khi commit xong, để request sau luôn đọc được dữ liệu đã commit.
-- F11 thêm `forget(UUID)` khi dọn session.
+- ~~F11 thêm `forget(UUID)` khi dọn session.~~ Không cần nữa, vì bảng khoá không lớn lên.
+- Không bao giờ giữ hai khoá session cùng lúc: thứ tự lấy khoá không cố định nên có thể deadlock.
 - V0.1 chỉ chạy một instance (D11).
 
 ### S6. Luồng cập nhật cấu hình dùng chung: `ConfigurationService`
@@ -155,7 +157,8 @@ CREATE TABLE import_configuration (
 
 ## Risks / Trade-offs
 
-- [Map khoá trong `SessionLocks` không bao giờ nhỏ lại cho tới F11] → Mỗi entry chỉ vài chục byte. F11 gọi `forget` khi dọn session.
+- ~~[Map khoá trong `SessionLocks` không bao giờ nhỏ lại cho tới F11] → Mỗi entry chỉ vài chục byte. F11 gọi `forget` khi dọn session.~~ Đã thay bằng bảng khoá cố định (xem S5).
+- [Hai session trùng ô khoá thì chờ nhau] → Chỉ làm chậm, không sai. Xác suất 1/1024 cho mỗi cặp session ghi cùng lúc.
 - [Đổi tên field làm mất cấu hình của field đó] → Đúng như D10. Warning `CONFIG_PRUNED` báo rõ. FE đã có cơ chế PUT lại theo thứ tự.
 - [Khoá chỉ có tác dụng trong một JVM] → V0.1 chỉ chạy một instance. Cột `version` là lớp bảo vệ thứ hai.
 

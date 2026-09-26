@@ -152,7 +152,7 @@
   | Action ném `RuntimeException` | exception được ném lại; `withLock(id, …)` lần sau vẫn chạy được (khoá đã nhả) |
   | `withLock(id, () -> withLock(id, () -> 1))` | trả `1` (khoá reentrant) |
 - [x] 4.2 Chạy `./mvnw -q test -Dtest=SessionLocksTest`. Mong đợi: FAIL vì lỗi compile.
-- [x] 4.3 Cài bằng `ConcurrentHashMap<UUID, ReentrantLock>`, `lock()` rồi `finally unlock()`.
+- [x] 4.3 Cài bằng ~~`ConcurrentHashMap<UUID, ReentrantLock>`~~ bảng khoá cố định 1024 ô (đổi sau review, **LÝ DO** ở design S5), `lock()` rồi `finally unlock()`.
 - [x] 4.4 Chạy lại lệnh ở 4.2. Mong đợi: PASS.
 - [x] 4.5 Commit: `feat(app): per-session write locks`
 
@@ -261,10 +261,29 @@
 
 ## 8. Kiểm tra toàn bộ và hoàn tất
 
-- [ ] 8.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm ArchitectureTest.
-- [ ] 8.2 Chạy app thật và thử bằng `curl`:
+- [x] 8.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm ArchitectureTest.
+  - Kết quả 2026-09-26: 38 suite, 312 test, 0 failure, 0 error.
+  - Kiểm ngược: tạm bỏ `lock()` trong `SessionLocks` thì case PUT đồng thời của `SchemaIntegrationTest` fail (một request 500). Vậy test đó thật sự kiểm được khoá.
+- [x] 8.2 Chạy app thật và thử bằng `curl`:
   - upload một CSV;
   - PUT schema hợp lệ, rồi PUT lại với tên trùng;
   - GET session, xem `config` và `readiness`.
-- [ ] 8.3 Tick checkbox, ghi LÝ DO cho mọi chỗ làm khác kế hoạch. Commit: `docs(openspec): complete be-f04 tasks`
-- [ ] 8.4 Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f04-target-schema -y`.
+  - Chạy ở cổng 8081 từ worktree BE, để không đụng app 8080 của người dùng. Flyway áp V3 lên DB chung. Kết quả:
+    - upload trả `fields: []` kèm `SCHEMA_EMPTY`;
+    - PUT `" Email "` (order 5) và `name` (order 1) → 200 `READY`, fields `[name/0, Email/1]`;
+    - PUT trùng tên → 422, liệt kê đủ lỗi;
+    - GET vẫn thấy schema cũ.
+- [x] 8.2b (thêm) Review bằng agent `senior-reviewer` trên `dev...feature/be-f04-target-schema`: không có blocker. Đã sửa:
+  - **Ép kiểu JSON:** Jackson 3 mặc định tự đổi `"required":"true"` thành true, `"order":"1"` hay `1.5` thành 1, và `"name":123` thành `"123"`, trái spec "sai kiểu JSON → 400". Đã thêm `api.common.StrictJsonConfig`, áp chung cho mọi body JSON của API; storage vẫn dùng mapper riêng. Test: 6 case trong `SchemaControllerTest`, 1 case trong `SchemaIntegrationTest`.
+  - **`SessionLocks`:** ~~`ConcurrentHashMap<UUID, ReentrantLock>` (task 4.3)~~ → bảng khoá cố định 1024 ô. **LÝ DO:** ghi ở design S5.
+  - **`ImportSessionService.details`:** chạy trong một transaction chỉ đọc, mức `REPEATABLE_READ`. **LÝ DO:** hai câu SELECT phải cùng một snapshot, nếu không GET chen giữa lúc PUT commit có thể trả `status: CONFIGURING` cùng `readiness.ready: true`.
+  - **Test hash qua DB thật:** thêm `JpaImportConfigurationRepositoryTest.a_stored_schema_hashes_like_the_same_schema_defined_again`. Nó giữ cho session `PROCESSED` không bị lật trạng thái khi client gửi lại đúng schema cũ (F08 dựa vào điều này).
+  - Để lại, chưa làm, vì cần quyết định spec hoặc thuộc feature sau:
+    - không có timeout cho khoá và transaction;
+    - lỗi optimistic lock / trùng khoá chính vẫn ra 500 (chỉ xảy ra khi chạy nhiều instance, hoặc code ghi mà bỏ qua khoá);
+    - chưa giới hạn số field hay kích thước body JSON;
+    - BE chưa chuẩn hoá NFC và chưa coi NBSP là khoảng trắng (FE đã làm cả hai trước khi gửi);
+    - chưa có test rollback khi đã ghi được một phần trên DB thật;
+    - `JpaImportSessionRepository` UPDATE lại cột `source_schema` ở mỗi lần PUT, vì chuỗi jsonb đọc về khác chuỗi Jackson ghi vào. Vô hại nhưng làm tăng `version` của session.
+- [x] 8.3 Tick checkbox, ghi LÝ DO cho mọi chỗ làm khác kế hoạch. Commit: `docs(openspec): complete be-f04 tasks`
+- [x] 8.4 ~~Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f04-target-schema -y`.~~ → `openspec archive be-f04-target-schema -y` trên nhánh feature, rồi tự merge vào `dev` và xoá nhánh. **LÝ DO:** luật nhánh người dùng chốt 2026-09-26: Claude làm trên `feature/*`, xong thì tự merge vào `dev` không cần hỏi. Người dùng check và test trên `dev` rồi tự merge `dev` → `main`. Archive **trước** khi merge để không phải commit thẳng lên `dev`.
