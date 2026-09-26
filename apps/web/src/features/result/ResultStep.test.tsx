@@ -611,6 +611,26 @@ describe('bước Kết quả', () => {
     })
   })
 
+  test('tải trang gặp 404 SESSION_NOT_FOUND (session hết hạn): khối lỗi có "Upload lại", không có "Thử lại"', async () => {
+    const user = userEvent.setup()
+    const pages = pagesByView()
+    render(<App />)
+    await openResultStep(user, {
+      result: (query) =>
+        query.view === 'valid'
+          ? problemResponse(404, 'SESSION_NOT_FOUND', 'Import session not found.')
+          : pages(query),
+    })
+
+    await user.click(tab(/^Hợp lệ/))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Không tìm thấy phiên import')
+    expect(within(alert).queryByRole('button', { name: 'Thử lại' })).not.toBeInTheDocument()
+    await user.click(within(alert).getByRole('button', { name: 'Upload lại' }))
+    expect(await screen.findByRole('heading', { level: 2, name: 'Upload file nguồn' })).toBeInTheDocument()
+  })
+
   test('tải trang lỗi 500: khối lỗi có "Thử lại" gửi lại đúng truy vấn đó', async () => {
     const user = userEvent.setup()
     const threePages = pipelineResultFixture({ page: { number: 0, size: 50, totalElements: 120, totalPages: 3 } })

@@ -497,12 +497,27 @@
 
 ## 13. FE-F11 Tích hợp và hoàn thiện (spec import-wizard)
 
-- [ ] 13.1 Test tích hợp trên `<App/>` với MSW:
+- [x] 13.1 Test tích hợp trên `<App/>` với MSW:
   - CSV đi hết 6 bước tới lúc tải JSON;
   - XLSX tương tự, có tên sheet ở bước Preview;
   - sửa cấu hình rồi chạy lại.
-- [ ] 13.2 Rà lỗi nhất quán: mọi chỗ gọi API đều hiển thị qua `ErrorBanner`; request GET có nút "Thử lại"; `SESSION_NOT_FOUND` / `SESSION_STATE_INVALID` có nút "Upload lại". Bổ sung test cho chỗ còn thiếu.
-- [ ] 13.3 Viết lại `apps/web/README.md`: yêu cầu cài đặt, biến môi trường, `pnpm dev` (chạy với BE thật; Postgres khởi động bằng `docker compose up -d` với `docker-compose.yml` ở gốc repo), `pnpm dev:mock`, `pnpm test`, demo flow từng bước.
+
+  Đã làm ở `src/App.integration.test.tsx`:
+  - CSV kiểm đúng trình tự 9 request, từ upload tới export, cùng tên file tải về và dấu "đã xong" của mọi bước trước Kết quả.
+  - XLSX kiểm tên sheet và schema sinh từ cột của sheet.
+  - Sửa cấu hình rồi chạy lại: đổi tên field ở Schema thì bước Kết quả bị khoá tới khi lưu lại mapping, chạy lại gửi đủ PUT, và bảng kết quả mới dùng tên mới.
+  - Chi tiết từng bước (lỗi, focus, trạng thái rỗng) nằm ở test của từng feature.
+- [x] 13.2 Rà lỗi nhất quán: mọi chỗ gọi API đều hiển thị qua `ErrorBanner`; request GET có nút "Thử lại"; `SESSION_NOT_FOUND` / `SESSION_STATE_INVALID` có nút "Upload lại". Bổ sung test cho chỗ còn thiếu.
+  - Đã rà mọi chỗ gọi API:
+    - upload: `UploadStep`;
+    - GET preview và GET result: `LoadFailureBanner` (có "Thử lại" và "Upload lại");
+    - PUT schema, PUT mapping và trình tự chạy: `SaveFailureBanner`;
+    - tải file: `ExportActions`.
+
+    Cả bốn đều dựng trên `ErrorBanner`. Nút tải file tự bấm lại được nên không cần "Thử lại" riêng.
+  - Thiếu một test và đã bổ sung: GET result gặp `SESSION_NOT_FOUND` thì hiện "Upload lại", không có "Thử lại".
+- [x] 13.3 Viết lại `apps/web/README.md`: yêu cầu cài đặt, biến môi trường, `pnpm dev` (chạy với BE thật; Postgres khởi động bằng `docker compose up -d` với `docker-compose.yml` ở gốc repo), `pnpm dev:mock`, `pnpm test`, demo flow từng bước.
+  - Thay README mẫu của Vite. Demo từng bước dùng `customers-sample.csv` (fixture pipeline của BE), cấu hình và kết quả mong đợi như lần kiểm với BE thật ở 13.4.
 - [ ] 13.4 Kiểm tay với BE thật, khi các feature BE tương ứng đã có. Ghi kết quả từng mục ngay dưới task này:
   - CSV happy path;
   - XLSX happy path;
