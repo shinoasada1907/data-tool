@@ -111,25 +111,29 @@
   @Repository public class JpaImportConfigurationRepository implements ImportConfigurationRepository { … }
   @Component public class JsonConfigHasher implements ConfigHasher { public JsonConfigHasher(JsonMapper jsonMapper); }
   ```
+  - ~~`public JsonConfigHasher(JsonMapper jsonMapper)`~~ → constructor không tham số, hasher tự dựng `JsonMapper` riêng (bật `ORDER_MAP_ENTRIES_BY_KEYS`). **LÝ DO:** Spring sẽ tiêm vào `JsonMapper` của API. Khi đó chỉ cần đổi cấu hình JSON của API là mọi hash đổi theo, và mọi session `PROCESSED` sẽ bị coi là cấu hình đã đổi. Đây cũng là lý do D8 bắt các repository dùng mapper riêng.
+  - ~~`public record TargetSchemaDocument`~~ → record package-private. **LÝ DO:** giống `SourceSchemaDocument` của F02; chỉ adapter và hasher cùng package dùng nó.
 
-- [ ] 3.1 Viết `JpaImportConfigurationRepositoryTest` (`@DataJpaTest`, `replace = NONE`, `@Import({TestcontainersConfiguration.class, JpaImportConfigurationRepository.class, JpaImportSessionRepository.class})`). Trước mỗi case, lưu một session thật để có khoá ngoại.
+- [x] 3.1 Viết `JpaImportConfigurationRepositoryTest` (`@DataJpaTest`, `replace = NONE`, `@Import({TestcontainersConfiguration.class, JpaImportConfigurationRepository.class, JpaImportSessionRepository.class})`). Trước mỗi case, lưu một session thật để có khoá ngoại.
   | Case | Mong đợi |
   |---|---|
   | `save(empty(id).withSchema(schema[name:string, email:email required]).configuration(), t0)` rồi `findBySessionId(id)` | schema đọc ra bằng bản đã lưu; `version` 0 |
   | `findBySessionId(randomUUID)` | `Optional.empty()` |
   | Lưu lần 2 với schema khác, dùng bản vừa đọc ra | `version` 1; schema mới |
   | `save` cho `sessionId` không có trong `import_session` | ném exception về khoá ngoại (`DataIntegrityViolationException`) |
-  | Sau lần lưu đầu, đọc thẳng cột `mapping_json` bằng `JdbcTemplate` | `{"mappings": []}` (giá trị mặc định) |
-- [ ] 3.2 Viết `JsonConfigHasherTest` với `JsonMapper` thật (`JsonMapper.builder().build()`):
+  | Sau lần lưu đầu, đọc thẳng cột `mapping_json` bằng ~~`JdbcTemplate`~~ native query của `TestEntityManager` | `{"mappings": []}` (giá trị mặc định) |
+
+  **LÝ DO** đổi `JdbcTemplate`: dùng cùng cách với `JpaImportSessionRepositoryTest` của F02, để đọc được dữ liệu chưa commit trong cùng transaction của test. Case này kiểm thêm hai cột `transformations_json`, `validations_json`, và kiểm `target_schema_json` là object JSON chứ không phải chuỗi JSON.
+- [x] 3.2 Viết `JsonConfigHasherTest` với `JsonMapper` thật (`JsonMapper.builder().build()`):
   | Case | Mong đợi |
   |---|---|
   | Hash cùng một cấu hình hai lần | hai chuỗi giống nhau; dài 64; khớp regex `[0-9a-f]{64}` |
   | Hai cấu hình chỉ khác `required` của một field | hai hash khác nhau |
   | Hai cấu hình cùng nội dung nhưng khác `sessionId` và `version` | hai hash giống nhau |
-- [ ] 3.3 Chạy `./mvnw -q test -Dtest=JpaImportConfigurationRepositoryTest,JsonConfigHasherTest`. Mong đợi: FAIL.
-- [ ] 3.4 Cài migration, entity, document, adapter và hasher. Cột JSON map theo cách F02 đã chốt (P7 hoặc phương án dự phòng, xem tasks.md của F02).
-- [ ] 3.5 Chạy lại lệnh ở 3.3. Mong đợi: PASS.
-- [ ] 3.6 Commit: `feat(infra): persist import configuration (Flyway V3) and hash it`
+- [x] 3.3 Chạy `./mvnw -q test -Dtest=JpaImportConfigurationRepositoryTest,JsonConfigHasherTest`. Mong đợi: FAIL.
+- [x] 3.4 Cài migration, entity, document, adapter và hasher. Cột JSON map theo cách F02 đã chốt (P7 hoặc phương án dự phòng, xem tasks.md của F02).
+- [x] 3.5 Chạy lại lệnh ở 3.3. Mong đợi: PASS.
+- [x] 3.6 Commit: `feat(infra): persist import configuration (Flyway V3) and hash it`
 
 ## 4. Khoá theo session
 
