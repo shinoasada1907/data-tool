@@ -77,7 +77,7 @@
   ```
   (`UniqueTracker` được tạo ở task 3. Ở task này, test truyền `null` vào context.)
 
-- [ ] 2.1 Viết `RequiredRuleTest`:
+- [x] 2.1 Viết `RequiredRuleTest`:
   | Input | Mong đợi |
   |---|---|
   | `"An"` | `Valid("An")` |
@@ -85,7 +85,7 @@
   | `""` | `Invalid(VALIDATION_REQUIRED, …)` |
   | `"   "` | `Invalid(VALIDATION_REQUIRED, …)` |
   | `"\u00A0"` | `Invalid(VALIDATION_REQUIRED, …)` |
-- [ ] 2.2 Viết `TypeRuleTest` (parameterized):
+- [x] 2.2 Viết `TypeRuleTest` (parameterized):
   | FieldType | Input | Mong đợi |
   |---|---|---|
   | STRING | `" a "` | `Valid(" a ")` |
@@ -100,10 +100,12 @@
   | DATE | `"2024-02-30"`, `"25/12/1990"`, `"1990-1-5"` | `Invalid(VALIDATION_TYPE, "Value is not a valid date (yyyy-MM-dd).")` |
   | EMAIL | `"an@example.com"` | `Valid("an@example.com")` |
   | EMAIL | `"an@example"`, `"an example@x.com"`, `"a@b@c.com"` | `Invalid(VALIDATION_EMAIL, "Value is not a valid email address.")` |
-- [ ] 2.3 Chạy `./mvnw -q test -Dtest=RequiredRuleTest,TypeRuleTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 2.4 Tạo các class ở phần Files. `TypeRule` dùng `switch` trên `FieldType` và không có nhánh `default`. Regex số: `^-?[0-9]+(\.[0-9]+)?$`. Ngày dùng `DateTimeFormatter.ofPattern("uuuu-MM-dd").withResolverStyle(ResolverStyle.STRICT)`.
-- [ ] 2.5 Chạy lại lệnh ở 2.3. Mong đợi: PASS.
-- [ ] 2.6 Commit: `feat(domain): required and type validation rules with type coercion`
+- [x] 2.3 Chạy `./mvnw -q test -Dtest=RequiredRuleTest,TypeRuleTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 2.4 Tạo các class ở phần Files. `TypeRule` dùng `switch` trên `FieldType` và không có nhánh `default`. Regex số: `^-?[0-9]+(\.[0-9]+)?$`. Ngày dùng `DateTimeFormatter.ofPattern("uuuu-MM-dd").withResolverStyle(ResolverStyle.STRICT)`.
+  - Làm thêm cho ngày: chuỗi phải khớp `^[0-9]{4}-[0-9]{2}-[0-9]{2}$` trước khi parse, và năm phải ≥ 1. **LÝ DO:** `uuuu` STRICT vẫn nhận `+19900-12-25` và `0000-01-01`, không đúng nghĩa `yyyy-MM-dd`; F06 cũng đã giới hạn năm 1–9999 (review F06). Test có thêm các case này.
+  - `UniqueTracker` được tạo dạng rỗng ở task này để `ValidationContext` compile được; nội dung làm ở task 3.
+- [x] 2.5 Chạy lại lệnh ở 2.3. Mong đợi: PASS.
+- [x] 2.6 Commit: `feat(domain): required and type validation rules with type coercion`
 
 ## 3. Rule email, rule unique và UniqueTracker
 
