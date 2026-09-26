@@ -14,6 +14,8 @@ import com.universalimporter.domain.schema.FieldSpec;
 import com.universalimporter.domain.schema.TargetSchema;
 import com.universalimporter.domain.source.SourceColumn;
 import com.universalimporter.domain.source.SourceSchema;
+import com.universalimporter.domain.transformation.TransformationConfigValidator;
+import com.universalimporter.domain.transformation.TransformationRegistry;
 import com.universalimporter.support.InMemoryImportConfigurationRepository;
 import com.universalimporter.support.InMemoryImportSessionRepository;
 import org.junit.jupiter.api.Test;
@@ -54,7 +56,8 @@ class ConfigurationServiceTest {
     private final ConfigurationService service = new ConfigurationService(sessions, configurations,
             // The hash only has to tell different content apart.
             configuration -> configuration.schema() + "|" + configuration.mapping(),
-            locks, new TransactionTemplate(transactionManager), Clock.fixed(NOW, ZoneOffset.UTC));
+            locks, new TransactionTemplate(transactionManager),
+            new TransformationConfigValidator(TransformationRegistry.standard()), Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
     void a_valid_schema_makes_a_configuring_session_ready() {

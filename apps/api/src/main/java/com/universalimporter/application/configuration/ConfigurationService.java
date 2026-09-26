@@ -3,6 +3,7 @@ package com.universalimporter.application.configuration;
 import com.universalimporter.application.common.SessionLocks;
 import com.universalimporter.domain.common.DomainException;
 import com.universalimporter.domain.common.ErrorCode;
+import com.universalimporter.domain.common.ProblemItem;
 import com.universalimporter.domain.config.ConfigChange;
 import com.universalimporter.domain.config.ConfigHasher;
 import com.universalimporter.domain.config.ImportConfiguration;
@@ -16,6 +17,8 @@ import com.universalimporter.domain.mapping.MappingConfig;
 import com.universalimporter.domain.mapping.MappingSpec;
 import com.universalimporter.domain.schema.FieldSpec;
 import com.universalimporter.domain.schema.TargetSchema;
+import com.universalimporter.domain.transformation.TransformationConfig;
+import com.universalimporter.domain.transformation.TransformationConfigValidator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -35,17 +38,19 @@ public class ConfigurationService {
     private final ConfigHasher hasher;
     private final SessionLocks locks;
     private final TransactionTemplate transactions;
+    private final TransformationConfigValidator transformationValidator;
     private final Clock clock;
     private final ReadinessEvaluator readiness = ReadinessEvaluator.standard();
 
     public ConfigurationService(ImportSessionRepository sessions, ImportConfigurationRepository configurations,
                                 ConfigHasher hasher, SessionLocks locks, TransactionTemplate transactions,
-                                Clock clock) {
+                                TransformationConfigValidator transformationValidator, Clock clock) {
         this.sessions = sessions;
         this.configurations = configurations;
         this.hasher = hasher;
         this.locks = locks;
         this.transactions = transactions;
+        this.transformationValidator = transformationValidator;
         this.clock = clock;
     }
 
@@ -59,6 +64,20 @@ public class ConfigurationService {
         return update(sessionId, (session, configuration) -> configuration.withMapping(MappingConfig.define(
                 mappings, configuration.schema(), session.sourceSchema().orElseThrow(() -> new IllegalStateException(
                         "Session " + sessionId + " is past UPLOADED without a source schema")))));
+    }
+
+    /**
+     * Replaces every transformation step, checked against the current schema (spec: transformation). Every
+     * problem is reported at once and nothing is stored when there is one.
+     */
+    public ConfigUpdateResult updateTransformations(UUID sessionId, TransformationConfig transformations) {
+        return update(sessionId, (session, configuration) -> {
+            List<ProblemItem> problems = transformationValidator.validate(transformations, configuration.schema());
+            if (!problems.isEmpty()) {
+                throw new DomainException(ErrorCode.CONFIG_INVALID, "Transformation configuration is invalid.", problems);
+            }
+            return configuration.withTransformations(transformations);
+        });
     }
 
     /**

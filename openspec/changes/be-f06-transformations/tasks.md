@@ -363,7 +363,7 @@
 - Consumes: hàm cập nhật dùng chung của F04 (khoá D11, kiểm `FAILED`, lưu, readiness/status D2, trả `ConfigUpdateResult`).
 - Produces: `public ConfigUpdateResult updateTransformations(UUID sessionId, TransformationConfig config)`.
 
-- [ ] 8.1 Viết `UpdateTransformationsTest`:
+- [x] 8.1 Viết `UpdateTransformationsTest`:
   | Case | Mong đợi |
   |---|---|
   | Session `CONFIGURING` có schema `name`, config `[{name,0,trim}]` | trả response với `warnings = []`; config được lưu đã chuẩn hoá |
@@ -371,10 +371,12 @@
   | Session `FAILED` | `DomainException(SESSION_STATE_INVALID)`; không lưu gì |
   | Id không tồn tại | `DomainException(SESSION_NOT_FOUND)` |
   | Session `READY`, config hợp lệ | status sau lệnh là `READY` (transformation không ảnh hưởng readiness) |
-- [ ] 8.2 Chạy `./mvnw -q test -Dtest=UpdateTransformationsTest`. Mong đợi: FAIL.
-- [ ] 8.3 Viết `updateTransformations`: validate, nếu có lỗi thì ném `DomainException(CONFIG_INVALID, "Transformation configuration is invalid.", items)`, sau đó `normalized(schema)` rồi gọi hàm cập nhật dùng chung. Tạo `EngineConfig`.
-- [ ] 8.4 Chạy lại lệnh ở 8.2. Mong đợi: PASS.
-- [ ] 8.5 Commit: `feat(app): update transformation configuration`
+- [x] 8.2 Chạy `./mvnw -q test -Dtest=UpdateTransformationsTest`. Mong đợi: FAIL.
+- [x] 8.3 Viết `updateTransformations`: validate, nếu có lỗi thì ném `DomainException(CONFIG_INVALID, "Transformation configuration is invalid.", items)`, sau đó `normalized(schema)` rồi gọi hàm cập nhật dùng chung. Tạo `EngineConfig`.
+  - Validate nằm **bên trong** hàm `update` dùng chung (tức trong khoá và transaction), vì cần schema đang lưu. `normalized(schema)` không gọi ở đây nữa: constructor của `ImportConfiguration` đã tự chuẩn hoá (task 7b).
+  - `ConfigurationService` nhận thêm `TransformationConfigValidator` qua constructor.
+- [x] 8.4 Chạy lại lệnh ở 8.2. Mong đợi: PASS.
+- [x] 8.5 Commit: `feat(app): update transformation configuration`
 
 ## 9. API: PUT /transformations
 
