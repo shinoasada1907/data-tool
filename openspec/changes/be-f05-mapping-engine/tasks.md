@@ -216,7 +216,7 @@
 **Files:**
 - Test: `TEST/api/mapping/MappingIntegrationTest.java` (setup như các integration test trước)
 
-- [ ] 7.1 Viết các case. Mọi case bắt đầu bằng: upload `customers.csv` = `Họ tên,email\nAn,an@x.com\n`, rồi PUT schema `[name(string, required, 0), email(email, required, 1), country(string, 2)]`.
+- [x] 7.1 Viết các case. Mọi case bắt đầu bằng: upload `customers.csv` = `Họ tên,email\nAn,an@x.com\n`, rồi PUT schema `[name(string, required, 0), email(email, required, 1), country(string, 2)]`.
   | Case | Mong đợi |
   |---|---|
   | PUT mapping `name ← "Họ tên"`, `email ← "email"`, `country ← hằng "VN"` | 200; `status` `READY`; `warnings` rỗng |
@@ -224,8 +224,8 @@
   | PUT mapping `name ← "Name"` | 422 `SOURCE_COLUMN_NOT_FOUND`; GET cho thấy mapping cũ không đổi |
   | Sau khi map đủ, PUT schema đổi `country` thành `nation` | `warnings` có `{field "country", code "CONFIG_PRUNED"}`; GET không còn mapping `country` |
   | PUT mapping cho UUID chưa từng tạo | 404 `SESSION_NOT_FOUND` |
-- [ ] 7.2 Chạy `./mvnw -q test -Dtest=MappingIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, không nới lỏng test.
-- [ ] 7.3 Commit: `test(api): field mapping over real HTTP`
+- [x] 7.2 Chạy `./mvnw -q test -Dtest=MappingIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, không nới lỏng test.
+- [x] 7.3 Commit: `test(api): field mapping over real HTTP`
 
 ## 8. Kiểm tra toàn bộ và hoàn tất
 
