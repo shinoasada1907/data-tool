@@ -10,6 +10,12 @@
 
 Task 1 trong tasks.md đối chiếu các giả định này với code đã merge rồi sửa lại cho khớp.
 
+> **Đã đối chiếu (2026-09-26):** bảng kết quả ở task 1 của `tasks.md`.
+> - ~~`SessionConfiguration`~~ → `ImportConfiguration`.
+> - Khung prune là `FieldScopedSection` / `ConfigPruner` / `Pruned`.
+> - Thêm phần lưu và hash `validations_json`.
+> - Controller đặt ở `api.validation`.
+
 - **F04**:
   - `TargetSchema`, `TargetField(name, type, required, order)`, `FieldType { STRING, NUMBER, BOOLEAN, DATE, EMAIL }`.
   - Aggregate config (`SessionConfiguration`) lưu trong `import_configuration` (V3).
@@ -84,7 +90,11 @@ Rule ném `RuntimeException` (bug) → lỗi với `code` là mã của rule đ�
 | `date` | `uuuu-MM-dd`, `ResolverStyle.STRICT` | `LocalDate` | `Value is not a valid date (yyyy-MM-dd).` |
 | `email` | `^[^@\s]+@[^@\s]+\.[^@\s]+$` | `String` giữ nguyên | `Value is not a valid email address.` |
 
-- Rule `email` do người dùng thêm (chỉ cho field `string`) dùng cùng regex (`EmailAddresses.PATTERN`) và cùng message, `code = VALIDATION_EMAIL`.
+- Rule `email` do người dùng thêm (chỉ cho field `string`) dùng cùng định nghĩa ~~(`EmailAddresses.PATTERN`)~~ (`EmailAddresses.isValid`) và cùng message, `code = VALIDATION_EMAIL`.
+- **Chống ô độc** (review 2026-09-26): regex email backtrack bậc hai (ô 200 KB mất 100 s), `new BigDecimal` một triệu chữ số mất 20 s. Một ô là đủ làm treo job.
+  - ~~Regex~~ → email kiểm bằng code, tuyến tính, có giới hạn 254 ký tự (RFC 5321). Code coi mọi khoảng trắng Unicode, ký tự điều khiển và ký tự format (zero-width) là không hợp lệ, vì `\s` của Java chỉ gồm khoảng trắng ASCII.
+  - Số dài quá 1000 ký tự bị từ chối trước khi parse.
+  - Boolean so bằng `toLowerCase(Locale.ROOT)`, vì `equalsIgnoreCase` coi `ſ` (U+017F) là `s`.
 - Message không chứa giá trị ô (D13).
 
 ### V4. `unique` hai pha (`UniqueTracker`)
@@ -92,13 +102,15 @@ Rule ném `RuntimeException` (bug) → lỗi với `code` là mã của rule đ�
 public final class UniqueTracker {
     public Optional<Integer> firstRowOf(String field, Object canonicalValue);   // row đã ghi nhận giá trị này
     public void stage(String field, Object canonicalValue);                     // giữ tạm cho row đang xử lý
-    public void commitRow(int rowNumber);                                        // ghi nhận các giá trị đã stage
+    public void beginRow(int rowNumber);                                         // (review) mở row; row trước chưa đóng → IllegalStateException
+    public void commitRow();                                                     // ~~commitRow(int rowNumber)~~ ghi nhận các giá trị đã stage, dưới số row của beginRow
     public void discardRow();                                                    // bỏ các giá trị đã stage
     public static Object canonical(Object typedValue);
 }
 ```
 - **Canonical**: `BigDecimal` → `stripTrailingZeros()` (nên `1.0`, `1.00` và `1` trùng nhau); `LocalDate`, `Boolean` giữ nguyên; `String` so chính xác, phân biệt hoa thường. Muốn không phân biệt thì thêm transformation `lowercase`.
 - **Rule `unique`**: gặp giá trị đã được ghi nhận → `Invalid(VALIDATION_UNIQUE, "Duplicate value; first seen in row <n>.")`. Chưa gặp → `stage` rồi trả `Valid`.
+- **Vòng đời row** (review 2026-09-26): ~~`commitRow(int)` nhận số row tuỳ ý~~ → mỗi row được bao bởi `beginRow(n)` rồi `commitRow()` hoặc `discardRow()`. Nếu F08 quên đóng row trước, `beginRow` ném exception ngay, không lặng lẽ ghi giá trị trùng hay sai số row. Exception phải ném ở `beginRow` vì đó là lời gọi trực tiếp của F08: exception bên trong rule bị `FieldValidator` bắt thành lỗi "Unexpected error".
 - **Chỉ `commitRow` mới ghi nhận giá trị**. F08 gọi hàm này sau khi row không có lỗi nào; row lỗi thì gọi `discardRow`. Nhờ vậy output hợp lệ không có giá trị trùng, và không giá trị nào bị mất chỉ vì một row lỗi trước đó cũng có giá trị ấy (D10).
 - Mỗi field có tập giá trị riêng.
 

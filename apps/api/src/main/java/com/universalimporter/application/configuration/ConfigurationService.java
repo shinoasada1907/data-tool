@@ -19,6 +19,9 @@ import com.universalimporter.domain.schema.FieldSpec;
 import com.universalimporter.domain.schema.TargetSchema;
 import com.universalimporter.domain.transformation.TransformationConfig;
 import com.universalimporter.domain.transformation.TransformationConfigValidator;
+import com.universalimporter.domain.validation.ValidationConfig;
+import com.universalimporter.domain.validation.ValidationConfigCheck;
+import com.universalimporter.domain.validation.ValidationConfigValidator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -39,18 +42,21 @@ public class ConfigurationService {
     private final SessionLocks locks;
     private final TransactionTemplate transactions;
     private final TransformationConfigValidator transformationValidator;
+    private final ValidationConfigValidator validationValidator;
     private final Clock clock;
     private final ReadinessEvaluator readiness = ReadinessEvaluator.standard();
 
     public ConfigurationService(ImportSessionRepository sessions, ImportConfigurationRepository configurations,
                                 ConfigHasher hasher, SessionLocks locks, TransactionTemplate transactions,
-                                TransformationConfigValidator transformationValidator, Clock clock) {
+                                TransformationConfigValidator transformationValidator,
+                                ValidationConfigValidator validationValidator, Clock clock) {
         this.sessions = sessions;
         this.configurations = configurations;
         this.hasher = hasher;
         this.locks = locks;
         this.transactions = transactions;
         this.transformationValidator = transformationValidator;
+        this.validationValidator = validationValidator;
         this.clock = clock;
     }
 
@@ -77,6 +83,20 @@ public class ConfigurationService {
                 throw new DomainException(ErrorCode.CONFIG_INVALID, "Transformation configuration is invalid.", problems);
             }
             return configuration.withTransformations(transformations);
+        });
+    }
+
+    /**
+     * Replaces the user's validation rules, checked against the current schema (spec: validation). Rules the schema
+     * already implies are dropped with a {@code RULE_IMPLIED_BY_SCHEMA} warning; any error rejects the whole list.
+     */
+    public ConfigUpdateResult updateValidations(UUID sessionId, ValidationConfig validations) {
+        return update(sessionId, (session, configuration) -> {
+            ValidationConfigCheck check = validationValidator.check(validations, configuration.schema());
+            if (!check.errors().isEmpty()) {
+                throw new DomainException(ErrorCode.CONFIG_INVALID, "Validation configuration is invalid.", check.errors());
+            }
+            return configuration.withValidations(check.effective(), check.warnings());
         });
     }
 

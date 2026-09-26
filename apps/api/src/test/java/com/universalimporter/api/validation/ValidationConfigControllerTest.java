@@ -1,4 +1,4 @@
-package com.universalimporter.api.transformation;
+package com.universalimporter.api.validation;
 
 import com.universalimporter.api.common.StrictJsonConfig;
 import com.universalimporter.application.configuration.ConfigUpdateResult;
@@ -17,7 +17,7 @@ import com.universalimporter.domain.schema.FieldSpec;
 import com.universalimporter.domain.schema.TargetSchema;
 import com.universalimporter.domain.transformation.TransformationConfig;
 import com.universalimporter.domain.validation.ValidationConfig;
-import com.universalimporter.domain.transformation.TransformationStep;
+import com.universalimporter.domain.validation.ValidationRuleConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -31,7 +31,6 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -43,13 +42,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(TransformationConfigController.class)
+@WebMvcTest(ValidationConfigController.class)
 @Import(StrictJsonConfig.class)
-class TransformationConfigControllerTest {
+class ValidationConfigControllerTest {
 
     private static final UUID ID = UUID.fromString("0b6f0c52-8a8e-4d5c-9a55-2f3c1c3f7e11");
     private static final Instant T0 = Instant.parse("2026-09-26T10:00:00Z");
-    private static final String TRIM_NAME = "{\"transformations\":[{\"targetField\":\"name\",\"order\":0,\"type\":\"trim\"}]}";
+    private static final String UNIQUE_EMAIL = "{\"validations\":[{\"targetField\":\"email\",\"type\":\"unique\"}]}";
 
     @Autowired
     MockMvc mockMvc;
@@ -59,41 +58,45 @@ class TransformationConfigControllerTest {
 
     @Test
     void a_valid_configuration_answers_200_with_the_session() throws Exception {
-        when(service.updateTransformations(eq(ID), any())).thenReturn(nameTrimmed());
+        when(service.updateValidations(eq(ID), any())).thenReturn(result(List.of()));
 
-        putTransformations(TRIM_NAME)
+        putValidations(UNIQUE_EMAIL)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.session.id").value(ID.toString()))
-                .andExpect(jsonPath("$.session.config.transformations.transformations[0].targetField").value("name"))
-                .andExpect(jsonPath("$.session.config.transformations.transformations[0].type").value("trim"))
-                .andExpect(jsonPath("$.session.config.transformations.transformations[0].order").value(0))
-                .andExpect(jsonPath("$.session.config.transformations.transformations[0].params").isMap())
+                .andExpect(jsonPath("$.session.config.validations.validations[0].targetField").value("email"))
+                .andExpect(jsonPath("$.session.config.validations.validations[0].type").value("unique"))
                 .andExpect(jsonPath("$.warnings.length()").value(0));
 
-        verify(service).updateTransformations(ID,
-                new TransformationConfig(List.of(new TransformationStep("name", 0, "trim", Map.of()))));
+        verify(service).updateValidations(ID,
+                new ValidationConfig(List.of(new ValidationRuleConfig("email", "unique", null))));
+    }
+
+    @Test
+    void ignored_rules_come_back_as_warnings() throws Exception {
+        when(service.updateValidations(eq(ID), any())).thenReturn(result(List.of(new ProblemItem("name",
+                "RULE_IMPLIED_BY_SCHEMA", "Rule 'required' is derived from the schema and was ignored."))));
+
+        putValidations("{\"validations\":[{\"targetField\":\"name\",\"type\":\"required\"}]}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.warnings[0].code").value("RULE_IMPLIED_BY_SCHEMA"))
+                .andExpect(jsonPath("$.warnings[0].field").value("name"));
     }
 
     @ParameterizedTest
     @ValueSource(strings = {
-            "{\"transformations\":[{\"targetField\":\"name\",\"order\":0,\"type\":\"trim\",\"params\":{}}]}",
-            "{\"transformations\":[{\"targetField\":\"name\",\"order\":0,\"type\":\"trim\",\"params\":null}]}",
-            "{\"transformations\":[]}"})
+            "{\"validations\":[{\"targetField\":\"email\",\"type\":\"unique\",\"params\":null}]}",
+            "{\"validations\":[{\"targetField\":\"email\",\"type\":\"unique\",\"params\":{}}]}",
+            "{\"validations\":[]}"})
     void empty_params_and_an_empty_list_are_accepted(String body) throws Exception {
-        when(service.updateTransformations(eq(ID), any())).thenReturn(nameTrimmed());
+        when(service.updateValidations(eq(ID), any())).thenReturn(result(List.of()));
 
-        putTransformations(body).andExpect(status().isOk());
+        putValidations(body).andExpect(status().isOk());
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-            "{}",
-            "{\"transformations\":[null]}",
-            "{\"transformations\":[{\"targetField\":\"name\",\"order\":\"abc\",\"type\":\"trim\"}]}",
-            "{\"transformations\":[{\"targetField\":\"dob\",\"order\":0,\"type\":\"dateFormat\",\"params\":{\"inputFormat\":5}}]}",
+    @ValueSource(strings = {"{}", "{\"validations\":[null]}", "{\"validations\":[{\"targetField\":1,\"type\":\"unique\"}]}",
             "not json"})
     void a_malformed_body_is_request_invalid(String body) throws Exception {
-        putTransformations(body)
+        putValidations(body)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("REQUEST_INVALID"));
         verifyNoInteractions(service);
@@ -101,50 +104,45 @@ class TransformationConfigControllerTest {
 
     @Test
     void configuration_problems_are_422_config_invalid() throws Exception {
-        when(service.updateTransformations(eq(ID), any())).thenThrow(new DomainException(ErrorCode.CONFIG_INVALID,
-                "Transformation configuration is invalid.",
-                List.of(new ProblemItem("phone", "CONFIG_INVALID", "Target field does not exist."))));
+        when(service.updateValidations(eq(ID), any())).thenThrow(new DomainException(ErrorCode.CONFIG_INVALID,
+                "Validation configuration is invalid.", List.of(new ProblemItem("age", "CONFIG_INVALID",
+                "Rule 'email' only applies to fields of type string."))));
 
-        putTransformations(TRIM_NAME)
+        putValidations(UNIQUE_EMAIL)
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.code").value("CONFIG_INVALID"))
-                .andExpect(jsonPath("$.errors[0].field").value("phone"));
+                .andExpect(jsonPath("$.errors[0].code").value("CONFIG_INVALID"))
+                .andExpect(jsonPath("$.errors[0].field").value("age"));
     }
 
     @Test
     void an_unknown_session_is_404() throws Exception {
-        when(service.updateTransformations(eq(ID), any()))
+        when(service.updateValidations(eq(ID), any()))
                 .thenThrow(new DomainException(ErrorCode.SESSION_NOT_FOUND, "Import session not found."));
 
-        putTransformations(TRIM_NAME)
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("SESSION_NOT_FOUND"));
+        putValidations(UNIQUE_EMAIL).andExpect(status().isNotFound());
     }
 
     @Test
     void a_session_in_the_wrong_state_is_409() throws Exception {
-        when(service.updateTransformations(eq(ID), any()))
+        when(service.updateValidations(eq(ID), any()))
                 .thenThrow(new DomainException(ErrorCode.SESSION_STATE_INVALID, "Session has failed and cannot be changed."));
 
-        putTransformations(TRIM_NAME)
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("SESSION_STATE_INVALID"));
+        putValidations(UNIQUE_EMAIL).andExpect(status().isConflict());
     }
 
-    private ResultActions putTransformations(String body) throws Exception {
-        return mockMvc.perform(put("/api/import-sessions/{id}/transformations", ID)
+    private ResultActions putValidations(String body) throws Exception {
+        return mockMvc.perform(put("/api/import-sessions/{id}/validations", ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body));
     }
 
-    private static ConfigUpdateResult nameTrimmed() {
+    private static ConfigUpdateResult result(List<ProblemItem> warnings) {
         ImportSession session = ImportSession.restore(ID, new SourceFile("customers.csv", SourceFileType.CSV, 20),
-                SessionStatus.CONFIGURING, T0, T0, 1L, null);
-        TargetSchema schema = TargetSchema.define(List.of(new FieldSpec("name", "string", false, 0)));
-        TransformationConfig transformations =
-                new TransformationConfig(List.of(new TransformationStep("name", 0, "trim", null)));
-        return new ConfigUpdateResult(session,
-                new ImportConfiguration(ID, schema, MappingConfig.empty(), transformations, ValidationConfig.empty(), 1L),
-                new Readiness(true, List.of()), List.of());
+                SessionStatus.READY, T0, T0, 1L, null);
+        TargetSchema schema = TargetSchema.define(List.of(new FieldSpec("email", "email", false, 0)));
+        ValidationConfig validations = new ValidationConfig(List.of(new ValidationRuleConfig("email", "unique", null)));
+        return new ConfigUpdateResult(session, new ImportConfiguration(ID, schema, MappingConfig.empty(),
+                TransformationConfig.empty(), validations, 1L), new Readiness(true, List.of()), warnings);
     }
 }

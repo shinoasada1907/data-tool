@@ -9,6 +9,8 @@ import com.universalimporter.domain.source.SourceColumn;
 import com.universalimporter.domain.source.SourceSchema;
 import com.universalimporter.domain.transformation.TransformationConfig;
 import com.universalimporter.domain.transformation.TransformationStep;
+import com.universalimporter.domain.validation.ValidationConfig;
+import com.universalimporter.domain.validation.ValidationRuleConfig;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -63,6 +65,15 @@ class JsonConfigHasherTest {
                 new TransformationConfig(List.of(new TransformationStep("name", 0, "trim", null)))).configuration();
 
         assertThat(hasher.hash(trimmed)).isNotEqualTo(hasher.hash(plain));
+    }
+
+    @Test
+    void validations_are_part_of_the_hash() {
+        ImportConfiguration plain = configuration(ID, null, true);
+        ImportConfiguration unique = plain.withValidations(
+                new ValidationConfig(List.of(new ValidationRuleConfig("email", "unique", null))), List.of()).configuration();
+
+        assertThat(hasher.hash(unique)).isNotEqualTo(hasher.hash(plain));
     }
 
     @Test
@@ -123,6 +134,7 @@ class JsonConfigHasherTest {
     private static ImportConfiguration configuration(UUID sessionId, Long version, boolean emailRequired) {
         TargetSchema schema = TargetSchema.define(List.of(
                 new FieldSpec("name", "string", false, 0), new FieldSpec("email", "email", emailRequired, 1)));
-        return new ImportConfiguration(sessionId, schema, MappingConfig.empty(), TransformationConfig.empty(), version);
+        return new ImportConfiguration(sessionId, schema, MappingConfig.empty(), TransformationConfig.empty(),
+                ValidationConfig.empty(), version);
     }
 }
