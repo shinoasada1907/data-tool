@@ -3,6 +3,7 @@ import { ApiError, isSessionUnusable } from '../../api/apiError'
 import { downloadErrorReport, downloadValidRows } from '../../api/endpoints'
 import { saveBlob } from '../../api/download'
 import type { PipelineSummary, SessionInfo } from '../../domain/types'
+import type { StaleReason } from '../../wizard/state'
 import { describeApiError, type ErrorText } from '../../shared/describeError'
 import { messages } from '../../shared/messages'
 import { ErrorBanner } from '../../shared/ui/ErrorBanner'
@@ -19,7 +20,8 @@ const SUFFIXES: Record<ExportKind, ExportSuffix> = { json: '-valid.json', csv: '
 interface ExportActionsProps {
   session: SessionInfo
   summary: PipelineSummary
-  stale: boolean
+  /** Kết quả đã cũ thì khoá cả ba nút, lý do khoá theo lý do cũ (design D18). */
+  staleReason: StaleReason | null
   /** BE trả `409 RESULT_NOT_AVAILABLE`: đánh dấu kết quả là cũ và đưa focus tới "Chạy lại" (design D18). */
   onResultUnavailable: () => void
 }
@@ -33,7 +35,7 @@ interface Failure {
  * Ba nút tải file (spec result-export). Tải bằng `fetch` + blob (design D10), nên lỗi của BE hiện ra thay vì bị lưu
  * thành file. Không khoá điều hướng: rời bước thì mọi lượt tải đang chạy bị huỷ và không lưu gì (như GET preview, D2).
  */
-export function ExportActions({ session, summary, stale, onResultUnavailable }: ExportActionsProps) {
+export function ExportActions({ session, summary, staleReason, onResultUnavailable }: ExportActionsProps) {
   const { dispatch } = useWizard()
   const headingId = useId()
   const reasonIdBase = useId()
@@ -50,7 +52,8 @@ export function ExportActions({ session, summary, stale, onResultUnavailable }: 
   }, [])
 
   function blockedReason(kind: ExportKind): string | undefined {
-    if (stale) return messages.export.staleReason
+    if (staleReason === 'sessionUnusable') return messages.export.sessionUnusableReason
+    if (staleReason !== null) return messages.export.staleReason
     if (kind !== 'errors' && summary.valid === 0) return messages.export.noValid
     if (kind === 'errors' && summary.invalid === 0) return messages.export.noInvalid
     return undefined

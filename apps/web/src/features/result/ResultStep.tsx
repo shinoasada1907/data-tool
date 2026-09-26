@@ -15,7 +15,7 @@ import { useWizard } from '../../wizard/context'
 import { toLoadFailure, type LoadFailure } from '../../wizard/loadFailure'
 import { LoadFailureBanner } from '../../wizard/LoadFailureBanner'
 import { SaveFailureBanner } from '../../wizard/SaveFailureBanner'
-import { isBusy, type ResultState } from '../../wizard/state'
+import { isBusy, type ResultState, type StaleReason } from '../../wizard/state'
 import { StepActions } from '../../wizard/StepActions'
 import { StepHeader } from '../../wizard/StepHeader'
 import { useBusyRequest } from '../../wizard/useBusyRequest'
@@ -49,7 +49,8 @@ function ResultContent({ session, result }: { session: SessionInfo; result: Resu
   const [pending, setPending] = useState<ResultQuery | null>(null)
   const inFlight = useRef<ResultQuery | null>(null)
   const queued = useRef<ResultQuery | null>(null)
-  const { query, page, stale, columns, summary } = result
+  const { query, page, columns, summary } = result
+  const stale = result.stale !== null
   const busy = isBusy(state)
   const shown = pending ?? query
   const failure = loadFailure?.summary === summary ? loadFailure : null
@@ -109,7 +110,7 @@ function ResultContent({ session, result }: { session: SessionInfo; result: Resu
   function markUnavailable(alsoUpdate?: () => void) {
     flushSync(() => {
       alsoUpdate?.()
-      dispatch({ type: 'resultUnavailable' })
+      dispatch({ type: 'resultUnavailable', reason: 'unavailable' })
     })
     rerunRef.current?.focus()
   }
@@ -118,7 +119,7 @@ function ResultContent({ session, result }: { session: SessionInfo; result: Resu
   // focus có thể đã rơi về đầu trang; khi đó đưa về tiêu đề bước (design D14). Là effect event: chỉ chạy khi có lần
   // chạy mới (`summary` mới), còn `result` và `fetchPages` luôn đọc bản mới nhất.
   const onNewRun = useEffectEvent(() => {
-    if (result.page === null && !result.stale) void fetchPages(result.query)
+    if (result.page === null && result.stale === null) void fetchPages(result.query)
     if (document.activeElement && document.activeElement !== document.body) return
     titleRef.current?.focus()
   })
@@ -139,7 +140,7 @@ function ResultContent({ session, result }: { session: SessionInfo; result: Resu
       )}
 
       <StaleNotice
-        stale={stale}
+        reason={result.stale}
         busy={busy}
         running={pipeline.running}
         blockedReason={pipeline.blockedReason}
@@ -149,7 +150,12 @@ function ResultContent({ session, result }: { session: SessionInfo; result: Resu
 
       <SummaryCards summary={summary} />
 
-      <ExportActions session={session} summary={summary} stale={stale} onResultUnavailable={() => markUnavailable()} />
+      <ExportActions
+        session={session}
+        summary={summary}
+        staleReason={result.stale}
+        onResultUnavailable={() => markUnavailable()}
+      />
 
       {/* Luôn có trong DOM (design D14): báo lúc đang tải và trang vừa tải xong. */}
       <p role="status" className="sr-only">
@@ -264,7 +270,7 @@ function SummaryCards({ summary }: { summary: PipelineSummary }) {
 }
 
 interface StaleNoticeProps {
-  stale: boolean
+  reason: StaleReason | null
   busy: boolean
   running: boolean
   blockedReason: string | undefined
@@ -272,15 +278,29 @@ interface StaleNoticeProps {
   onRerun: () => void
 }
 
-/** Cảnh báo kết quả cũ và nút "Chạy lại" (design D18). Vùng status có sẵn, nên cảnh báo xuất hiện sau 409 được đọc. */
-function StaleNotice({ stale, busy, running, blockedReason, rerunRef, onRerun }: StaleNoticeProps) {
+/**
+ * Cảnh báo kết quả cũ, câu và nút theo lý do (design D18): "Chạy lại", hoặc "Upload lại" khi session không dùng được
+ * nữa. Vùng status có sẵn, nên cảnh báo xuất hiện sau 409 được đọc. `rerunRef` trỏ tới nút đang có.
+ */
+function StaleNotice({ reason, busy, running, blockedReason, rerunRef, onRerun }: StaleNoticeProps) {
+  const { dispatch } = useWizard()
   const reasonId = useId()
 
   return (
     <div role="status" className={styles.staleRegion}>
-      {stale && (
+      {reason === 'sessionUnusable' && (
         <div className={styles.stale}>
-          <p className={styles.staleText}>{messages.result.stale}</p>
+          <p className={styles.staleText}>{messages.result.stale.sessionUnusable}</p>
+          <div className={styles.staleActions}>
+            <button ref={rerunRef} type="button" className={styles.rerun} onClick={() => dispatch({ type: 'reset' })}>
+              {messages.sessionUnusableAction}
+            </button>
+          </div>
+        </div>
+      )}
+      {(reason === 'configChanged' || reason === 'unavailable') && (
+        <div className={styles.stale}>
+          <p className={styles.staleText}>{messages.result.stale[reason]}</p>
           <div className={styles.staleActions}>
             <button
               ref={rerunRef}

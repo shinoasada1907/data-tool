@@ -6,8 +6,8 @@ import App from '../../App'
 import { pipelineSummaryFixture } from '../../mocks/fixtures'
 import { server } from '../../mocks/node'
 import { captureDownloads } from '../../test/downloads'
-import { fieldRegion, openResultStep, RESULT_HEADING, stepButton, type User } from '../../test/flows'
-import { gate, problemResponse } from '../../test/http'
+import { fieldRegion, openResultStep, RESULT_HEADING, runButton, stepButton, type User } from '../../test/flows'
+import { gate, mockProcess, problemResponse } from '../../test/http'
 
 const EXPORT_URL = '/api/import-sessions/:id/export'
 const ERRORS_URL = '/api/import-sessions/:id/errors/export'
@@ -188,6 +188,23 @@ describe('tải kết quả', () => {
       for (const name of ['Tải JSON', 'Tải CSV', 'Tải báo cáo lỗi']) {
         expect(exportButton(name)).toBeDisabled()
         expect(exportButton(name)).toHaveAccessibleDescription('Chạy lại để tải kết quả khớp cấu hình hiện tại')
+      }
+    })
+
+    test('session hỏng sau khi đã có kết quả: khoá cả ba nút, lý do là phải upload lại (không phải chạy lại)', async () => {
+      const user = userEvent.setup()
+      await openWith(user)
+      mockProcess(() => problemResponse(422, 'FILE_PARSE_ERROR', 'Malformed CSV at line 12.'))
+
+      await user.click(stepButton(/Biến đổi & kiểm tra/))
+      await user.click(runButton())
+      await screen.findByRole('alert')
+      await user.click(stepButton(/Kết quả/))
+      await screen.findByRole('heading', RESULT_HEADING)
+
+      for (const name of ['Tải JSON', 'Tải CSV', 'Tải báo cáo lỗi']) {
+        expect(exportButton(name)).toBeDisabled()
+        expect(exportButton(name)).toHaveAccessibleDescription('Phiên import không dùng được nữa; hãy upload lại file')
       }
     })
 

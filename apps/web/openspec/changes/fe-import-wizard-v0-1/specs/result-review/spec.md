@@ -60,15 +60,27 @@ Khi một tab không có dòng nào, FE SHALL hiển thị thông báo rõ ràng
 - **THEN** FE hiển thị "Không có dòng hợp lệ"
 
 ### Requirement: Kết quả đã cũ
-Kết quả bị đánh dấu cũ khi cấu hình đã sửa sau lần chạy gần nhất (spec `import-wizard`), hoặc khi BE trả `409 RESULT_NOT_AVAILABLE`. Khi đó FE MUST:
-- hiển thị cảnh báo "Cấu hình đã thay đổi — kết quả này là của lần chạy trước";
+Kết quả bị đánh dấu cũ, kèm lý do, khi:
+- cấu hình đã sửa sau lần chạy gần nhất (spec `import-wizard`);
+- BE trả `409 RESULT_NOT_AVAILABLE`;
+- hoặc lần chạy sau đó bị lỗi ở process (spec `pipeline-run`).
+
+Khi đó FE MUST:
+- hiển thị cảnh báo theo lý do:
+  - cấu hình đã sửa: "Cấu hình đã thay đổi — kết quả này là của lần chạy trước";
+  - BE không còn kết quả: "Máy chủ không còn giữ kết quả này — chạy lại để có kết quả mới";
+  - session không dùng được nữa: "Phiên import không dùng được nữa — kết quả này là của lần chạy trước, hãy upload lại file";
 - giữ phần tóm tắt và trang đang xem;
 - khoá đổi trang, đổi tab và bộ lọc, vì BE đã xoá kết quả cũ;
-- hiện nút "Chạy lại", dùng đúng trình tự lưu và chạy của `pipeline-run`.
+- hiện nút "Chạy lại", dùng đúng trình tự lưu và chạy của `pipeline-run`. Riêng khi session không dùng được nữa, hiện nút "Upload lại" thay cho "Chạy lại".
 
 #### Scenario: Xem kết quả cũ
 - **WHEN** user sửa mapping, bấm "Tiếp" để lưu, rồi bấm stepper sang bước Result
 - **THEN** FE hiển thị cảnh báo kết quả cũ và nút "Chạy lại"; các nút đổi trang, tab và bộ lọc bị khoá
+
+#### Scenario: Session hỏng sau khi đã có kết quả
+- **WHEN** đã có kết quả, user chạy lại mà không sửa gì, và POST process trả `422 FILE_PARSE_ERROR`
+- **THEN** bước Result hiển thị cảnh báo "Phiên import không dùng được nữa…" và nút "Upload lại", không có nút "Chạy lại"
 
 #### Scenario: BE báo kết quả không còn
 - **WHEN** user bấm "Sau" và `GET .../result` trả `409` với `code: "RESULT_NOT_AVAILABLE"`

@@ -29,7 +29,7 @@ const result: NonNullable<WizardState['result']> = {
   columns: ['email'],
   query: { view: 'valid', page: 0, field: null, code: null },
   page: { number: 0, totalElements: 1, totalPages: 1, rows: [] },
-  stale: false,
+  stale: null,
 }
 const withResult: WizardState = { ...withSavedMapping, result }
 
@@ -57,7 +57,7 @@ describe('isStepDone', () => {
   test('bước Biến đổi & kiểm tra xong khi đã có kết quả và kết quả chưa cũ', () => {
     expect(isStepDone('rules', withSavedMapping)).toBe(false)
     expect(isStepDone('rules', withResult)).toBe(true)
-    expect(isStepDone('rules', { ...withResult, result: { ...result, stale: true } })).toBe(false)
+    expect(isStepDone('rules', { ...withResult, result: { ...result, stale: 'configChanged' } })).toBe(false)
   })
 })
 
@@ -113,7 +113,7 @@ describe('canEnter', () => {
 
   test('đã có kết quả thì vào được bước Kết quả, kể cả khi kết quả đã cũ', () => {
     expect(canEnter('result', withResult)).toEqual({ allowed: true })
-    expect(canEnter('result', { ...withResult, result: { ...result, stale: true } })).toEqual({ allowed: true })
+    expect(canEnter('result', { ...withResult, result: { ...result, stale: 'configChanged' } })).toEqual({ allowed: true })
   })
 
   // Spec import-wizard: sửa schema thì bước Result bị khoá cho đến khi mapping được lưu lại.

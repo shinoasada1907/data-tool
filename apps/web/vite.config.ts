@@ -21,6 +21,9 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: 'jsdom',
       setupFiles: ['src/test/setup.ts'],
+      // Test đi hết wizard (upload → … → kết quả) mất 1,5–2,5 giây khi máy rảnh; mức 5 giây mặc định làm chúng trượt
+      // khi máy bận (đã gặp lúc chạy song song với phiên BE), dù code không sai.
+      testTimeout: 15_000,
     },
   }
 })

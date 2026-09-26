@@ -1,5 +1,5 @@
 import { useState, type RefObject } from 'react'
-import { ApiError } from '../../api/apiError'
+import { ApiError, isSessionUnusable } from '../../api/apiError'
 import { getSessionStatus, postProcess, putTransformations, putValidations } from '../../api/endpoints'
 import { toPipelineSummary, toTransformationConfigDto, toValidationConfigDto } from '../../api/mappers'
 import { checkTransformations } from '../../domain/configRules'
@@ -60,7 +60,9 @@ export function useRunPipeline({ headingRef, focusField }: RunPipelineOptions) {
         } catch (error) {
           const outcome = await afterProcessFailure(session.id, error)
           sessionFailed = outcome.sessionFailed
-          if (!outcome.resultKept) dispatch({ type: 'resultUnavailable' })
+          if (!outcome.resultKept) {
+            dispatch({ type: 'resultUnavailable', reason: outcome.sessionFailed ? 'sessionUnusable' : 'unavailable' })
+          }
           throw error
         }
         const query: ResultQuery = { view: summary.invalid > 0 ? 'invalid' : 'valid', page: 0, field: null, code: null }
@@ -93,7 +95,7 @@ export function useRunPipeline({ headingRef, focusField }: RunPipelineOptions) {
 }
 
 interface ProcessFailureOutcome {
-  /** true: session đã FAILED, chỉ còn cách upload lại; undefined: theo luật chung (`isSessionUnusable`). */
+  /** true: session đã FAILED hoặc không còn, chỉ còn cách upload lại; undefined: theo luật chung (`isSessionUnusable`). */
   sessionFailed: boolean | undefined
   /** BE còn giữ kết quả của lần chạy trước, nên kết quả đang có trên FE vẫn dùng được. */
   resultKept: boolean
@@ -101,7 +103,8 @@ interface ProcessFailureOutcome {
 
 /**
  * Process lỗi thì BE có thể đã xoá kết quả cũ (design D12, D18; BE-F08):
- * - 422 (lỗi đọc file nguồn): session thành `FAILED` và kết quả bị xoá.
+ * - `SESSION_NOT_FOUND`, `SESSION_STATE_INVALID`: session không dùng được nữa.
+ * - 422: mọi lỗi đọc file nguồn của process (BE bọc chúng lại), session thành `FAILED` và kết quả bị xoá.
  * - 5xx: cùng một `500 INTERNAL_ERROR` cho ba nguyên nhân: đọc file lỗi (session `FAILED`), lưu kết quả lỗi hoặc bug
  *   (session giữ nguyên, kết quả cũ còn). Body không phân biệt được, nên hỏi lại trạng thái session.
  * - Lỗi khác (409, 404, hết giờ, mất mạng): không biết BE đã làm gì, coi như kết quả không còn; sai thì chỉ tốn một lần
@@ -111,13 +114,15 @@ async function afterProcessFailure(sessionId: string, error: unknown): Promise<P
   if (!(error instanceof ApiError) || error.kind !== 'http' || error.status === null) {
     return { sessionFailed: undefined, resultKept: false }
   }
-  if (error.status === 422) return { sessionFailed: true, resultKept: false }
+  if (isSessionUnusable(error) || error.status === 422) return { sessionFailed: true, resultKept: false }
   if (error.status < 500) return { sessionFailed: undefined, resultKept: false }
   try {
     const status = await getSessionStatus(sessionId)
     return { sessionFailed: status === 'FAILED', resultKept: status === 'PROCESSED' }
-  } catch {
-    return { sessionFailed: undefined, resultKept: false }
+  } catch (statusError) {
+    // Session hết hạn giữa hai request: lượt hỏi trạng thái trả 404, và đó mới là lỗi quyết định.
+    const gone = statusError instanceof ApiError && isSessionUnusable(statusError)
+    return { sessionFailed: gone ? true : undefined, resultKept: false }
   }
 }
 

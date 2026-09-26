@@ -413,6 +413,33 @@ describe('bước Kết quả', () => {
       expect(screen.getByRole('combobox', { name: 'Lọc theo mã lỗi' })).toHaveValue('VALIDATION_EMAIL')
     })
 
+    test('lựa chọn trước tải lỗi trong lúc lựa chọn mới đang chờ: không báo lỗi của lựa chọn cũ, tải lựa chọn mới', async () => {
+      const user = userEvent.setup()
+      const pages = pagesByView()
+      const first = gate()
+      render(<App />)
+      const requests = await openResultStep(user, {
+        summary,
+        result: async (query) => {
+          if (query.code && !query.field) {
+            await first.promise
+            return problemResponse(500, 'INTERNAL_ERROR', 'Unexpected error.')
+          }
+          return pages(query)
+        },
+      })
+
+      await user.selectOptions(screen.getByRole('combobox', { name: 'Lọc theo mã lỗi' }), 'VALIDATION_EMAIL')
+      await user.selectOptions(screen.getByRole('combobox', { name: 'Lọc theo field' }), 'Email')
+      first.open()
+
+      await vi.waitFor(() => expect(requests.calls()).toBe(3))
+      await vi.waitFor(() => expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-busy', 'false'))
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: 'Lọc theo field' })).toHaveValue('Email')
+      expect(screen.getByRole('combobox', { name: 'Lọc theo mã lỗi' })).toHaveValue('VALIDATION_EMAIL')
+    })
+
     test('bộ lọc chỉ có ở tab Lỗi', async () => {
       const user = userEvent.setup()
       render(<App />)
@@ -576,7 +603,8 @@ describe('bước Kết quả', () => {
       await user.click(screen.getByRole('button', { name: 'Sau' }))
 
       expect(await screen.findByRole('button', { name: 'Chạy lại' })).toHaveFocus()
-      expect(screen.getByText('Cấu hình đã thay đổi — kết quả này là của lần chạy trước')).toBeInTheDocument()
+      // User không sửa gì: không nói "cấu hình đã thay đổi".
+      expect(screen.getByText('Máy chủ không còn giữ kết quả này — chạy lại để có kết quả mới')).toBeInTheDocument()
       expect(screen.getByText('Trang 1 / 3')).toBeInTheDocument()
       expect(dataRow(3)).toBeInTheDocument()
       expect(screen.queryByRole('alert')).not.toBeInTheDocument()

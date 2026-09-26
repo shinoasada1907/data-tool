@@ -50,14 +50,18 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
       return markSaved(state, action)
     case 'processCompleted': {
       const { summary, columns, query } = action
-      return { ...state, step: 'result', result: { summary, columns, query, page: null, stale: false } }
+      return { ...state, step: 'result', result: { summary, columns, query, page: null, stale: null } }
     }
     case 'resultPageLoaded':
       if (!state.result) return state
       return { ...state, result: { ...state.result, query: action.query, page: action.page } }
-    case 'resultUnavailable':
-      if (!state.result || state.result.stale) return state
-      return { ...state, result: { ...state.result, stale: true } }
+    case 'resultUnavailable': {
+      if (!state.result) return state
+      // Session hỏng là lý do nặng nhất (chạy lại cũng không cứu được) nên luôn thắng; còn lại giữ lý do có trước.
+      const current = state.result.stale
+      if (current === 'sessionUnusable' || (current !== null && action.reason !== 'sessionUnusable')) return state
+      return { ...state, result: { ...state.result, stale: action.reason } }
+    }
     case 'navigate':
       if (isBusy(state) || !canEnter(action.step, state).allowed) return state
       return { ...state, step: action.step }
@@ -75,8 +79,8 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
  * lúc BE xoá kết quả (design D18). Thao tác không đổi gì (reducer trả lại đúng state cũ) thì không tính là sửa.
  */
 function withStaleResult(before: WizardState, after: WizardState): WizardState {
-  if (after === before || !after.result || after.result.stale) return after
-  return { ...after, result: { ...after.result, stale: true } }
+  if (after === before || !after.result || after.result.stale !== null) return after
+  return { ...after, result: { ...after.result, stale: 'configChanged' } }
 }
 
 /**

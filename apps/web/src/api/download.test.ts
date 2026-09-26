@@ -57,6 +57,29 @@ describe('download', () => {
     await expect(download(URL_PATH)).rejects.toMatchObject({ kind: 'network' })
   })
 
+  // BE đã gửi status 200 và một phần file rồi mới lỗi: không đổi được status nữa nên BE cắt kết nối (be-f10 F10-D1).
+  // `response.ok` là true nhưng đọc body bị reject; đó là tải thất bại, không phải file hợp lệ.
+  test('kết nối đứt giữa lúc đang nhận file (200 nhưng body bị cắt): ApiError kind=network, không trả blob', async () => {
+    server.use(
+      http.get(URL_PATH, () => {
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('﻿a,b\r\n1,'))
+            controller.error(new Error('connection reset'))
+          },
+        })
+        return new HttpResponse(body, {
+          headers: {
+            'Content-Type': 'text/csv;charset=UTF-8',
+            'Content-Disposition': "attachment; filename*=UTF-8''x-valid.csv",
+          },
+        })
+      }),
+    )
+
+    await expect(download(URL_PATH)).rejects.toMatchObject({ kind: 'network' })
+  })
+
   test('chờ tới 5 phút (BE stream file lớn), không dừng ở 30 giây', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     onTestFinished(() => {

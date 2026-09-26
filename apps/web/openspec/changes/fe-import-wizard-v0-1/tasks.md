@@ -385,8 +385,10 @@
   1. PUT transformations (nếu chưa lưu)
   2. PUT validations (nếu chưa lưu)
   3. POST process
-  4. GET result (`view` chọn theo `invalid`)
-  5. sang bước Result
+  4. ~~GET result (`view` chọn theo `invalid`)~~
+  5. ~~sang bước Result~~
+
+  **Đổi thứ tự 4–5 (review FE-F08/F09) — LÝ DO:** xem ghi chú "Bước 4 (GET result)…" ngay dưới. Nay là: 4. sang bước Result; 5. bước Result gửi GET result (`view` chọn theo `invalid`).
 
   Test với MSW:
   - thành công;
@@ -443,7 +445,7 @@
   - Focus chuyển tới nút "Chạy lại", vì mọi nút đổi trang, tab, bộ lọc vừa bị khoá. Lỗi tải trang khác hiện khối lỗi có "Thử lại" (gửi lại đúng truy vấn đó) hoặc "Upload lại" (session hỏng).
   - Chạy lại thành công: nút "Chạy lại" biến mất cùng cảnh báo, focus về tiêu đề bước.
 
-> **Review FE-F08/F09** (senior-reviewer, 2026-09-27). Đã sửa, mỗi mục có test và đã làm mutation check:
+> **Review FE-F08/F09** (senior-reviewer, 2026-09-27). Đã sửa, mỗi mục có test ~~và đã làm mutation check~~ (**không đúng hết — LÝ DO:** review lần 2 chạy mutation thật và thấy các nhánh 409, 404, hết giờ, mất mạng, 5xx+READY, lỗi khi hỏi trạng thái session của `afterProcessFailure`, cùng nhánh lỗi của vòng tải trang, không có test nào. Đã bổ sung ở lần 2):
 > - "Thử lại" ở bước Kết quả làm focus rơi về đầu trang: bản chép từ bước Xem trước bỏ mất dòng focus. Gom khối lỗi của request đọc vào `wizard/LoadFailureBanner.tsx` (và `wizard/loadFailure.ts`), dùng chung cho hai bước, focus nằm trong đó.
 > - Process lỗi mà kết quả cũ vẫn hiện như kết quả hiện hành, trong khi BE đã xoá nó: nay đánh dấu cũ (xem 10.2).
 > - GET trang đầu lỗi thì phải chạy lại cả pipeline: nay bước Kết quả tự tải trang đầu (xem 10.2).
@@ -456,6 +458,14 @@
 > - Test thiếu: focus ở biên "Trước"; phím ArrowRight, Home, End, Space của tab; PUT transformations lỗi thì dừng ngay; process 404; timeout riêng của process. `Pagination` chỉ dời focus ở biên khi focus còn ở nút vừa bấm (hoặc đã rơi về đầu trang), để trang tới nơi sau "Thử lại" không giật focus khỏi tiêu đề.
 > - Helper test chép lại (`addTrim`, `problemWithErrors`, `RESULT_HEADING`) gom về `test/flows.ts` và `test/http.ts`; sửa hai comment sai.
 > - Câu hỏi của reviewer, vì sao bỏ lượt gọi thay vì latest-wins: không cân nhắc, chỉ mang cơ chế của nút phân trang sang mọi control. Đã đổi như trên.
+>
+> **Review FE-F08/F09 lần 2** (senior-reviewer, 2026-09-27). Các mục của lần 1 được xác nhận là đã sửa đúng (có probe). Đã sửa thêm, mỗi mục có test và mutation check thật (chạy lại trên code sạch sau khi một lượt mutation bị tiến trình bên ngoài kill giữa chừng):
+> - Kết quả cũ chỉ là boolean. Process lỗi làm session hỏng mà màn Kết quả vẫn báo "Cấu hình đã thay đổi" và mời "Chạy lại" một việc chắc chắn lỗi. Nay `stale` là lý do (`configChanged` / `unavailable` / `sessionUnusable`, design D18), câu cảnh báo và nút đi theo lý do; session hỏng thì chỉ còn "Upload lại". Lý do "session hỏng" luôn thắng, lý do khác giữ lý do có trước.
+> - Test cho mọi nhánh của `afterProcessFailure`: 422, 409 `SESSION_STATE_INVALID`, 409 `SESSION_NOT_READY`, mất mạng, 5xx+READY, 5xx+PROCESSED, 5xx rồi hỏi trạng thái gặp 404. Test cho nhánh lỗi của vòng tải trang: lựa chọn cũ lỗi trong lúc lựa chọn mới đang chờ thì không hiện lỗi.
+> - Sau 5xx, lượt hỏi trạng thái session trả 404 thì lỗi đó quyết định: "Upload lại" (trước đây bị nuốt, thành lỗi chung).
+> - Process trả `SESSION_NOT_FOUND`/`SESSION_STATE_INVALID` cũng là session hỏng, không chỉ 422.
+> - Tài liệu: D12 ghi rõ 422 của process nhận theo status (BE bọc mọi lỗi đọc file nguồn); spec pipeline-run có scenario "5xx mà session vẫn PROCESSED"; thứ tự 10.2 sửa lại.
+> - Câu hỏi của reviewer, vì sao thêm nguyên nhân thứ ba vào boolean có sẵn: thêm nguyên nhân mà không xem lại câu chữ và hành động mà boolean đó điều khiển. Đã đổi sang lý do như trên.
 
 ## 12. FE-F10 Export (spec result-export)
 

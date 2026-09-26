@@ -550,7 +550,7 @@ describe('kết quả xử lý', () => {
 
   test('processCompleted lưu kết quả (chưa cũ, trang đầu chưa tải) và sang bước Kết quả', () => {
     expect(processed.step).toBe('result')
-    expect(processed.result).toEqual({ summary, columns, query, page: null, stale: false })
+    expect(processed.result).toEqual({ summary, columns, query, page: null, stale: null })
   })
 
   test('resultPageLoaded thay trang đang xem và truy vấn, giữ tóm tắt và cột', () => {
@@ -562,13 +562,29 @@ describe('kết quả xử lý', () => {
     expect(next.result).toEqual({ ...result, query: nextQuery, page: nextPage })
   })
 
-  test('resultUnavailable đánh dấu kết quả là cũ, giữ tóm tắt và trang đang xem (design D18)', () => {
-    expect(wizardReducer(completed, { type: 'resultUnavailable' }).result).toEqual({ ...result, stale: true })
+  test('resultUnavailable đánh dấu kết quả là cũ kèm lý do, giữ tóm tắt và trang đang xem (design D18)', () => {
+    expect(wizardReducer(completed, { type: 'resultUnavailable', reason: 'unavailable' }).result).toEqual({
+      ...result,
+      stale: 'unavailable',
+    })
+  })
+
+  test('lý do cũ: session hỏng luôn thắng; lý do khác không đè lý do đã có', () => {
+    const edited = wizardReducer(completed, { type: 'validationToggled', key: 'f1', rule: 'unique', enabled: true })
+    expect(edited.result?.stale).toBe('configChanged')
+    expect(wizardReducer(edited, { type: 'resultUnavailable', reason: 'unavailable' }).result?.stale).toBe('configChanged')
+
+    const dead = wizardReducer(edited, { type: 'resultUnavailable', reason: 'sessionUnusable' })
+    expect(dead.result?.stale).toBe('sessionUnusable')
+    expect(wizardReducer(dead, { type: 'resultUnavailable', reason: 'unavailable' })).toBe(dead)
+    // Sửa cấu hình sau khi session đã hỏng: vẫn chỉ còn cách upload lại.
+    const editedAgain = wizardReducer(dead, { type: 'validationToggled', key: 'f1', rule: 'unique', enabled: false })
+    expect(editedAgain.result?.stale).toBe('sessionUnusable')
   })
 
   test('chưa có kết quả thì resultPageLoaded và resultUnavailable không làm gì', () => {
     expect(wizardReducer(ready, { type: 'resultPageLoaded', query, page })).toBe(ready)
-    expect(wizardReducer(ready, { type: 'resultUnavailable' })).toBe(ready)
+    expect(wizardReducer(ready, { type: 'resultUnavailable', reason: 'unavailable' })).toBe(ready)
   })
 
   const edits: [string, WizardAction][] = [
@@ -578,10 +594,10 @@ describe('kết quả xử lý', () => {
     ['bật validation', { type: 'validationToggled', key: 'f1', rule: 'unique', enabled: true }],
   ]
 
-  test.each(edits)('%s thì kết quả bị đánh dấu cũ (spec import-wizard)', (_label, action) => {
+  test.each(edits)('%s thì kết quả bị đánh dấu cũ vì cấu hình đổi (spec import-wizard)', (_label, action) => {
     const next = wizardReducer(completed, action)
 
-    expect(next.result).toEqual({ ...result, stale: true })
+    expect(next.result).toEqual({ ...result, stale: 'configChanged' })
   })
 
   test('thao tác không đổi gì (bật rule đã bật) thì kết quả không bị đánh dấu cũ', () => {
@@ -599,17 +615,17 @@ describe('kết quả xử lý', () => {
     next = wizardReducer(next, { type: 'navigate', step: 'rules' })
     next = wizardReducer(next, { type: 'sectionSaved', section: 'validations', draft: next.validations.draft })
 
-    expect(next.result?.stale).toBe(false)
+    expect(next.result?.stale).toBeNull()
   })
 
   test('chạy lại thành công thay kết quả cũ và bỏ đánh dấu cũ', () => {
-    const stale = wizardReducer(completed, { type: 'resultUnavailable' })
+    const stale = wizardReducer(completed, { type: 'resultUnavailable', reason: 'unavailable' })
     const newSummary = { ...summary, invalid: 0, valid: 3 }
     const validQuery: ResultQuery = { ...query, view: 'valid' }
 
     const next = wizardReducer(stale, { type: 'processCompleted', summary: newSummary, columns, query: validQuery })
 
-    expect(next.result).toEqual({ summary: newSummary, columns, query: validQuery, page: null, stale: false })
+    expect(next.result).toEqual({ summary: newSummary, columns, query: validQuery, page: null, stale: null })
   })
 
   test('sessionCreated và reset xoá kết quả', () => {
