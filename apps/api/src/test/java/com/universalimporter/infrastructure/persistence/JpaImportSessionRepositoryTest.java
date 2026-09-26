@@ -26,7 +26,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({TestcontainersConfiguration.class, JpaImportSessionRepository.class, JpaImportConfigurationRepository.class})
+@Import({TestcontainersConfiguration.class, JpaImportSessionRepository.class, JpaImportConfigurationRepository.class,
+        JpaInstallationRepository.class})
 class JpaImportSessionRepositoryTest {
 
     // Micro-second precision: that is what PostgreSQL keeps.
@@ -41,6 +42,9 @@ class JpaImportSessionRepositoryTest {
 
     @Autowired
     JpaImportConfigurationRepository configurations;
+
+    @Autowired
+    JpaInstallationRepository installation;
 
     @Autowired
     TestEntityManager entityManager;
@@ -67,15 +71,33 @@ class JpaImportSessionRepositoryTest {
     }
 
     @Test
-    void a_deleted_session_is_gone_and_deleting_an_unknown_one_is_harmless() {
+    void a_session_unchanged_since_the_cutoff_is_deleted_and_an_unknown_one_is_harmless() {
         givenSessionsA25hB23hC48hOld();
+        Instant cutoff = T0.minus(Duration.ofHours(24));
 
-        repository.deleteById(A);
-        repository.deleteById(UUID.randomUUID());
+        assertThat(repository.deleteIfNotUpdatedSince(A, cutoff)).isTrue();
+        assertThat(repository.deleteIfNotUpdatedSince(UUID.randomUUID(), cutoff)).isFalse();
         flushAndClear();
 
         assertThat(repository.findById(A)).isEmpty();
+    }
+
+    @Test
+    void a_session_changed_after_the_cutoff_is_kept() {
+        givenSessionsA25hB23hC48hOld();
+
+        assertThat(repository.deleteIfNotUpdatedSince(B, T0.minus(Duration.ofHours(24)))).isFalse();
+        flushAndClear();
+
         assertThat(repository.findById(B)).isPresent();
+    }
+
+    @Test
+    void the_installation_has_one_lasting_id() {
+        UUID id = installation.installationId();
+
+        assertThat(id).isNotNull();
+        assertThat(installation.installationId()).isEqualTo(id);
     }
 
     @Test
@@ -85,7 +107,7 @@ class JpaImportSessionRepositoryTest {
                 new FieldSpec("name", "string", true, 0)))).configuration(), T0);
         flushAndClear();
 
-        repository.deleteById(A);
+        assertThat(repository.deleteIfNotUpdatedSince(A, T0.plusSeconds(1))).isTrue();
         flushAndClear();
 
         assertThat(configurations.findBySessionId(A)).isEmpty();

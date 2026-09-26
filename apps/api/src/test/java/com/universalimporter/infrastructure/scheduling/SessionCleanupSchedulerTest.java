@@ -13,7 +13,9 @@ import static org.mockito.Mockito.when;
 class SessionCleanupSchedulerTest {
 
     private final SessionCleanupService service = mock(SessionCleanupService.class);
-    private final SessionCleanupScheduler scheduler = new SessionCleanupScheduler(service);
+    private final SessionCleanupScheduler scheduler = new SessionCleanupScheduler(service,
+            new com.universalimporter.application.importsession.CleanupProperties(true, java.time.Duration.ofHours(24),
+                    java.time.Duration.ofHours(1)));
 
     @Test
     void a_run_cleans_up_once() {

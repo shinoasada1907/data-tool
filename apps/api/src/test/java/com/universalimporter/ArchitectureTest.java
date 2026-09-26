@@ -6,6 +6,7 @@ import com.tngtech.archunit.core.importer.ImportOption;
 import org.junit.jupiter.api.Test;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.scheduling.annotation.SchedulingConfigurer;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
@@ -35,6 +36,10 @@ class ArchitectureTest {
     void scheduling_lives_in_infrastructure() {
         methods().that().areAnnotatedWith(Scheduled.class)
                 .should().beDeclaredInClassesThat().resideInAPackage("com.universalimporter.infrastructure..")
+                .allowEmptyShould(true)
+                .check(PRODUCTION_CLASSES);
+        classes().that().implement(SchedulingConfigurer.class)
+                .should().resideInAPackage("com.universalimporter.infrastructure..")
                 .check(PRODUCTION_CLASSES);
         classes().that().areAnnotatedWith(EnableScheduling.class)
                 .should().resideInAPackage("com.universalimporter.infrastructure..")

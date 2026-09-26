@@ -80,6 +80,8 @@ class SessionCleanupIntegrationTest {
 
     @Test
     void an_old_directory_without_a_session_goes_and_other_names_are_never_touched() throws IOException {
+        cleanup.cleanupExpired(); // claims this test's storage folder for its database, as the first run at startup does
+        assertThat(storageDir.resolve(".owner")).exists();
         Instant dayAndMore = Instant.now().minus(Duration.ofHours(25));
         Path orphan = Files.createDirectories(storageDir.resolve(UUID.randomUUID().toString()));
         Files.writeString(orphan.resolve("source.bin"), "a,b", StandardCharsets.UTF_8);
@@ -92,6 +94,25 @@ class SessionCleanupIntegrationTest {
         assertThat(report.deletedOrphans()).isEqualTo(1);
         assertThat(orphan).doesNotExist();
         assertThat(backup).exists();
+    }
+
+    @Test
+    void a_storage_folder_claimed_by_another_database_keeps_its_directories() throws IOException {
+        cleanup.cleanupExpired();
+        String claimedBy = Files.readString(storageDir.resolve(".owner"));
+        Path foreign = Files.createDirectories(storageDir.resolve(UUID.randomUUID().toString()));
+        Files.setLastModifiedTime(foreign, FileTime.from(Instant.now().minus(Duration.ofDays(3))));
+        try {
+            Files.writeString(storageDir.resolve(".owner"), UUID.randomUUID().toString());
+
+            CleanupReport report = cleanup.cleanupExpired();
+
+            assertThat(report.deletedOrphans()).isZero();
+            assertThat(foreign).exists();
+        } finally {
+            Files.writeString(storageDir.resolve(".owner"), claimedBy);
+            Files.delete(foreign);
+        }
     }
 
     private String upload() {

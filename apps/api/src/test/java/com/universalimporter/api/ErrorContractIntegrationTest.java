@@ -31,15 +31,18 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Every published error of every endpoint (spec api-errors, BE-F11 D5): the status, the code, a problem+json body,
- * and a code that the endpoint is allowed to return.
+ * The error contract of every endpoint (spec api-errors, BE-F11 D5): each case checks the status, the code and a
+ * problem+json body. Every endpoint is covered for an unknown session, every write for a failed session, and each
+ * error the plan lists. The case table is also checked against the published table ({@link #ALLOWED}), so a case
+ * cannot expect a code the spec does not publish for that endpoint. Oversized uploads and export failures have their
+ * own tests (UploadSizeLimitIntegrationTest, ExportApiIntegrationTest).
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestcontainersConfiguration.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ErrorContractIntegrationTest {
 
-    /** Spec api-errors, plus INTERNAL_ERROR, which any endpoint may return. */
+    /** Spec api-errors; INTERNAL_ERROR is allowed everywhere (see {@link #allowed}). */
     private static final Map<String, Set<String>> ALLOWED = Map.ofEntries(
             Map.entry("upload", Set.of("REQUEST_INVALID", "FILE_TOO_LARGE", "FILE_UNSUPPORTED", "FILE_EMPTY",
                     "FILE_PARSE_ERROR")),
@@ -83,6 +86,17 @@ class ErrorContractIntegrationTest {
     @LocalServerPort
     int port;
 
+    @org.junit.jupiter.api.AfterAll
+    void removeStorage() throws IOException {
+        com.universalimporter.infrastructure.storage.FileTrees.deleteTree(storageDir);
+    }
+
+    private static Set<String> allowed(String endpoint) {
+        Set<String> codes = new java.util.HashSet<>(ALLOWED.get(endpoint));
+        codes.add("INTERNAL_ERROR");
+        return codes;
+    }
+
     HttpTestClient http;
     /** READY, not processed. */
     String r;
@@ -92,6 +106,10 @@ class ErrorContractIntegrationTest {
     String p;
     /** FAILED: its file went missing before processing. */
     String f;
+    /** READY, then its file was replaced by bytes that are not UTF-8. */
+    String g;
+    /** READY, then its file was emptied. */
+    String h;
 
     record Case(String label, int status, String code, String endpoint,
                 Function<ErrorContractIntegrationTest, Response> call) {
@@ -117,6 +135,16 @@ class ErrorContractIntegrationTest {
         Files.delete(storageDir.resolve(f.substring(f.lastIndexOf('/') + 1)).resolve("source.bin"));
         assertThat(http.post(f + "/process").status()).isEqualTo(500);
         assertThat((String) JsonPath.read(http.get(f).body(), "$.status")).isEqualTo("FAILED");
+        g = E2eFlow.upload(http);
+        E2eFlow.configureReady(http, g);
+        Files.write(sourceOf(g), new byte[] {'N', 'a', 'm', 'e', '\n', (byte) 0xC3, 0x28, '\n'});
+        h = E2eFlow.upload(http);
+        E2eFlow.configureReady(http, h);
+        Files.write(sourceOf(h), new byte[0]);
+    }
+
+    private static Path sourceOf(String session) {
+        return storageDir.resolve(session.substring(session.lastIndexOf('/') + 1)).resolve("source.bin");
     }
 
     Stream<Case> cases() {
@@ -173,10 +201,39 @@ class ErrorContractIntegrationTest {
                         t -> t.http.get(t.r + "/export?format=json")),
                 new Case("21 error report before processing", 409, "RESULT_NOT_AVAILABLE", "errors-export",
                         t -> t.http.get(t.r + "/errors/export")),
+                new Case("24 process a file broken since upload", 422, "FILE_PARSE_ERROR", "process",
+                        t -> t.http.post(t.g + "/process")),
+                new Case("25 process a file emptied since upload", 422, "FILE_EMPTY", "process",
+                        t -> t.http.post(t.h + "/process")),
+                new Case("26 map a failed session", 409, "SESSION_STATE_INVALID", "mapping",
+                        t -> t.http.putJson(t.f + "/mapping", E2eFlow.MAPPING)),
+                new Case("27 transform a failed session", 409, "SESSION_STATE_INVALID", "transformations",
+                        t -> t.http.putJson(t.f + "/transformations", "{\"transformations\": []}")),
+                new Case("28 validate a failed session", 409, "SESSION_STATE_INVALID", "validations",
+                        t -> t.http.putJson(t.f + "/validations", "{\"validations\": []}")),
+                new Case("29 process a failed session", 409, "SESSION_STATE_INVALID", "process",
+                        t -> t.http.post(t.f + "/process")),
+                notFound("30", "preview", unknown -> t -> t.http.get(unknown + "/preview")),
+                notFound("31", "schema", unknown -> t -> t.http.putJson(unknown + "/schema", validSchema)),
+                notFound("32", "mapping", unknown -> t -> t.http.putJson(unknown + "/mapping", E2eFlow.MAPPING)),
+                notFound("33", "transformations",
+                        unknown -> t -> t.http.putJson(unknown + "/transformations", "{\"transformations\": []}")),
+                notFound("34", "validations",
+                        unknown -> t -> t.http.putJson(unknown + "/validations", "{\"validations\": []}")),
+                notFound("35", "process", unknown -> t -> t.http.post(unknown + "/process")),
+                notFound("36", "result", unknown -> t -> t.http.get(unknown + "/result")),
+                notFound("37", "export", unknown -> t -> t.http.get(unknown + "/export?format=csv")),
+                notFound("38", "errors-export", unknown -> t -> t.http.get(unknown + "/errors/export")),
                 new Case("22 no such path", 404, "REQUEST_INVALID", "none",
                         t -> t.http.get("/api/khong-ton-tai")),
                 new Case("23 method not allowed", 405, "REQUEST_INVALID", "none",
                         t -> t.http.request(HttpMethod.DELETE, sessions, Map.of())));
+    }
+
+    private static Case notFound(String number, String endpoint,
+                                 Function<String, Function<ErrorContractIntegrationTest, Response>> call) {
+        return new Case(number + " " + endpoint + " of an unknown session", 404, "SESSION_NOT_FOUND", endpoint,
+                call.apply("/api/import-sessions/" + UUID.randomUUID()));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -188,7 +245,7 @@ class ErrorContractIntegrationTest {
         assertThat(response.headers().getFirst(HttpHeaders.CONTENT_TYPE)).contains("application/problem+json");
         String code = JsonPath.read(response.body(), "$.code");
         assertThat(code).isEqualTo(c.code());
-        assertThat(ALLOWED.get(c.endpoint())).as("codes published for %s", c.endpoint()).contains(code);
+        assertThat(allowed(c.endpoint())).as("codes published for %s", c.endpoint()).contains(code);
     }
 
     @ParameterizedTest(name = "{0}")

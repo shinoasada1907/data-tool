@@ -15,9 +15,20 @@ public class InMemoryImportSessionRepository implements ImportSessionRepository 
     private boolean failOnSave;
     private final java.util.Set<UUID> failDeleteFor = new java.util.HashSet<>();
 
+    private Runnable beforeNextConditionalDelete = () -> { };
+
     /** Deleting these sessions fails, as when the database is down. */
     public void failDeleteFor(UUID... ids) {
         failDeleteFor.addAll(java.util.List.of(ids));
+    }
+
+    public void allowDeletes() {
+        failDeleteFor.clear();
+    }
+
+    /** Runs {@code action} just before the next conditional delete, as a write racing the cleanup would. */
+    public void beforeNextConditionalDelete(Runnable action) {
+        this.beforeNextConditionalDelete = action;
     }
 
     public void failOnSave() {
@@ -58,10 +69,18 @@ public class InMemoryImportSessionRepository implements ImportSessionRepository 
     }
 
     @Override
-    public void deleteById(UUID id) {
+    public boolean deleteIfNotUpdatedSince(UUID id, java.time.Instant cutoff) {
+        Runnable race = beforeNextConditionalDelete;
+        beforeNextConditionalDelete = () -> { };
+        race.run();
         if (failDeleteFor.contains(id)) {
             throw new IllegalStateException("database is down");
         }
+        ImportSession session = sessions.get(id);
+        if (session == null || !session.updatedAt().isBefore(cutoff)) {
+            return false;
+        }
         sessions.remove(id);
+        return true;
     }
 }

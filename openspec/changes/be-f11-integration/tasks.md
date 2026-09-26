@@ -429,7 +429,8 @@
 
 ## 10. Kiểm tra toàn bộ và hoàn tất
 
-- [ ] 10.1 Chạy `./mvnw -q verify`. Mong đợi: toàn bộ test F01–F11 xanh, gồm cả ArchitectureTest (`@EnableScheduling` và `@Scheduled` chỉ ở `infrastructure`).
+- [x] 10.1 Chạy `./mvnw -q verify`. Mong đợi: toàn bộ test F01–F11 xanh, gồm cả ArchitectureTest (`@EnableScheduling` và `@Scheduled` chỉ ở `infrastructure`).
+  - Kết quả 2026-09-27: 876 test, 0 failure, 0 error, gồm luật ArchUnit mới `scheduling_lives_in_infrastructure`.
 - [x] 10.2 Chạy app thật với `IMPORTER_SESSION_TTL=1m`. Tạo một session, chờ khoảng 2 phút rồi restart app. Kiểm log có dòng cleanup với `deletedSessions` ≥ 1, và `GET` session đó trả 404. Kiểm log không chứa nội dung file.
   - Kết quả 2026-09-27, chạy trên Postgres riêng ở cổng 55432 và storage riêng (không đụng DB dev):
     - session tạo lúc làm 9.4;
@@ -438,5 +439,52 @@
     - `GET` session đó → 404 `SESSION_NOT_FOUND`; thư mục storage trống;
     - log không chứa giá trị ô nào.
   - Đã xoá container tạm và thư mục storage tạm.
-- [ ] 10.3 Tick đủ checkbox; chỗ nào làm khác kế hoạch thì gạch và ghi LÝ DO. Commit: `docs(openspec): complete be-f11 tasks`
-- [ ] 10.4 Hỏi người dùng trước khi merge vào `main`. Sau khi merge: `openspec archive be-f11-integration -y`, commit phần archive. Khi đó `openspec/specs/` phản ánh đầy đủ hệ thống V0.1 đang chạy.
+- [x] 10.2b Sửa theo review của senior-reviewer. Mỗi mục kèm **LÝ DO**:
+  - **MAJOR 1 — storage không gắn với DB**: đổi `DB_URL` sang một DB mới mà giữ storage mặc định thì lần dọn đầu tiên xoá sạch thư mục cũ.
+    - Sửa: bảng `installation` (V11) + `{root}/.owner` + cầu dao. Xem design F11-D2.
+    - Test:
+      - `storage_marked_by_another_database_is_never_swept_for_orphans`;
+      - `unmarked_storage_full_of_directories_this_database_does_not_know_is_left_alone`;
+      - `unmarked_storage_holding_a_known_session_is_claimed`, `empty_storage_is_claimed`;
+      - `too_many_orphans_at_once_trips_the_breaker`;
+      - integration `a_storage_folder_claimed_by_another_database_keeps_its_directories`.
+  - **MAJOR 2 — `IMPORTER_SESSION_TTL=24` là 24ms**.
+    - Sửa: `@DurationUnit(HOURS)`; TTL và interval dưới 1 phút thì app không khởi động; mồ côi phải cũ hơn `max(TTL, 1h)`.
+    - Test: `a_time_to_live_under_a_minute_is_refused`, `orphans_wait_at_least_an_hour_even_with_a_shorter_ttl`.
+  - **MAJOR 3 — xoá xuyên NTFS junction ra ngoài storage root** (reviewer đã chạy thử).
+    - Sửa: `FileTrees.deleteTree` (gỡ link, không đi vào), dùng ở `LocalFileStorage` và `FileResultStore`; `listEntries` bỏ qua link và junction.
+    - Test (`@EnabledOnOs(WINDOWS)`, tạo junction bằng `mklink /J`): junction mang tên session, junction trong session, junction trong `result/`.
+    - Kiểm ngược: bỏ phần xử lý link thì file ngoài storage bị xoá và 2 test đỏ.
+  - **MAJOR 4 — xoá file trước row để lại session hỏng**:
+    - Bản đầu: `source.bin` bị xoá trước `result/`. Nếu xoá lỗi giữa chừng thì row còn mà mất file; một lệnh PUT sau đó làm session "sống lại", và lần process kế tiếp đưa nó sang `FAILED`.
+    - Sửa (làm đúng như câu hỏi cuối của reviewer):
+      - `deleteIfNotUpdatedSince` xoá row trước và có điều kiện, rồi mới xoá file;
+      - file lỗi thành mồ côi;
+      - thay cho `deleteById` và bước kiểm lại bằng `findById`.
+    - Test:
+      - `the_row_goes_first_so_files_that_cannot_be_deleted_become_an_orphan_for_later`;
+      - `a_database_failure_leaves_the_session_whole_for_the_next_run` (có lượt chạy thứ hai);
+      - `a_session_changed_after_it_was_listed_is_kept_with_its_files` (hook ghi chen ngay trước lệnh xoá).
+  - **MINOR 5 — test contract lỗi**:
+    - thêm `SESSION_NOT_FOUND` cho mọi endpoint (9 case);
+    - thêm `SESSION_STATE_INVALID` cho mapping/transformations/validations/process trên session FAILED;
+    - thêm `FILE_PARSE_ERROR` và `FILE_EMPTY` của process (file bị thay sau upload);
+    - tổng 38 case;
+    - `INTERNAL_ERROR` được phép ở mọi endpoint; sửa javadoc cho đúng phạm vi; dọn thư mục tạm ở `@AfterAll`.
+    - Giữ phép kiểm "code thuộc bảng đã công bố". **LÝ DO**: nó đối chiếu bảng case với bảng trong spec (hai bảng viết tay); case nào kỳ vọng một mã spec không công bố thì đỏ.
+  - **MINOR 6 — thiếu test**: xem các test ở MAJOR 1–4.
+  - **MINOR 7 — session lỗi chặn đầu batch**: gần như hết sau MAJOR 4.
+    - Không còn `findById` (JSON hỏng không làm lỗi nữa).
+    - File lỗi thì row đã mất, nên session không nằm lại đầu danh sách.
+    - Lỗi DB thì cả lượt đều lỗi.
+    - Chưa thêm phân trang.
+  - **MINOR 8 — log**: ghi class của cause và đường dẫn `FileSystemException.getFile()`. Đường dẫn chỉ gồm thư mục storage, UUID và tên cố định, không có giá trị ô (D13).
+  - **NIT**:
+    - scheduler đọc chu kỳ từ `CleanupProperties` (`SchedulingConfigurer`), không còn hai giá trị mặc định;
+    - sửa comment;
+    - luật ArchUnit bao cả `SchedulingConfigurer`;
+    - README: mỗi lệnh một terminal, kiểm lỗi lúc upload, ghi đơn vị của TTL, và giải thích `.owner`.
+  - Thêm vào README (theo phiên FE): upload quá giới hạn qua Vite dev proxy nhận connection reset thay vì 413.
+  - `verify` sau khi sửa: 920 test, 0 failure, 0 error.
+- [x] 10.3 Tick đủ checkbox; chỗ nào làm khác kế hoạch thì gạch và ghi LÝ DO. Commit: `docs(openspec): complete be-f11 tasks`
+- [x] ~~10.4 Hỏi người dùng trước khi merge vào `main`.~~ **LÝ DO**: người dùng cho tự merge feature → `dev`, không đụng `main`. Archive bằng `openspec archive be-f11-integration -y` trên nhánh feature trước khi merge; khi đó `openspec/specs/` phản ánh đầy đủ hệ thống V0.1 đang chạy.

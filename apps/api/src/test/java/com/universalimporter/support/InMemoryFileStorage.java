@@ -28,6 +28,22 @@ public class InMemoryFileStorage implements FileStorage {
         failDeleteFor.addAll(java.util.List.of(ids));
     }
 
+    private UUID owner;
+
+    public void allowDeletes() {
+        failDeleteFor.clear();
+    }
+
+    @Override
+    public java.util.Optional<UUID> owner() {
+        return java.util.Optional.ofNullable(owner);
+    }
+
+    @Override
+    public void claim(UUID installation) {
+        this.owner = installation;
+    }
+
     public boolean holds(UUID sessionId) {
         return files.containsKey(sessionId) || lastModified.containsKey(sessionId);
     }

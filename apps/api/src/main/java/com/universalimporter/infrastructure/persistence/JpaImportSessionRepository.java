@@ -51,8 +51,8 @@ public class JpaImportSessionRepository implements ImportSessionRepository {
     }
 
     @Override
-    public void deleteById(UUID id) {
-        jpa.deleteSession(id);
+    public boolean deleteIfNotUpdatedSince(UUID id, Instant cutoff) {
+        return jpa.deleteIfNotUpdatedSince(id, cutoff) == 1;
     }
 
     private static ImportSessionEntity toEntity(ImportSession session) {

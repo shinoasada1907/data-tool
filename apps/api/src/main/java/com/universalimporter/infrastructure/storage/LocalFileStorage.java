@@ -7,13 +7,14 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.Comparator;
-import java.util.List;
-import java.time.Instant;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -23,6 +24,8 @@ import java.util.stream.Stream;
 public class LocalFileStorage implements FileStorage {
 
     private static final String SOURCE_FILE = "source.bin";
+    /** Not a session id, so the cleanup never lists nor deletes it. */
+    private static final String OWNER_FILE = ".owner";
 
     private final Path root;
 
@@ -65,11 +68,8 @@ public class LocalFileStorage implements FileStorage {
         if (Files.notExists(sessionDir)) {
             return;
         }
-        try (Stream<Path> walk = Files.walk(sessionDir)) {
-            List<Path> deepestFirst = walk.sorted(Comparator.reverseOrder()).toList();
-            for (Path path : deepestFirst) {
-                Files.delete(path);
-            }
+        try {
+            FileTrees.deleteTree(sessionDir);
         } catch (IOException e) {
             throw new UncheckedIOException("Cannot delete the files of session " + sessionId, e);
         }
@@ -83,10 +83,13 @@ public class LocalFileStorage implements FileStorage {
         }
         List<StoredEntry> entries = new ArrayList<>();
         try (Stream<Path> children = Files.list(root)) {
-            for (Path child : children.filter(Files::isDirectory).toList()) {
+            for (Path child : children.toList()) {
                 Optional<UUID> id = sessionId(child.getFileName().toString());
-                if (id.isPresent()) {
-                    entries.add(new StoredEntry(id.get(), lastModified(child)));
+                BasicFileAttributes attributes =
+                        Files.readAttributes(child, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+                // A link or junction named like a session is someone else's doing: never ours to delete.
+                if (id.isPresent() && attributes.isDirectory() && !FileTrees.isLink(attributes)) {
+                    entries.add(new StoredEntry(id.get(), attributes.lastModifiedTime().toInstant()));
                 }
             }
         } catch (IOException e) {
@@ -105,8 +108,27 @@ public class LocalFileStorage implements FileStorage {
         }
     }
 
-    private static Instant lastModified(Path directory) throws IOException {
-        return Files.getLastModifiedTime(directory).toInstant();
+    @Override
+    public Optional<UUID> owner() {
+        Path marker = root.resolve(OWNER_FILE);
+        if (Files.notExists(marker)) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(UUID.fromString(Files.readString(marker, StandardCharsets.US_ASCII).strip()));
+        } catch (IOException e) {
+            throw new UncheckedIOException("Cannot read the owner of the storage directory", e);
+        }
+    }
+
+    @Override
+    public void claim(UUID installation) {
+        try {
+            Files.createDirectories(root);
+            Files.writeString(root.resolve(OWNER_FILE), installation + "\n", StandardCharsets.US_ASCII);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Cannot mark the owner of the storage directory", e);
+        }
     }
 
     private Path sessionDir(UUID sessionId) {

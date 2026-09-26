@@ -20,6 +20,6 @@ interface ImportSessionJpaRepository extends JpaRepository<ImportSessionEntity, 
     /** A bulk delete: the database cascades to {@code import_configuration} (V3). */
     @Transactional
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("delete from ImportSessionEntity s where s.id = :id")
-    void deleteSession(@Param("id") UUID id);
+    @Query("delete from ImportSessionEntity s where s.id = :id and s.updatedAt < :cutoff")
+    int deleteIfNotUpdatedSince(@Param("id") UUID id, @Param("cutoff") Instant cutoff);
 }

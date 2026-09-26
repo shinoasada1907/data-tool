@@ -17,6 +17,11 @@ public interface ImportSessionRepository {
 
     boolean existsById(UUID id);
 
-    /** Deletes the session and its configuration; does nothing when there is none. */
-    void deleteById(UUID id);
+    /**
+     * Deletes the session and its configuration, only if it has not changed since {@code cutoff}: the check and
+     * the delete are one step, so a write that lands meanwhile keeps the session.
+     *
+     * @return whether it was deleted
+     */
+    boolean deleteIfNotUpdatedSince(UUID id, Instant cutoff);
 }
