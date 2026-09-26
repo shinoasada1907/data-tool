@@ -2,6 +2,7 @@ package com.universalimporter.support;
 
 import com.universalimporter.domain.pipeline.ResultStore;
 import com.universalimporter.domain.pipeline.ResultSummary;
+import com.universalimporter.domain.pipeline.ResultView;
 import com.universalimporter.domain.pipeline.ResultWriter;
 import com.universalimporter.domain.pipeline.RowResult;
 
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 /** Test double for the result store: committed results in memory, and a count of unfinished writers. */
 public class InMemoryResultStore implements ResultStore {
@@ -49,6 +51,13 @@ public class InMemoryResultStore implements ResultStore {
 
     public void put(UUID sessionId, Stored stored) {
         results.put(sessionId, stored);
+    }
+
+    private int rowsRead;
+
+    /** Rows handed out by {@link #readRows} so far, to check that a reader stops early. */
+    public int rowsRead() {
+        return rowsRead;
     }
 
     public int begun() {
@@ -105,6 +114,14 @@ public class InMemoryResultStore implements ResultStore {
     @Override
     public Optional<ResultSummary> findSummary(UUID sessionId) {
         return stored(sessionId).map(Stored::summary);
+    }
+
+    @Override
+    public Stream<RowResult> readRows(UUID sessionId, ResultView view) {
+        return stored(sessionId).map(Stored::rows).orElseThrow(() -> new UncheckedIOException(new IOException("no result")))
+                .stream()
+                .filter(row -> row.valid() == (view == ResultView.VALID))
+                .peek(row -> rowsRead++);
     }
 
     @Override

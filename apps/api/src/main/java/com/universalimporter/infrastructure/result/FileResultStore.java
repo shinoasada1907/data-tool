@@ -1,8 +1,11 @@
 package com.universalimporter.infrastructure.result;
 
+import com.universalimporter.domain.common.RowErrorCode;
+import com.universalimporter.domain.pipeline.ErrorStage;
 import com.universalimporter.domain.pipeline.ImportError;
 import com.universalimporter.domain.pipeline.ResultStore;
 import com.universalimporter.domain.pipeline.ResultSummary;
+import com.universalimporter.domain.pipeline.ResultView;
 import com.universalimporter.domain.pipeline.ResultWriter;
 import com.universalimporter.domain.pipeline.RowResult;
 import com.universalimporter.infrastructure.storage.StorageProperties;
@@ -11,9 +14,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.StreamWriteFeature;
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -24,6 +29,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.nio.file.attribute.FileTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -63,9 +69,13 @@ public class FileResultStore implements ResultStore {
         void move(Path from, Path to) throws IOException;
     }
 
-    /** Own mapper rather than the application's: the stored format must not follow API JSON settings (as D8). */
+    /**
+     * Own mapper rather than the application's: the stored format must not follow API JSON settings (as D8).
+     * Decimals are read back as BigDecimal, never through a double, so {@code -3.50} stays {@code -3.50}.
+     */
     private static final JsonMapper JSON = JsonMapper.builder()
             .enable(StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN)
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
             .build();
 
     private final Path root;
@@ -112,6 +122,28 @@ public class FileResultStore implements ResultStore {
             log.warn("Result summary of session {} is unreadable and is ignored: {}", sessionId, e.getClass().getName());
             return Optional.empty();
         }
+    }
+
+    /** Reads one line at a time, so a page near the start of a large result reads little of the file. */
+    @Override
+    public Stream<RowResult> readRows(UUID sessionId, ResultView view) {
+        Path file = sessionDir(sessionId).resolve(RESULT).resolve(view == ResultView.VALID ? VALID : INVALID);
+        BufferedReader reader;
+        try {
+            reader = Files.newBufferedReader(file, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Cannot read the result of session " + sessionId, e);
+        }
+        boolean valid = view == ResultView.VALID;
+        return reader.lines()
+                .map(line -> toRow(JSON.readTree(line), valid))
+                .onClose(() -> {
+                    try {
+                        reader.close();
+                    } catch (IOException e) {
+                        throw new UncheckedIOException("Cannot close the result of session " + sessionId, e);
+                    }
+                });
     }
 
     /**
@@ -337,6 +369,45 @@ public class FileResultStore implements ResultStore {
         return new ResultSummary(json.get("total").asLong(), json.get("valid").asLong(), json.get("invalid").asLong(),
                 counts(json.get("errorCountsByCode")), counts(json.get("errorCountsByField")),
                 Instant.parse(json.get("processedAt").asString()), json.get("configHash").asString());
+    }
+
+    private static RowResult toRow(JsonNode json, boolean valid) {
+        Map<String, Object> values = new LinkedHashMap<>();
+        json.get("values").properties().forEach(entry -> values.put(entry.getKey(), plain(entry.getValue())));
+        List<ImportError> errors = new ArrayList<>();
+        JsonNode errorNodes = json.get("errors");
+        if (errorNodes != null) {
+            for (JsonNode error : errorNodes) {
+                errors.add(toError(error));
+            }
+        }
+        return new RowResult(json.get("rowNumber").asInt(), valid, values, errors);
+    }
+
+    private static Object plain(JsonNode value) {
+        if (value.isNull()) {
+            return null;
+        }
+        if (value.isNumber()) {
+            return value.decimalValue();
+        }
+        if (value.isBoolean()) {
+            return value.booleanValue();
+        }
+        return value.asString();
+    }
+
+    private static ImportError toError(JsonNode json) {
+        JsonNode step = json.get("step");
+        return new ImportError(json.get("rowNumber").asInt(), text(json, "fieldName"),
+                ErrorStage.valueOf(json.get("stage").asString()), text(json, "rule"),
+                step == null || step.isNull() ? null : step.asInt(), RowErrorCode.valueOf(json.get("code").asString()),
+                text(json, "message"), text(json, "sourceValue"));
+    }
+
+    private static String text(JsonNode json, String property) {
+        JsonNode value = json.get(property);
+        return value == null || value.isNull() ? null : value.asString();
     }
 
     private static Map<String, Long> counts(JsonNode json) {

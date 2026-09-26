@@ -4,6 +4,7 @@ import com.universalimporter.domain.common.RowErrorCode;
 import com.universalimporter.domain.pipeline.ErrorStage;
 import com.universalimporter.domain.pipeline.ImportError;
 import com.universalimporter.domain.pipeline.ResultSummary;
+import com.universalimporter.domain.pipeline.ResultView;
 import com.universalimporter.domain.pipeline.ResultWriter;
 import com.universalimporter.domain.pipeline.RowResult;
 import com.universalimporter.infrastructure.storage.StorageProperties;
@@ -234,6 +235,69 @@ class FileResultStoreTest {
 
         Files.writeString(summary, "not json");
         assertThat(store().findSummary(ID)).isEmpty();
+    }
+
+    @Test
+    void rows_read_back_keep_their_order_types_and_errors() {
+        FileResultStore store = store();
+        Map<String, Object> typed = values("name", "Nguyễn An", "score", new BigDecimal("-3.50"),
+                "tiny", new BigDecimal("0.0000001"), "count", new BigDecimal("30"), "active", true,
+                "dob", LocalDate.of(1990, 12, 25), "note", null);
+        ImportError transformation = new ImportError(3, "dob", ErrorStage.TRANSFORMATION, "dateFormat", 0,
+                RowErrorCode.TRANSFORMATION_FAILED, "Value does not match the date pattern.", "31/02/1990");
+        ImportError validation = new ImportError(3, "email", ErrorStage.VALIDATION, "email", null,
+                RowErrorCode.VALIDATION_EMAIL, "Value is not a valid email address.", " ABC ");
+        try (ResultWriter writer = store.begin(ID)) {
+            writer.accept(new RowResult(2, true, typed, List.of()));
+            writer.accept(new RowResult(3, false, values("email", "abc", "dob", null), List.of(transformation, validation)));
+            writer.accept(new RowResult(4, true, values("name", "Bình"), List.of()));
+            writer.commit(summary("h"));
+        }
+
+        List<RowResult> valid;
+        try (Stream<RowResult> rows = store.readRows(ID, ResultView.VALID)) {
+            valid = rows.toList();
+        }
+        List<RowResult> invalid;
+        try (Stream<RowResult> rows = store.readRows(ID, ResultView.INVALID)) {
+            invalid = rows.toList();
+        }
+
+        assertThat(valid).extracting(RowResult::rowNumber).containsExactly(2, 4);
+        RowResult first = valid.getFirst();
+        assertThat(first.valid()).isTrue();
+        assertThat(first.errors()).isEmpty();
+        assertThat(first.values().keySet()).containsExactly("name", "score", "tiny", "count", "active", "dob", "note");
+        assertThat(new ArrayList<>(first.values().values())).containsExactly("Nguyễn An", new BigDecimal("-3.50"),
+                new BigDecimal("0.0000001"), new BigDecimal("30"), true, "1990-12-25", null);
+        assertThat(invalid).singleElement().satisfies(row -> {
+            assertThat(row.rowNumber()).isEqualTo(3);
+            assertThat(row.valid()).isFalse();
+            assertThat(row.values().keySet()).containsExactly("email", "dob");
+            assertThat(row.values().get("dob")).isNull();
+            assertThat(row.errors()).containsExactly(transformation, validation);
+        });
+    }
+
+    @Test
+    void reading_rows_stops_where_the_caller_stops() {
+        FileResultStore store = store();
+        try (ResultWriter writer = store.begin(ID)) {
+            for (int row = 2; row < 1002; row++) {
+                writer.accept(new RowResult(row, true, values("n", new BigDecimal(row)), List.of()));
+            }
+            writer.commit(summary("h"));
+        }
+
+        try (Stream<RowResult> rows = store.readRows(ID, ResultView.VALID)) {
+            assertThat(rows.skip(10).limit(2).map(RowResult::rowNumber).toList()).containsExactly(12, 13);
+        }
+    }
+
+    @Test
+    void reading_rows_without_a_result_is_an_io_error() {
+        assertThat(catchThrowableOfType(UncheckedIOException.class, () -> store().readRows(ID, ResultView.VALID)))
+                .isNotNull();
     }
 
     private static void commit(FileResultStore store, String hash) {
