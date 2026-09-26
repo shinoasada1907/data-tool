@@ -18,6 +18,8 @@ public final class TypeRule implements ValidationRule {
 
     /** ASCII digits only: other scripts' digits, signs, exponents and group separators are not numbers here. */
     private static final Pattern NUMBER = Pattern.compile("^-?[0-9]+(\\.[0-9]+)?$");
+    /** Longer is not a number anyone imports; parsing a million digits took 20 s, so it is refused first. */
+    static final int NUMBER_MAX_LENGTH = 1000;
     /** Exactly four-digit years: the strict parser alone would also take +19900. */
     private static final Pattern ISO_DATE = Pattern.compile("^[0-9]{4}-[0-9]{2}-[0-9]{2}$");
     private static final DateTimeFormatter DATE =
@@ -33,7 +35,7 @@ public final class TypeRule implements ValidationRule {
         String text = (String) value;
         return switch (context.fieldType()) {
             case STRING -> new ValidationResult.Valid(text);
-            case NUMBER -> NUMBER.matcher(text).matches()
+            case NUMBER -> text.length() <= NUMBER_MAX_LENGTH && NUMBER.matcher(text).matches()
                     ? new ValidationResult.Valid(new BigDecimal(text))
                     : invalid(RowErrorCode.VALIDATION_TYPE, "Value is not a valid number.");
             case BOOLEAN -> bool(text);
@@ -45,10 +47,12 @@ public final class TypeRule implements ValidationRule {
     }
 
     private static ValidationResult bool(String text) {
-        if (text.equalsIgnoreCase("true") || text.equals("1")) {
+        // Lower-casing whole strings, not equalsIgnoreCase: that folds U+017F (long s) into S and accepts "fal\u017Fe".
+        String lower = text.toLowerCase(Locale.ROOT);
+        if (lower.equals("true") || text.equals("1")) {
             return new ValidationResult.Valid(Boolean.TRUE);
         }
-        if (text.equalsIgnoreCase("false") || text.equals("0")) {
+        if (lower.equals("false") || text.equals("0")) {
             return new ValidationResult.Valid(Boolean.FALSE);
         }
         return invalid(RowErrorCode.VALIDATION_TYPE, "Value is not a valid boolean (true/false/1/0).");

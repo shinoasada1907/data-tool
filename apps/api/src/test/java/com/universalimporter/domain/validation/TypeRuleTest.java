@@ -3,11 +3,13 @@ package com.universalimporter.domain.validation;
 import com.universalimporter.domain.common.RowErrorCode;
 import com.universalimporter.domain.schema.FieldType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -46,6 +48,27 @@ class TypeRuleTest {
     @ValueSource(strings = {"False", "0"})
     void false_values(String value) {
         assertThat(validate(FieldType.BOOLEAN, value)).isEqualTo(new ValidationResult.Valid(false));
+    }
+
+    @Test
+    void a_number_may_have_up_to_1000_characters() {
+        assertThat(validate(FieldType.NUMBER, "9".repeat(1000))).isInstanceOf(ValidationResult.Valid.class);
+        assertThat(validate(FieldType.NUMBER, "9".repeat(1001)))
+                .isEqualTo(new ValidationResult.Invalid(RowErrorCode.VALIDATION_TYPE, "Value is not a valid number."));
+    }
+
+    @Test
+    @Timeout(value = 2, unit = TimeUnit.SECONDS)
+    void a_huge_numeric_cell_is_rejected_before_parsing() {
+        // new BigDecimal of a million digits took 20 s.
+        assertThat(validate(FieldType.NUMBER, "1".repeat(1_000_000))).isInstanceOf(ValidationResult.Invalid.class);
+    }
+
+    @Test
+    void only_ascii_spellings_of_true_and_false_count() {
+        // U+017F (long s) upper-cases to S, so equalsIgnoreCase would take "fal\u017Fe" for "false".
+        assertThat(validate(FieldType.BOOLEAN, "fal\u017Fe")).isInstanceOf(ValidationResult.Invalid.class);
+        assertThat(validate(FieldType.BOOLEAN, "FaLsE")).isEqualTo(new ValidationResult.Valid(false));
     }
 
     @Test

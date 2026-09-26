@@ -121,6 +121,14 @@ class ValidationConfigApiIntegrationTest {
     }
 
     @Test
+    void a_rule_without_type_is_422_not_a_server_error() {
+        Response put = http.putJson(sessionPath + "/validations", "{\"validations\": [{\"targetField\": \"email\"}]}");
+
+        assertThat(put.status()).isEqualTo(422);
+        assertThat((String) JsonPath.read(put.body(), "$.code")).isEqualTo("CONFIG_INVALID");
+    }
+
+    @Test
     void validations_for_an_unknown_session_are_404() {
         Response put = http.putJson("/api/import-sessions/11111111-2222-3333-4444-555555555555/validations",
                 "{\"validations\": []}");

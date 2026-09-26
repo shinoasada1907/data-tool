@@ -16,7 +16,7 @@ class UniqueRuleTest {
     @Test
     void a_value_seen_in_a_valid_row_is_a_duplicate() {
         assertThat(validate("a@x.com", 2)).isEqualTo(new ValidationResult.Valid("a@x.com"));
-        tracker.commitRow(2);
+        tracker.commitRow();
 
         assertThat(validate("a@x.com", 3)).isEqualTo(duplicateOf(2));
     }
@@ -32,7 +32,7 @@ class UniqueRuleTest {
     @Test
     void numbers_are_compared_by_value() {
         validate(new BigDecimal("1.0"), 2);
-        tracker.commitRow(2);
+        tracker.commitRow();
 
         assertThat(validate(new BigDecimal("1.00"), 3)).isEqualTo(duplicateOf(2));
         tracker.discardRow();
@@ -40,7 +40,9 @@ class UniqueRuleTest {
         assertThat(rule.type()).isEqualTo("unique");
     }
 
+    /** Validates one value as the whole of row {@code row}, leaving the row open for commit or discard. */
     private ValidationResult validate(Object value, int row) {
+        tracker.beginRow(row);
         return rule.validate(value, new ValidationContext("code", FieldType.NUMBER, row, tracker));
     }
 

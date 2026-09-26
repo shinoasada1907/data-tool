@@ -61,6 +61,14 @@ class ValidationConfigValidatorTest {
     }
 
     @Test
+    void a_missing_type_is_an_unknown_rule_not_a_crash() {
+        assertThat(errors(new ValidationRuleConfig("email", null, null)))
+                .containsExactly(error("email", "Unknown validation rule 'null'."));
+        assertThat(errors(new ValidationRuleConfig(null, null, null))).containsExactly(
+                error(null, "Target field does not exist."), error(null, "Unknown validation rule 'null'."));
+    }
+
+    @Test
     void a_rule_appears_once_per_field() {
         assertThat(errors(rule("note", "unique"), rule("note", "unique")))
                 .containsExactly(error("note", "Duplicate rule 'unique' for field 'note'."));

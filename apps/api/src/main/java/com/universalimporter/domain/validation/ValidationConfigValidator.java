@@ -31,7 +31,8 @@ public final class ValidationConfigValidator {
             String field = rule.targetField();
             String type = rule.type();
             Optional<TargetField> target = field == null ? Optional.empty() : schema.field(field);
-            boolean known = KNOWN.contains(type);
+            // Set.of rejects contains(null): a rule sent without a type would otherwise be a 500.
+            boolean known = type != null && KNOWN.contains(type);
             List<String> problems = new ArrayList<>();
             if (target.isEmpty()) {
                 problems.add("Target field does not exist.");

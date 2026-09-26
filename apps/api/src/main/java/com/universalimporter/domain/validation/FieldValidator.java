@@ -12,6 +12,9 @@ import java.util.Map;
  * Validates one field of one row after transformation (design V2). Rules run in a fixed order, required → type →
  * email → unique, whatever the configuration order, and only the first failure is reported. An empty optional value
  * skips every rule. A rule that throws becomes a failure, so one bad row cannot stop the import.
+ * <p>
+ * The caller brackets each row on the {@link UniqueTracker}: {@code beginRow} before its first field, then
+ * {@code commitRow} if no field of the row failed, otherwise {@code discardRow}.
  */
 public final class FieldValidator {
 
@@ -47,7 +50,7 @@ public final class FieldValidator {
         }
         Object current = typed.value();
         for (String rule : List.of("email", "unique")) {
-            if (configured(userRules, rule)) {
+            if (configured(userRules, field.name(), rule)) {
                 FieldValidation result = run(rule, current, context);
                 if (result.failed()) {
                     return result;
@@ -77,7 +80,8 @@ public final class FieldValidator {
         }
     }
 
-    private static boolean configured(List<ValidationRuleConfig> userRules, String type) {
-        return userRules.stream().anyMatch(rule -> type.equals(rule.type()));
+    /** Only this field's rules count, even if the caller passes the whole configuration. */
+    private static boolean configured(List<ValidationRuleConfig> userRules, String fieldName, String type) {
+        return userRules.stream().anyMatch(rule -> fieldName.equals(rule.targetField()) && type.equals(rule.type()));
     }
 }

@@ -59,9 +59,11 @@ class FieldValidatorTest {
     void rules_run_in_a_fixed_order_whatever_the_configuration_order() {
         TargetField note = field("note", FieldType.STRING, false);
         List<ValidationRuleConfig> rules = List.of(rule("note", "unique"), rule("note", "email"));
+        tracker.beginRow(2);
         assertThat(validator.validate(note, rules, "a@x.com", 2, tracker).failed()).isFalse();
-        tracker.commitRow(2);
+        tracker.commitRow();
 
+        tracker.beginRow(3);
         FieldValidation result = validator.validate(note, rules, "a@x.com", 3, tracker);
 
         assertThat(result.failure()).isEqualTo(new ValidationFailure("unique", RowErrorCode.VALIDATION_UNIQUE,
@@ -80,6 +82,7 @@ class FieldValidatorTest {
         rules.add(new ExplodingRule());
         FieldValidator withBug = new FieldValidator(new ValidationRegistry(rules));
 
+        tracker.beginRow(5);
         FieldValidation result = withBug.validate(field("code", FieldType.STRING, false),
                 List.of(rule("code", "unique")), "x", 5, tracker);
 
@@ -88,8 +91,23 @@ class FieldValidatorTest {
         assertThat(result.failure().message()).doesNotContain("boom");
     }
 
+    @Test
+    void rules_of_other_fields_are_ignored() {
+        TargetField age = field("age", FieldType.NUMBER, false);
+        List<ValidationRuleConfig> everyRule = List.of(rule("note", "email"), rule("note", "unique"));
+
+        FieldValidation result = validate(age, everyRule, "42");
+
+        assertThat(result.failed()).isFalse();
+        assertThat(result.value()).isEqualTo(new java.math.BigDecimal("42"));
+    }
+
+    /** Validates the value as row 2 on its own, closing the row again. */
     private FieldValidation validate(TargetField field, List<ValidationRuleConfig> rules, String value) {
-        return validator.validate(field, rules, value, 2, tracker);
+        tracker.beginRow(2);
+        FieldValidation result = validator.validate(field, rules, value, 2, tracker);
+        tracker.discardRow();
+        return result;
     }
 
     private static TargetField field(String name, FieldType type, boolean required) {
