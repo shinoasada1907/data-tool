@@ -33,7 +33,7 @@
 - Consumes: `TargetSchema` (F04), `SourceSchema` (F02), `FieldScopedSection` (F04), `DomainException`, `ProblemItem` (F01).
 - Produces: như design M1.
 
-- [ ] 1.1 Viết `MappingConfigTest`. Dùng schema `[name(order 0, required), country(order 1), note(order 2)]` và source columns `["Họ tên","email"]`. `sc(t, c)` là một mapping `SOURCE_COLUMN`; `k(t, v)` là một mapping `CONSTANT`.
+- [x] 1.1 Viết `MappingConfigTest`. Dùng schema `[name(order 0, required), country(order 1), note(order 2)]` và source columns `["Họ tên","email"]`. `sc(t, c)` là một mapping `SOURCE_COLUMN`; `k(t, v)` là một mapping `CONSTANT`.
   | Input `define` | Mong đợi |
   |---|---|
   | `[k("country","VN"), sc("name","Họ tên")]` | hợp lệ; `mappings` theo thứ tự schema: `name`, `country` |
@@ -50,10 +50,10 @@
   | `[sc("name","Name"), sc("phone","email")]` | top-level `MAPPING_INVALID`; 2 item, lần lượt có code `SOURCE_COLUMN_NOT_FOUND` và `MAPPING_INVALID` |
 
   Thêm test `retainFields({"name"})` chỉ giữ mapping của `name`; `referencedFields()` trả đúng các `targetField`; `sectionLabel()` là `"Mapping"`.
-- [ ] 1.2 Chạy `./mvnw -q test -Dtest=MappingConfigTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 1.3 Cài 4 class theo design M1.
-- [ ] 1.4 Chạy lại lệnh ở 1.2. Mong đợi: PASS.
-- [ ] 1.5 Commit: `feat(domain): field mapping configuration with validation rules`
+- [x] 1.2 Chạy `./mvnw -q test -Dtest=MappingConfigTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 1.3 Cài 4 class theo design M1.
+- [x] 1.4 Chạy lại lệnh ở 1.2. Mong đợi: PASS.
+- [x] 1.5 Commit: `feat(domain): field mapping configuration with validation rules`
 
 ## 2. Engine map row
 
