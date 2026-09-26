@@ -196,7 +196,7 @@
 **Interfaces:**
 - Produces: `record PipelineSummaryDto(UUID sessionId, SessionStatus status, long total, long valid, long invalid, Map<String, Long> errorCountsByCode, Map<String, Long> errorCountsByField, Instant processedAt)`.
 
-- [ ] 6.1 Viết `ProcessControllerTest`, dùng `@WebMvcTest(ProcessController.class)` và `@MockitoBean ProcessService`:
+- [x] 6.1 Viết `ProcessControllerTest`, dùng `@WebMvcTest(ProcessController.class)` và `@MockitoBean ProcessService`:
   | Stub | Mong đợi |
   |---|---|
   | trả summary của bộ mẫu | 200; `$.sessionId`, `$.status`=`PROCESSED`, `$.total`=6, `$.valid`=3, `$.invalid`=3, `$.errorCountsByCode.VALIDATION_TYPE`=2, `$.errorCountsByField.email`=2, `$.processedAt`=`2026-09-25T10:00:00Z` |
@@ -205,10 +205,11 @@
   | ném `FILE_PARSE_ERROR` | 422; `$.code`=`FILE_PARSE_ERROR` |
   | ném `INTERNAL_ERROR` | 500; `$.code`=`INTERNAL_ERROR` |
   | ném `SESSION_NOT_FOUND` | 404; `$.code`=`SESSION_NOT_FOUND` |
-- [ ] 6.2 Chạy `./mvnw -q test -Dtest=ProcessControllerTest`. Mong đợi: FAIL, vì lỗi compile.
-- [ ] 6.3 Viết controller và DTO.
-- [ ] 6.4 Chạy lại lệnh ở 6.2. Mong đợi: PASS.
-- [ ] 6.5 Commit: `feat(api): POST process endpoint`
+- [x] 6.2 Chạy `./mvnw -q test -Dtest=ProcessControllerTest`. Mong đợi: FAIL, vì lỗi compile.
+- [x] 6.3 Viết controller và DTO.
+  - Đặt ở ~~`api.importsession`~~ `api.process` (xem task 1). `ApiDocsIntegrationTest` kiểm thêm path `/process`.
+- [x] 6.4 Chạy lại lệnh ở 6.2. Mong đợi: PASS.
+- [x] 6.5 Commit: `feat(api): POST process endpoint`
 
 ## 7. Integration test qua HTTP thật
 
