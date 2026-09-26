@@ -3,7 +3,7 @@ import { describe, expect, onTestFinished, test, vi } from 'vitest'
 import { problemFixture } from '../mocks/fixtures'
 import { server } from '../mocks/node'
 import { captureDownloads } from '../test/downloads'
-import { download, DOWNLOAD_TIMEOUT_MS, saveBlob } from './download'
+import { download, DOWNLOAD_IDLE_TIMEOUT_MS, saveBlob } from './download'
 
 const URL_PATH = '/api/files/thing'
 
@@ -80,27 +80,104 @@ describe('download', () => {
     await expect(download(URL_PATH)).rejects.toMatchObject({ kind: 'network' })
   })
 
-  test('chờ tới 5 phút (BE stream file lớn), không dừng ở 30 giây', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-    onTestFinished(() => {
-      vi.useRealTimers()
-    })
-    server.use(
-      http.get(URL_PATH, async () => {
-        await delay('infinite')
-        return HttpResponse.json([])
-      }),
-    )
-    let failure: unknown = null
-    const settled = download(URL_PATH).catch((error: unknown) => {
-      failure = error
+  describe('thời gian im lặng', () => {
+    // Chunk của body được đẩy ra theo đồng hồ giả, để mô phỏng mạng chậm hoặc BE ngừng gửi giữa chừng.
+    function slowBody(chunks: { afterMs: number; text: string }[], { stallAtEnd = false } = {}) {
+      return new ReadableStream<Uint8Array>({
+        start(controller) {
+          let at = 0
+          for (const chunk of chunks) {
+            at += chunk.afterMs
+            setTimeout(() => controller.enqueue(new TextEncoder().encode(chunk.text)), at)
+          }
+          if (!stallAtEnd) setTimeout(() => controller.close(), at)
+        },
+      })
+    }
+
+    function useFakeClock() {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      onTestFinished(() => {
+        vi.useRealTimers()
+      })
+    }
+
+    async function settle<T>(promise: Promise<T>) {
+      let outcome: { value?: T; error?: unknown } | null = null
+      promise.then(
+        (value) => (outcome = { value }),
+        (error: unknown) => (outcome = { error }),
+      )
+      return () => outcome
+    }
+
+    test('chưa có header sau DOWNLOAD_IDLE_TIMEOUT_MS thì hết giờ', async () => {
+      useFakeClock()
+      server.use(
+        http.get(URL_PATH, async () => {
+          await delay('infinite')
+          return HttpResponse.json([])
+        }),
+      )
+      const outcome = await settle(download(URL_PATH))
+
+      await vi.advanceTimersByTimeAsync(DOWNLOAD_IDLE_TIMEOUT_MS - 1_000)
+      expect(outcome()).toBeNull()
+      await vi.advanceTimersByTimeAsync(2_000)
+      expect(outcome()?.error).toMatchObject({ kind: 'timeout' })
     })
 
-    await vi.advanceTimersByTimeAsync(31_000)
-    expect(failure).toBeNull()
-    await vi.advanceTimersByTimeAsync(DOWNLOAD_TIMEOUT_MS)
-    await settled
-    expect(failure).toMatchObject({ kind: 'timeout' })
+    // BE bỏ giới hạn tổng thời gian (be-f10, F10-D8 bị gạch): file lớn trên mạng chậm có thể mất nhiều phút.
+    test('file đến chậm nhưng đều (tổng lâu hơn nhiều lần mức im lặng) vẫn tải xong đủ nội dung', async () => {
+      useFakeClock()
+      const gap = DOWNLOAD_IDLE_TIMEOUT_MS - 5_000
+      const chunks = Array.from({ length: 12 }, (_, i) => ({ afterMs: gap, text: `dong ${i}\r\n` }))
+      server.use(http.get(URL_PATH, () => new HttpResponse(slowBody(chunks), { headers: { 'Content-Type': 'text/csv' } })))
+      const outcome = await settle(download(URL_PATH))
+
+      await vi.advanceTimersByTimeAsync(gap * chunks.length + 1_000)
+
+      const result = outcome()
+      expect(result?.error).toBeUndefined()
+      expect(await result?.value?.blob.text()).toBe(chunks.map((chunk) => chunk.text).join(''))
+    })
+
+    test('huỷ (rời bước) khi đang nhận body: báo huỷ, không bao giờ trả file bị cắt cụt', async () => {
+      useFakeClock()
+      server.use(
+        http.get(URL_PATH, () =>
+          new HttpResponse(slowBody([{ afterMs: 10, text: 'a,b\\r\\n' }], { stallAtEnd: true }), {
+            headers: { 'Content-Type': 'text/csv' },
+          }),
+        ),
+      )
+      const controller = new AbortController()
+      const outcome = await settle(download(URL_PATH, { signal: controller.signal }))
+      await vi.advanceTimersByTimeAsync(100)
+
+      controller.abort()
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(outcome()?.error).toMatchObject({ kind: 'aborted' })
+    })
+
+    // Qua proxy của Vite, BE cắt kết nối giữa chừng thì request treo chứ không báo lỗi (review FE-F10).
+    test('đang nhận file mà ngừng hẳn (không thêm byte nào) thì hết giờ sau DOWNLOAD_IDLE_TIMEOUT_MS', async () => {
+      useFakeClock()
+      server.use(
+        http.get(URL_PATH, () =>
+          new HttpResponse(slowBody([{ afterMs: 10, text: 'a,b\r\n' }], { stallAtEnd: true }), {
+            headers: { 'Content-Type': 'text/csv' },
+          }),
+        ),
+      )
+      const outcome = await settle(download(URL_PATH))
+
+      await vi.advanceTimersByTimeAsync(DOWNLOAD_IDLE_TIMEOUT_MS - 1_000)
+      expect(outcome()).toBeNull()
+      await vi.advanceTimersByTimeAsync(2_000)
+      expect(outcome()?.error).toMatchObject({ kind: 'timeout' })
+    })
   })
 })
 

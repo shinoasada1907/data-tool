@@ -611,24 +611,21 @@ describe('bước Kết quả', () => {
     })
   })
 
-  test('tải trang gặp 404 SESSION_NOT_FOUND (session hết hạn): khối lỗi có "Upload lại", không có "Thử lại"', async () => {
+  test('tải trang gặp 404 SESSION_NOT_FOUND: kết quả thành cũ vì session hỏng, focus "Upload lại", không có khối lỗi', async () => {
     const user = userEvent.setup()
     const pages = pagesByView()
     render(<App />)
     await openResultStep(user, {
       result: (query) =>
-        query.view === 'valid'
-          ? problemResponse(404, 'SESSION_NOT_FOUND', 'Import session not found.')
-          : pages(query),
+        query.view === 'valid' ? problemResponse(404, 'SESSION_NOT_FOUND', 'Import session not found.') : pages(query),
     })
 
     await user.click(tab(/^Hợp lệ/))
 
-    const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Không tìm thấy phiên import')
-    expect(within(alert).queryByRole('button', { name: 'Thử lại' })).not.toBeInTheDocument()
-    await user.click(within(alert).getByRole('button', { name: 'Upload lại' }))
-    expect(await screen.findByRole('heading', { level: 2, name: 'Upload file nguồn' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Upload lại' })).toHaveFocus()
+    expect(screen.getByText(/Phiên import không dùng được nữa — kết quả này là của lần chạy trước/)).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Thử lại' })).not.toBeInTheDocument()
   })
 
   test('tải trang lỗi 500: khối lỗi có "Thử lại" gửi lại đúng truy vấn đó', async () => {

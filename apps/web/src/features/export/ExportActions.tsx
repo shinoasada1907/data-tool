@@ -3,12 +3,12 @@ import { ApiError, isSessionUnusable } from '../../api/apiError'
 import { downloadErrorReport, downloadValidRows } from '../../api/endpoints'
 import { saveBlob } from '../../api/download'
 import type { PipelineSummary, SessionInfo } from '../../domain/types'
+import { toLoadFailure } from '../../wizard/loadFailure'
 import type { StaleReason } from '../../wizard/state'
-import { describeApiError, type ErrorText } from '../../shared/describeError'
+import type { ErrorText } from '../../shared/describeError'
 import { messages } from '../../shared/messages'
 import { ErrorBanner } from '../../shared/ui/ErrorBanner'
 import { SpinnerMark } from '../../shared/ui/Spinner'
-import { useWizard } from '../../wizard/context'
 import { fallbackFileName, type ExportSuffix } from './fileNames'
 import styles from './ExportActions.module.css'
 
@@ -22,26 +22,34 @@ interface ExportActionsProps {
   summary: PipelineSummary
   /** Kết quả đã cũ thì khoá cả ba nút, lý do khoá theo lý do cũ (design D18). */
   staleReason: StaleReason | null
-  /** BE trả `409 RESULT_NOT_AVAILABLE`: đánh dấu kết quả là cũ và đưa focus tới "Chạy lại" (design D18). */
-  onResultUnavailable: () => void
+  /**
+   * BE báo kết quả không còn (`409 RESULT_NOT_AVAILABLE`) hoặc session không dùng được nữa: bước Kết quả đánh dấu kết quả
+   * là cũ và đưa focus tới việc còn làm được (design D18).
+   */
+  onUnavailable: (reason: 'unavailable' | 'sessionUnusable') => void
+}
+
+/** Thông báo và lỗi gắn với lượt tải sinh ra nó, để hai lượt tải cùng lúc không đè hay xoá của nhau (review FE-F10). */
+interface Announcement {
+  kind: ExportKind
+  text: string
 }
 
 interface Failure {
+  kind: ExportKind
   text: ErrorText
-  reupload: boolean
 }
 
 /**
  * Ba nút tải file (spec result-export). Tải bằng `fetch` + blob (design D10), nên lỗi của BE hiện ra thay vì bị lưu
  * thành file. Không khoá điều hướng: rời bước thì mọi lượt tải đang chạy bị huỷ và không lưu gì (như GET preview, D2).
  */
-export function ExportActions({ session, summary, staleReason, onResultUnavailable }: ExportActionsProps) {
-  const { dispatch } = useWizard()
+export function ExportActions({ session, summary, staleReason, onUnavailable }: ExportActionsProps) {
   const headingId = useId()
   const reasonIdBase = useId()
   const [downloading, setDownloading] = useState<ReadonlySet<ExportKind>>(new Set())
   const [failure, setFailure] = useState<Failure | null>(null)
-  const [announcement, setAnnouncement] = useState('')
+  const [announcement, setAnnouncement] = useState<Announcement | null>(null)
   const controllers = useRef(new Set<AbortController>())
 
   useEffect(() => {
@@ -65,8 +73,8 @@ export function ExportActions({ session, summary, staleReason, onResultUnavailab
     const controller = new AbortController()
     controllers.current.add(controller)
     setDownloading((current) => new Set(current).add(kind))
-    setFailure(null)
-    setAnnouncement(messages.export.downloading[kind])
+    setFailure((current) => (current?.kind === kind ? null : current))
+    setAnnouncement({ kind, text: messages.export.downloading[kind] })
     try {
       const options = { signal: controller.signal }
       const file =
@@ -75,15 +83,20 @@ export function ExportActions({ session, summary, staleReason, onResultUnavailab
           : await downloadValidRows(session.id, kind, options)
       const fileName = file.fileName ?? fallbackFileName(session.fileName, SUFFIXES[kind])
       saveBlob(file.blob, fileName)
-      setAnnouncement(messages.export.saved(fileName))
+      setAnnouncement({ kind, text: messages.export.saved(fileName) })
     } catch (error) {
       if (error instanceof ApiError && error.kind === 'aborted') return
-      setAnnouncement('')
+      // Chỉ xoá câu "Đang tải…" của chính lượt này; lượt khác đang chạy thì giữ câu của nó.
+      setAnnouncement((current) => (current?.kind === kind ? null : current))
       if (error instanceof ApiError && error.code === 'RESULT_NOT_AVAILABLE') {
-        onResultUnavailable()
+        onUnavailable('unavailable')
         return
       }
-      setFailure(toFailure(error))
+      if (error instanceof ApiError && isSessionUnusable(error)) {
+        onUnavailable('sessionUnusable')
+        return
+      }
+      setFailure({ kind, text: toLoadFailure(error).text })
     } finally {
       controllers.current.delete(controller)
       setDownloading((current) => {
@@ -136,27 +149,9 @@ export function ExportActions({ session, summary, staleReason, onResultUnavailab
       ))}
       {/* Luôn có trong DOM (design D14): báo đang tải và tên file vừa lưu. */}
       <p role="status" className="sr-only">
-        {announcement}
+        {announcement?.text}
       </p>
-      {failure && (
-        <ErrorBanner
-          text={failure.text}
-          action={
-            failure.reupload
-              ? { label: messages.sessionUnusableAction, onClick: () => dispatch({ type: 'reset' }) }
-              : undefined
-          }
-        />
-      )}
+      {failure && <ErrorBanner text={failure.text} />}
     </div>
   )
-}
-
-function toFailure(error: unknown): Failure {
-  if (!(error instanceof ApiError)) {
-    // Lỗi lập trình: user chỉ thấy câu chung, nên stack phải nằm ở console.
-    console.error(error)
-    return { text: { headline: messages.unexpected }, reupload: false }
-  }
-  return { text: describeApiError(error) ?? { headline: messages.unexpected }, reupload: isSessionUnusable(error) }
 }

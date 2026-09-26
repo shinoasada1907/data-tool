@@ -12,9 +12,12 @@ export interface SavedFile {
 export function captureDownloads(): SavedFile[] {
   const saved: SavedFile[] = []
   const blobs = new Map<string, Blob>()
+  // Bộ đếm tăng dần: dùng `blobs.size` thì URL mới có thể trùng URL còn sống sau một lần revoke.
+  let created = 0
   const original = { create: URL.createObjectURL, revoke: URL.revokeObjectURL }
   URL.createObjectURL = (blob: Blob | MediaSource) => {
-    const url = `blob:test/${blobs.size + 1}`
+    created += 1
+    const url = `blob:test/${created}`
     blobs.set(url, blob as Blob)
     return url
   }

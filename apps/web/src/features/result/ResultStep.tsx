@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useId, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import { flushSync } from 'react-dom'
-import { ApiError } from '../../api/apiError'
+import { ApiError, isSessionUnusable } from '../../api/apiError'
 import { getResult } from '../../api/endpoints'
 import { toResultPage } from '../../api/mappers'
 import type { PipelineSummary, ResultQuery, ResultRow, ResultView, RowError, SessionInfo } from '../../domain/types'
@@ -87,9 +87,9 @@ function ResultContent({ session, result }: { session: SessionInfo; result: Resu
         }
       } catch (error) {
         if (!queued.current) {
-          if (error instanceof ApiError && error.code === 'RESULT_NOT_AVAILABLE') {
+          if (error instanceof ApiError && (error.code === 'RESULT_NOT_AVAILABLE' || isSessionUnusable(error))) {
             inFlight.current = null
-            markUnavailable(() => setPending(null))
+            markUnavailable(isSessionUnusable(error) ? 'sessionUnusable' : 'unavailable', () => setPending(null))
             return
           }
           setLoadFailure({ failure: toLoadFailure(error), query: target, summary })
@@ -104,15 +104,19 @@ function ResultContent({ session, result }: { session: SessionInfo; result: Resu
   }
 
   /**
-   * BE báo kết quả không còn (`409 RESULT_NOT_AVAILABLE`, khi tải trang hoặc tải file): đánh dấu cũ (design D18). Mọi
-   * nút đổi trang, tab, lọc và tải file bị khoá ngay, nên đưa focus tới việc duy nhất còn làm được: "Chạy lại".
+   * BE báo kết quả không còn (`409 RESULT_NOT_AVAILABLE`) hoặc session không dùng được nữa, khi tải trang hoặc tải file:
+   * đánh dấu cũ (design D18). Mọi nút đổi trang, tab, lọc và tải file bị khoá ngay, nên đưa focus tới việc duy nhất còn
+   * làm được ("Chạy lại" hoặc "Upload lại"). Nút đó đang khoá (một request khác còn chạy) thì focus tiêu đề bước, không
+   * để focus nằm trên một control đã chết (review FE-F10).
    */
-  function markUnavailable(alsoUpdate?: () => void) {
+  function markUnavailable(reason: 'unavailable' | 'sessionUnusable', alsoUpdate?: () => void) {
     flushSync(() => {
       alsoUpdate?.()
-      dispatch({ type: 'resultUnavailable', reason: 'unavailable' })
+      dispatch({ type: 'resultUnavailable', reason })
     })
-    rerunRef.current?.focus()
+    const action = rerunRef.current
+    if (action && !action.disabled) action.focus()
+    else titleRef.current?.focus()
   }
 
   // Vừa chạy xong (vào bước, hoặc "Chạy lại" ngay tại bước): tải trang đầu. Nút "Chạy lại" biến mất cùng cảnh báo nên
@@ -150,11 +154,13 @@ function ResultContent({ session, result }: { session: SessionInfo; result: Resu
 
       <SummaryCards summary={summary} />
 
+      {/* Mỗi lần chạy một cụm mới: lượt tải và lỗi của lần chạy trước không sống sang kết quả mới (review FE-F10). */}
       <ExportActions
+        key={result.runId}
         session={session}
         summary={summary}
         staleReason={result.stale}
-        onResultUnavailable={() => markUnavailable()}
+        onUnavailable={(reason) => markUnavailable(reason)}
       />
 
       {/* Luôn có trong DOM (design D14): báo lúc đang tải và trang vừa tải xong. */}

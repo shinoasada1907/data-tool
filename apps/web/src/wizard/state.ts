@@ -36,6 +36,8 @@ export type StaleReason = 'configChanged' | 'unavailable' | 'sessionUnusable'
 
 /** Kết quả của lần chạy gần nhất (design D2, D18). */
 export interface ResultState {
+  /** Số thứ tự lần chạy trong session: phần gắn với một lần chạy (lượt tải file đang dở…) đổi theo nó. */
+  runId: number
   summary: PipelineSummary
   /** Tên field (đã chuẩn hoá) theo thứ tự schema lúc chạy: cột của bảng kết quả, không lấy từ key của `values`. */
   columns: readonly string[]

@@ -51,28 +51,38 @@ export async function request<T>(
 }
 
 /**
- * `fetch` rồi đọc body bằng `read`, trong cùng một thời gian chờ và cùng một tín hiệu huỷ (design D6). Lỗi mạng (kể
- * cả kết nối đứt giữa lúc đọc body), hết giờ và huỷ đều thành ApiError; response lỗi HTTP vẫn được trả cho `read`.
+ * `fetch` rồi đọc body bằng `read`, cùng một tín hiệu huỷ (design D6). Lỗi mạng (kể cả kết nối đứt giữa lúc đọc
+ * body), hết giờ và huỷ đều thành ApiError; response lỗi HTTP vẫn được trả cho `read`.
+ *
+ * `timeoutMs` là thời gian im lặng tối đa: tính từ lúc gửi, và tính lại mỗi khi `read` gọi `stillReceiving()` (đã nhận
+ * thêm dữ liệu). `read` cũng nhận `signal` của lượt gọi, để tự kiểm đã bị huỷ chưa khi đọc body theo chunk. `request()` đọc cả body một lần nên với nó đây là thời gian chờ toàn phần; tải file thì gọi
+ * `stillReceiving` sau mỗi chunk, nên file lớn trên mạng chậm không bị cắt (review FE-F10).
  */
 export async function fetchWithin<R>(
   path: string,
   init: Omit<RequestInit, 'signal'>,
   { signal, timeoutMs }: { signal?: AbortSignal; timeoutMs: number },
-  read: (response: Response) => Promise<R>,
+  read: (response: Response, progress: { stillReceiving: () => void; signal: AbortSignal }) => Promise<R>,
 ): Promise<R> {
   // Một controller riêng gom cả hai nguồn huỷ (user và hết giờ), để còn phân biệt được nguồn nào khi fetch reject.
   const controller = new AbortController()
   let timedOut = false
-  const timer = setTimeout(() => {
-    timedOut = true
-    controller.abort()
-  }, timeoutMs)
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const restartTimer = () => {
+    clearTimeout(timer)
+    timer = setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, timeoutMs)
+  }
+  restartTimer()
   const forwardAbort = () => controller.abort()
   if (signal?.aborted) controller.abort()
   else signal?.addEventListener('abort', forwardAbort, { once: true })
 
   try {
-    return await read(await fetch(path, { ...init, signal: controller.signal }))
+    const response = await fetch(path, { ...init, signal: controller.signal })
+    return await read(response, { stillReceiving: restartTimer, signal: controller.signal })
   } catch (error) {
     // fetch chỉ reject khi bị huỷ, hết giờ, hoặc không tới được máy chủ; lỗi HTTP vẫn resolve.
     const kind = timedOut ? 'timeout' : signal?.aborted || isAbortError(error) ? 'aborted' : 'network'

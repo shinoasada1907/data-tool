@@ -75,7 +75,12 @@
 - [x] 3.4 TDD `api/download.ts`: 2xx → `{blob, filename}`; lỗi → ném `ApiError`, không trả blob; `saveBlob()` tạo object URL, click `<a download>` rồi revoke URL. → Làm ở FE-F10.
   - Làm ở FE-F10. Phần fetch + timeout + huỷ của `client.ts` tách thành `fetchWithin()` dùng chung, để `download` không chép lại; đọc body nằm trong cùng thời gian chờ.
   - Kết nối đứt khi BE đang stream (status đã là 200, BE cắt kết nối, `blob()` reject) là lỗi mạng, không bao giờ là file; có test bằng `ReadableStream` báo lỗi giữa chừng.
-  - Timeout 5 phút (`DOWNLOAD_TIMEOUT_MS`), khớp giới hạn stream của BE (be-f10 F10-D8).
+  - ~~Timeout 5 phút (`DOWNLOAD_TIMEOUT_MS`), khớp giới hạn stream của BE (be-f10 F10-D8).~~ **Sai, đã sửa sau review FE-F10 — LÝ DO:**
+    - F10-D8 đã bị BE gạch: 20 MB CSV có thể thành khoảng 130 MB JSON, và trên mạng chậm giới hạn tổng làm file bị cắt.
+    - Timeout của `fetchWithin` lại tính cả lúc đọc body, nên file lớn không bao giờ tải xong.
+
+    Nay là **thời gian im lặng** 30 giây (`DOWNLOAD_IDLE_TIMEOUT_MS`): chưa có header, hoặc giữa hai chunk. `download` đọc body theo chunk và tính lại thời gian sau mỗi chunk. Nhờ đó lượt tải cũng kết thúc khi BE cắt kết nối giữa chừng qua proxy của Vite: reviewer đã probe thấy request khi đó treo chứ không báo lỗi.
+  - Bị huỷ (hết giờ, rời bước) khi đang đọc body thì luồng có thể kết thúc êm như đã xong. `readBody` kiểm lại tín hiệu huỷ sau mỗi lần đọc và ném lỗi, không bao giờ trả file bị cắt cụt; test bắt được đúng lỗi này khi viết.
   - `saveBlob` gắn thẻ `<a>` vào document trước khi click và thu hồi object URL sau 1 giây: Firefox huỷ lượt tải nếu URL bị thu hồi ngay. Test dùng helper `test/downloads.ts` (`captureDownloads`), trả lại `URL.createObjectURL` như cũ khi test xong.
 - [x] 3.5 TDD `api/upload.ts` (XHR):
   - multipart có part `file`;
@@ -493,7 +498,23 @@
 
   Test với MSW: có `filename*`; không có header; `500 EXPORT_FAILED`; `409 RESULT_NOT_AVAILABLE`; lỗi mạng.
 
+  Sau review FE-F10 (mục "Review FE-F10" dưới 12.2): lượt tải gắn với lần chạy; 404 thì kết quả cũ vì session hỏng; hai lượt tải cùng lúc giữ thông báo và lỗi riêng.
+
   Đã làm, thêm: nội dung file giữ nguyên byte (gồm BOM của CSV); `404 SESSION_NOT_FOUND` → "Upload lại"; lỗi mạng rồi bấm lại thì tải được và hết báo lỗi; đang tải thì bấm thêm không gửi request; rời bước khi đang tải thì không lưu file; session hỏng sau khi có kết quả thì khoá cả ba nút với lý do upload lại. `409` đi qua cùng hàm `markUnavailable` với lượt tải trang (focus "Chạy lại"). Tên dự phòng theo đúng luật của BE (`features/export/fileNames.ts`).
+
+> **Review FE-F10** (senior-reviewer, 2026-09-27). Đã sửa, mỗi mục có test và mutation check thật (17 mutation, đều bị bắt):
+> - **Timeout.** Giới hạn tổng 5 phút dựa vào F10-D8 đã bị BE gạch, và cắt file lớn trên mạng chậm. Nay là thời gian im lặng 30 giây, tính lại sau mỗi chunk (xem 3.4). Cách này cũng sửa lượt tải treo khi BE cắt kết nối qua proxy của Vite.
+> - **Lượt tải của lần chạy trước.** Lỗi tải và lượt tải còn dở sống sang kết quả mới sau "Chạy lại": file cũ vẫn được lưu và báo "Đã tải". Nay `ResultState.runId` đánh số lần chạy, và cụm tải được render với `key={runId}`. Chạy lại là cụm mới; lượt tải cũ bị huỷ khi cụm cũ unmount.
+> - **Focus khi "Chạy lại" đang khoá.** 409 đến lúc một trang khác đang tải thì focus nằm trên một nút đã chết. Nay `markUnavailable` focus nút hành động nếu bấm được, không thì focus tiêu đề bước. Trang về muộn khi kết quả đã cũ thì reducer bỏ qua (`resultPageLoaded`), giữ trang đang xem.
+> - **Tên dự phòng và `Content-Disposition` lệch luật BE.**
+>   - Luật: thay cả `\p{Cf}` (ví dụ U+202E đảo chiều chữ) và C1, tên chỉ có khoảng trắng thì `export` (`isBlank()` của Java).
+>   - Parser: `filename*` rỗng rơi về `filename`; ngoặc kép không đóng không còn cắt mất ký tự cuối.
+>   - Có test cho ISO-8859-1 và cho tham số lặp lại.
+> - **404 khi tải file hoặc tải trang.** Trước chỉ hiện khối lỗi, các nút vẫn bấm được. Nay đánh dấu kết quả cũ vì session hỏng (design D18); cảnh báo có "Upload lại" và nhận focus.
+> - **Hai lượt tải cùng lúc.** Chúng đè thông báo và xoá lỗi của nhau. Nay thông báo và lỗi gắn với loại file sinh ra chúng.
+> - **Chép code.** `toFailure` chép từ `loadFailure.ts`; nay dùng `toLoadFailure`. Helper `captureDownloads` dùng bộ đếm tăng dần cho URL giả.
+> - **Không sửa: style nút tải giống `.rerun` của bước Kết quả — LÝ DO:** mỗi bước đang có style nút riêng trong module của nó (`StepActions`, `ConfirmPanel`, bước Schema…). Gom thành component nút dùng chung là refactor toàn app, ngoài phạm vi F10.
+> - **Câu hỏi của reviewer, vì sao timeout tính trên toàn bộ thời gian:** chép từ `request()`/`postProcess` mà không xét tải file là stream. Đã đổi như trên.
 
 ## 13. FE-F11 Tích hợp và hoàn thiện (spec import-wizard)
 
@@ -510,12 +531,13 @@
 - [x] 13.2 Rà lỗi nhất quán: mọi chỗ gọi API đều hiển thị qua `ErrorBanner`; request GET có nút "Thử lại"; `SESSION_NOT_FOUND` / `SESSION_STATE_INVALID` có nút "Upload lại". Bổ sung test cho chỗ còn thiếu.
   - Đã rà mọi chỗ gọi API:
     - upload: `UploadStep`;
-    - GET preview và GET result: `LoadFailureBanner` (có "Thử lại" và "Upload lại");
+    - GET preview: `LoadFailureBanner` (có "Thử lại" và "Upload lại");
+    - GET result: `LoadFailureBanner` với "Thử lại". Riêng khi session không dùng được nữa, kết quả thành cũ và cảnh báo của bước có "Upload lại" (review FE-F10, design D18);
     - PUT schema, PUT mapping và trình tự chạy: `SaveFailureBanner`;
     - tải file: `ExportActions`.
 
     Cả bốn đều dựng trên `ErrorBanner`. Nút tải file tự bấm lại được nên không cần "Thử lại" riêng.
-  - Thiếu một test và đã bổ sung: GET result gặp `SESSION_NOT_FOUND` thì hiện "Upload lại", không có "Thử lại".
+  - Thiếu một test và đã bổ sung: GET result gặp `SESSION_NOT_FOUND` thì hiện "Upload lại", không có "Thử lại". Sau khi gộp FE-F10, test này theo hành vi mới: "Upload lại" nằm trong cảnh báo kết quả cũ và nhận focus.
 - [x] 13.3 Viết lại `apps/web/README.md`: yêu cầu cài đặt, biến môi trường, `pnpm dev` (chạy với BE thật; Postgres khởi động bằng `docker compose up -d` với `docker-compose.yml` ở gốc repo), `pnpm dev:mock`, `pnpm test`, demo flow từng bước.
   - Thay README mẫu của Vite. Demo từng bước dùng `customers-sample.csv` (fixture pipeline của BE), cấu hình và kết quả mong đợi như lần kiểm với BE thật ở 13.4.
 - [ ] 13.4 Kiểm tay với BE thật, khi các feature BE tương ứng đã có. Ghi kết quả từng mục ngay dưới task này:
