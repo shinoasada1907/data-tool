@@ -32,7 +32,7 @@ public record MappingConfig(List<FieldMapping> mappings) implements FieldScopedS
 
     /**
      * Checks the mappings against the schema and the source columns, reporting every problem in input order.
-     * A valid mapping is sorted by schema order, so the same mapping sent in another order hashes the same.
+     * A valid mapping is in schema order (see {@link #inSchemaOrder}).
      * Messages never contain a source column name: it comes from the file (design D13).
      *
      * @throws DomainException {@code MAPPING_INVALID} when any item is, otherwise {@code SOURCE_COLUMN_NOT_FOUND}
@@ -65,9 +65,17 @@ public record MappingConfig(List<FieldMapping> mappings) implements FieldScopedS
         if (!problems.isEmpty()) {
             throw failure(problems);
         }
-        return new MappingConfig(valid.stream()
+        return new MappingConfig(valid).inSchemaOrder(schema);
+    }
+
+    /**
+     * The same mappings sorted by the order of their field in {@code schema}, so equal content always compares and
+     * hashes equal, whatever order it was sent or edited in. A field missing from the schema goes last.
+     */
+    public MappingConfig inSchemaOrder(TargetSchema schema) {
+        return new MappingConfig(mappings.stream()
                 .sorted(Comparator.comparingInt(mapping -> schema.field(mapping.targetField())
-                        .map(TargetField::order).orElseThrow()))
+                        .map(TargetField::order).orElse(Integer.MAX_VALUE)))
                 .toList());
     }
 

@@ -103,6 +103,23 @@ class MappingIntegrationTest {
     }
 
     @Test
+    void mixed_problems_are_422_mapping_invalid_with_every_item() {
+        Response put = http.putJson(sessionPath + "/mapping", """
+                {"mappings": [
+                  {"targetField": "name", "mappingType": "SOURCE_COLUMN", "sourceColumn": "Name"},
+                  {"targetField": "name", "mappingType": "SOURCE_COLUMN", "sourceColumn": "email"},
+                  {"targetField": " ", "mappingType": "CONSTANT", "constantValue": "x"}
+                ]}""");
+
+        assertThat(put.status()).isEqualTo(422);
+        assertThat((String) JsonPath.read(put.body(), "$.code")).isEqualTo("MAPPING_INVALID");
+        assertThat((List<String>) JsonPath.read(put.body(), "$.errors[*].code"))
+                .containsExactly("SOURCE_COLUMN_NOT_FOUND", "MAPPING_INVALID", "MAPPING_INVALID");
+        assertThat((List<String>) JsonPath.read(put.body(), "$.errors[*].field")).containsExactly("name", "name", null);
+        assertThat((String) JsonPath.read(put.body(), "$.errors[2].message")).isEqualTo("Target field is required.");
+    }
+
+    @Test
     void renaming_a_mapped_field_prunes_its_mapping() {
         http.putJson(sessionPath + "/mapping", FULL_MAPPING);
 

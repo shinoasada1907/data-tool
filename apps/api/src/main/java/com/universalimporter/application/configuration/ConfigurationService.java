@@ -57,7 +57,8 @@ public class ConfigurationService {
     /** Replaces the whole mapping, checked against the current schema and the file's columns (spec: field-mapping). */
     public ConfigUpdateResult updateMapping(UUID sessionId, List<MappingSpec> mappings) {
         return update(sessionId, (session, configuration) -> configuration.withMapping(MappingConfig.define(
-                mappings, configuration.schema(), session.sourceSchema().orElseThrow())));
+                mappings, configuration.schema(), session.sourceSchema().orElseThrow(() -> new IllegalStateException(
+                        "Session " + sessionId + " is past UPLOADED without a source schema")))));
     }
 
     /**

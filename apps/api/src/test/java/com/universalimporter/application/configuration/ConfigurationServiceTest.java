@@ -217,6 +217,55 @@ class ConfigurationServiceTest {
         assertThat(result.session().status()).isEqualTo(SessionStatus.READY);
     }
 
+    @Test
+    void a_processed_session_stays_processed_when_the_same_mapping_is_sent_again_in_any_order() {
+        givenProcessedCustomersMapped();
+
+        ConfigUpdateResult same = service.updateMapping(ID, List.of(sc("name", "Họ tên"), sc("email", "email")));
+        ConfigUpdateResult reordered = service.updateMapping(ID, List.of(sc("email", "email"), sc("name", "Họ tên")));
+
+        assertThat(same.session().status()).isEqualTo(SessionStatus.PROCESSED);
+        assertThat(reordered.session().status()).isEqualTo(SessionStatus.PROCESSED);
+    }
+
+    @Test
+    void a_processed_session_leaves_processed_when_the_mapping_changes() {
+        givenProcessedCustomersMapped();
+
+        ConfigUpdateResult result = service.updateMapping(ID, List.of(sc("name", "email"), sc("email", "email")));
+
+        assertThat(result.session().status()).isEqualTo(SessionStatus.READY);
+    }
+
+    @Test
+    void after_a_schema_reorder_re_sending_the_same_mapping_changes_nothing() {
+        givenCustomers(SessionStatus.CONFIGURING);
+        service.updateMapping(ID, List.of(sc("name", "Họ tên"), sc("email", "email")));
+        service.updateSchema(ID, List.of(new FieldSpec("email", "email", true, 0),
+                new FieldSpec("name", "string", true, 1), new FieldSpec("note", "string", false, 2)));
+        markProcessed();
+
+        ConfigUpdateResult result = service.updateMapping(ID, List.of(sc("name", "Họ tên"), sc("email", "email")));
+
+        assertThat(result.session().status()).isEqualTo(SessionStatus.PROCESSED);
+        assertThat(result.configuration().mapping().mappings())
+                .extracting(mapping -> mapping.targetField()).containsExactly("email", "name");
+    }
+
+    /** CUSTOMERS with name and email mapped, then processed. */
+    private void givenProcessedCustomersMapped() {
+        givenCustomers(SessionStatus.CONFIGURING);
+        service.updateMapping(ID, List.of(sc("name", "Họ tên"), sc("email", "email")));
+        markProcessed();
+    }
+
+    /** What F08 will do after a run; the in-memory repository keeps whatever it is given. */
+    private void markProcessed() {
+        ImportSession session = sessions.findById(ID).orElseThrow();
+        session.transitionTo(SessionStatus.PROCESSED, T0);
+        sessions.save(session);
+    }
+
     private void givenCustomers(SessionStatus status) {
         sessions.save(ImportSession.restore(ID, new SourceFile("customers.csv", SourceFileType.CSV, 20), status,
                 T0, T0, 0L, CUSTOMERS_SOURCE));

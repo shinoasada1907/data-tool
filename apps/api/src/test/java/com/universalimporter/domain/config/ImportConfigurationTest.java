@@ -69,6 +69,27 @@ class ImportConfigurationTest {
     }
 
     @Test
+    void reordering_the_schema_reorders_the_mapping() {
+        ImportConfiguration configuration = configuration(
+                schema(new FieldSpec("name", "string", true, 0), new FieldSpec("country", "string", false, 1)),
+                new MappingConfig(List.of(constant("name"), constant("country"))));
+
+        ConfigChange change = configuration.withSchema(
+                schema(new FieldSpec("country", "string", false, 0), new FieldSpec("name", "string", true, 1)));
+
+        assertThat(change.configuration().mapping().mappings()).containsExactly(constant("country"), constant("name"));
+    }
+
+    @Test
+    void the_mapping_is_always_kept_in_schema_order() {
+        ImportConfiguration configuration = configuration(
+                schema(new FieldSpec("name", "string", true, 0), new FieldSpec("country", "string", false, 1)),
+                new MappingConfig(List.of(constant("country"), constant("name"))));
+
+        assertThat(configuration.mapping().mappings()).containsExactly(constant("name"), constant("country"));
+    }
+
+    @Test
     void with_schema_replaces_the_schema_and_keeps_the_version() {
         TargetSchema schema = TargetSchema.define(List.of(new FieldSpec("email", "email", true, 0)));
 
