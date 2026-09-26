@@ -288,7 +288,7 @@
   }
   ```
 
-- [ ] 6.1 Viết `TransformationConfigValidatorTest`. Schema gồm `name` (string), `dob` (date), `email` (email).
+- [x] 6.1 Viết `TransformationConfigValidatorTest`. Schema gồm `name` (string), `dob` (date), `email` (email).
   | Config | Mong đợi `(field, message)` |
   |---|---|
   | `[{name,0,trim}]` (không có `params`, tức `params = null`) | `[]` |
@@ -311,10 +311,10 @@
   Mọi phần tử đều có `code = "CONFIG_INVALID"`.
 
   Test thêm cho `normalized`: `[{dob,0,dateFormat…},{name,1,uppercase},{name,0,trim}]` cho ra `[{name,0,trim},{name,1,uppercase},{dob,0,dateFormat…}]`.
-- [ ] 6.2 Chạy `./mvnw -q test -Dtest=TransformationConfigValidatorTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 6.3 Tạo `TransformationConfig` và `TransformationConfigValidator` theo thứ tự kiểm ở design T4.
-- [ ] 6.4 Chạy lại lệnh ở 6.2. Mong đợi: PASS.
-- [ ] 6.5 Commit: `feat(domain): validate transformation configuration`
+- [x] 6.2 Chạy `./mvnw -q test -Dtest=TransformationConfigValidatorTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 6.3 Tạo `TransformationConfig` và `TransformationConfigValidator` theo thứ tự kiểm ở design T4.
+- [x] 6.4 Chạy lại lệnh ở 6.2. Mong đợi: PASS.
+- [x] 6.5 Commit: `feat(domain): validate transformation configuration`
 
 ## 7. Prune khi schema đổi
 
