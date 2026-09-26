@@ -148,6 +148,11 @@ FE chỉ kiểm **cấu hình**: tên field, field required chưa map, hằng r�
 - *Vì sao*: F10 đòi "hiển thị download error nếu request thất bại". Một link `<a href>` trực tiếp không bắt được lỗi, và trình duyệt sẽ tải về chính body lỗi.
 - *Đánh đổi*: cả file nằm trong RAM của trình duyệt, tối đa cỡ vài chục MB vì upload giới hạn 20 MB. V0.1 chấp nhận.
 - Tên file ưu tiên `filename*` (RFC 5987; BE luôn gửi dạng này), sau đó `filename`, cuối cùng là tên dự phòng. Luôn loại `/` và `\` khỏi tên.
+- Hiện thực (FE-F10):
+  - `download.ts` dùng chung phần fetch + timeout + huỷ với `request()` (`fetchWithin`), timeout 5 phút như BE (be-f10 F10-D8).
+  - BE lỗi sau khi đã gửi một phần file thì cắt kết nối, status vẫn 200: `blob()` reject, FE coi là lỗi mạng và không lưu gì.
+  - Không có `Content-Disposition` thì dùng tên dự phòng theo đúng luật của BE (bỏ đuôi cuối, thay `"`, `\`, `/`, ký tự điều khiển; rỗng thì `export`).
+  - Tải file không khoá điều hướng; rời bước thì huỷ lượt tải (tiêu chí ngoại lệ của D2).
 - FE và BE cùng origin qua Vite proxy nên không cần CORS. Nếu sau này deploy khác origin, BE phải bật `Access-Control-Expose-Headers: Content-Disposition`.
 
 ### D11. Kiểm file phía client chỉ là lớp UX

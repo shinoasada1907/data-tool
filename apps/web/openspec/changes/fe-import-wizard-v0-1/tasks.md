@@ -70,8 +70,13 @@
   - **`request()` nhận thêm `validate` (bắt buộc).** **LÝ DO:** giống upload (D6), body lệch contract phải báo lỗi rõ ràng thay vì để bảng vỡ lúc render.
   - ~~Hiện `request()` mới hỗ trợ GET.~~ FE-F04 đã thêm `method` và `body` (gửi JSON kèm `Content-Type: application/json`), có test.
   - FE-F04 thêm timeout 30 giây, có test: hết giờ thì `kind=timeout`; user huỷ trước khi hết giờ thì vẫn là `aborted` (design D6).
-- [ ] 3.3 TDD `api/contentDisposition.ts`: `filename*=UTF-8''…` (ưu tiên), `filename="…"`, `filename=` không có ngoặc kép, không có header → `null`; loại `/` và `\` khỏi tên. → Làm ở FE-F10.
-- [ ] 3.4 TDD `api/download.ts`: 2xx → `{blob, filename}`; lỗi → ném `ApiError`, không trả blob; `saveBlob()` tạo object URL, click `<a download>` rồi revoke URL. → Làm ở FE-F10.
+- [x] 3.3 TDD `api/contentDisposition.ts`: `filename*=UTF-8''…` (ưu tiên), `filename="…"`, `filename=` không có ngoặc kép, không có header → `null`; loại `/` và `\` khỏi tên. → Làm ở FE-F10.
+  - Làm ở FE-F10. Thêm so với danh sách: tên tham số và charset không phân biệt hoa thường, có thẻ ngôn ngữ (`UTF-8'vi'…`), ISO-8859-1; `filename*` hỏng thì dùng `filename`; ngoặc kép có ký tự thoát và dấu chấm phẩy bên trong; tên rỗng → `null`. `/`, `\` và ký tự điều khiển được thay bằng `_`, như BE (be-f10 F10-D6).
+- [x] 3.4 TDD `api/download.ts`: 2xx → `{blob, filename}`; lỗi → ném `ApiError`, không trả blob; `saveBlob()` tạo object URL, click `<a download>` rồi revoke URL. → Làm ở FE-F10.
+  - Làm ở FE-F10. Phần fetch + timeout + huỷ của `client.ts` tách thành `fetchWithin()` dùng chung, để `download` không chép lại; đọc body nằm trong cùng thời gian chờ.
+  - Kết nối đứt khi BE đang stream (status đã là 200, BE cắt kết nối, `blob()` reject) là lỗi mạng, không bao giờ là file; có test bằng `ReadableStream` báo lỗi giữa chừng.
+  - Timeout 5 phút (`DOWNLOAD_TIMEOUT_MS`), khớp giới hạn stream của BE (be-f10 F10-D8).
+  - `saveBlob` gắn thẻ `<a>` vào document trước khi click và thu hồi object URL sau 1 giây: Firefox huỷ lượt tải nếu URL bị thu hồi ngay. Test dùng helper `test/downloads.ts` (`captureDownloads`), trả lại `URL.createObjectURL` như cũ khi test xong.
 - [x] 3.5 TDD `api/upload.ts` (XHR):
   - multipart có part `file`;
   - `onProgress` nhận phần trăm, test bằng XHR giả được inject vào;
@@ -86,6 +91,7 @@
   - FE-F02 đã xong `getPreview` (`limit=50`), có test với MSW: path, query, và body 200 sai dạng → `INVALID_RESPONSE` (kể cả ô không phải chuỗi hay `null`, vì React không vẽ boolean và vỡ trang với object).
   - FE-F05 đã xong `putMapping`, có test với MSW (method, path, body).
   - FE-F06/F07 đã xong `putTransformations` và `putValidations`, có test với MSW. Hai lệnh này được gọi trong trình tự "Chạy xử lý" (FE-F08).
+  - FE-F10 đã xong `downloadValidRows(format)` và `downloadErrorReport`, đi qua `download.ts`.
   - FE-F08/F09 đã xong `postProcess` (timeout riêng 5 phút, có test bằng fake timer) và `getResult` (`size=50`; `field`/`code` chỉ gửi khi có), có test với MSW.
   - ~~Không gồm `GET /api/import-sessions/{id}`.~~ **Đổi — LÝ DO:** BE-F08 trả cùng `500 INTERNAL_ERROR` cho ba nguyên nhân (đọc file nguồn lỗi thì session `FAILED`; lưu kết quả lỗi hoặc bug thì session giữ nguyên, kết quả cũ còn), body không phân biệt được. Sau khi process trả 5xx, FE gọi `getSessionStatus` để biết có phải upload lại không, và kết quả cũ còn dùng được không (design D12).
   - FE-F04 đã xong `putSchema`, có test với MSW: method, path, body; `200 {session, warnings}` thì resolve và bỏ qua body; `422` giữ `errors[]`. Body 200 chỉ được kiểm là có `session` (để body HTML từ proxy vẫn báo `INVALID_RESPONSE`).
@@ -469,13 +475,19 @@
 
 ## 12. FE-F10 Export (spec result-export)
 
-- [ ] 12.1 `ExportActions`: 3 nút; khoá kèm lý do theo các quy tắc: kết quả cũ, `valid=0`, `invalid=0`, đang tải. Có test.
-- [ ] 12.2 Tải file qua `download.ts` và `saveBlob`:
+- [x] 12.1 `ExportActions`: 3 nút; khoá kèm lý do theo các quy tắc: kết quả cũ, `valid=0`, `invalid=0`, đang tải. Có test.
+  - Nằm dưới ba thẻ tóm tắt của bước Kết quả, trong một nhóm "Tải kết quả".
+  - Lý do khoá là mô tả của nút (`aria-describedby`). Kết quả cũ thì lý do theo lý do cũ (design D18): "Chạy lại để tải kết quả khớp cấu hình hiện tại", hoặc "Phiên import không dùng được nữa; hãy upload lại file".
+  - Nút đang tải chỉ `aria-disabled` (có ô vuông xoay), để giữ focus; cú bấm thêm bị bỏ qua. Các nút khác vẫn bấm được. Vùng status báo "Đang tải file CSV…" rồi "Đã tải <tên file>".
+  - Không khoá điều hướng: rời bước thì mọi lượt tải đang chạy bị huỷ và không lưu gì. Đúng tiêu chí ngoại lệ của D2 (response chỉ bước đang mở dùng tới, bị huỷ khi unmount).
+- [x] 12.2 Tải file qua `download.ts` và `saveBlob`:
   - tên dự phòng `<tên-gốc>-valid.<ext>` và `<tên-gốc>-errors.csv`;
   - lỗi thì hiện `ErrorBanner` và không lưu file;
   - `409 RESULT_NOT_AVAILABLE` → `resultUnavailable`.
 
   Test với MSW: có `filename*`; không có header; `500 EXPORT_FAILED`; `409 RESULT_NOT_AVAILABLE`; lỗi mạng.
+
+  Đã làm, thêm: nội dung file giữ nguyên byte (gồm BOM của CSV); `404 SESSION_NOT_FOUND` → "Upload lại"; lỗi mạng rồi bấm lại thì tải được và hết báo lỗi; đang tải thì bấm thêm không gửi request; rời bước khi đang tải thì không lưu file; session hỏng sau khi có kết quả thì khoá cả ba nút với lý do upload lại. `409` đi qua cùng hàm `markUnavailable` với lượt tải trang (focus "Chạy lại"). Tên dự phòng theo đúng luật của BE (`features/export/fileNames.ts`).
 
 ## 13. FE-F11 Tích hợp và hoàn thiện (spec import-wizard)
 
@@ -527,4 +539,11 @@
     - Kết quả cũ: sửa rule rồi bấm stepper sang Kết quả. Hiện cảnh báo và "Chạy lại"; tab kia và bộ lọc bị khoá; bước Biến đổi & kiểm tra mất dấu "đã xong". "Chạy lại" chỉ gửi PUT validations và process, rồi tải trang đầu; focus về tiêu đề.
     - Console không có lỗi hay cảnh báo.
     - Chưa kiểm: file đủ lớn để có nhiều trang (sample chỉ 6 dòng); phân trang và lỗi 5xx đã có test với MSW.
+  - **FE-F10 (2026-09-27)**, BE `dev` `aebcc08` (có BE-F10) chạy ở 8081 từ worktree FE, Vite 5175, Chrome headless tải file thật vào một thư mục (`Page.setDownloadBehavior`). Cùng file và cấu hình như FE-F06–F09:
+    - "Tải JSON": `customers-sample-valid.json` (tên từ `filename*`), 3 object, key theo thứ tự schema, giá trị đã ép kiểu (`"Tuổi": 30`, `null` ở ô trống), không có BOM.
+    - "Tải CSV": `customers-sample-valid.csv`, có BOM, CRLF, header theo schema, 3 dòng hợp lệ.
+    - "Tải báo cáo lỗi": `customers-sample-errors.csv`, có BOM, header `rowNumber,fieldName,stage,rule,step,code,message,sourceValue`, 5 dòng lỗi khớp bảng lỗi; `step` trống ở lỗi validation, `sourceValue` trống ở lỗi required.
+    - Vùng status báo "Đã tải <tên file>" sau mỗi lượt.
+    - Sửa rule rồi quay lại bước Kết quả: cả ba nút khoá kèm lý do "Chạy lại để tải kết quả khớp cấu hình hiện tại".
+    - Console không có lỗi hay cảnh báo.
 - [ ] 13.5 `pnpm test`, `pnpm lint`, `pnpm build` đều xanh; đối chiếu từng mục "Done when" phía FE của F01–F11 trong Notion.
