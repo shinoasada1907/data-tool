@@ -274,17 +274,17 @@
 **Interfaces:**
 - Produces: `public ConfigUpdateResult updateValidations(UUID sessionId, ValidationConfig config)`. Có errors thì ném `DomainException(CONFIG_INVALID, "Validation configuration is invalid.", errors)`. Ngược lại lưu `effective` và trả warnings.
 
-- [ ] 7.1 Viết `UpdateValidationsTest`, dùng fake của F01/F04:
+- [x] 7.1 Viết `UpdateValidationsTest`, dùng fake của F01/F04:
   | Case | Mong đợi |
   |---|---|
   | Config `[{email,unique},{name,required}]` | response có 1 warning `RULE_IMPLIED_BY_SCHEMA` (field `name`); config lưu là `[{email,unique}]` |
   | Config `[{age,email}]` | `DomainException(CONFIG_INVALID)` có 1 item; config cũ không đổi |
   | Session `FAILED` | `DomainException(SESSION_STATE_INVALID)` |
   | Id không tồn tại | `DomainException(SESSION_NOT_FOUND)` |
-- [ ] 7.2 Chạy `./mvnw -q test -Dtest=UpdateValidationsTest`. Mong đợi: FAIL.
-- [ ] 7.3 Viết `updateValidations`, gọi hàm cập nhật dùng chung của F04, và bổ sung các bean.
-- [ ] 7.4 Chạy lại lệnh ở 7.2. Mong đợi: PASS.
-- [ ] 7.5 Commit: `feat(app): update validation configuration`
+- [x] 7.2 Chạy `./mvnw -q test -Dtest=UpdateValidationsTest`. Mong đợi: FAIL.
+- [x] 7.3 Viết `updateValidations`, gọi hàm cập nhật dùng chung của F04, và bổ sung các bean.
+- [x] 7.4 Chạy lại lệnh ở 7.2. Mong đợi: PASS.
+- [x] 7.5 Commit: `feat(app): update validation configuration`
 
 ## 8. API: PUT /validations
 

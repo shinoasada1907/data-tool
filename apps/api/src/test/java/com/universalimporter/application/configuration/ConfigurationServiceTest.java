@@ -57,7 +57,8 @@ class ConfigurationServiceTest {
             // The hash only has to tell different content apart.
             configuration -> configuration.schema() + "|" + configuration.mapping(),
             locks, new TransactionTemplate(transactionManager),
-            new TransformationConfigValidator(TransformationRegistry.standard()), Clock.fixed(NOW, ZoneOffset.UTC));
+            new TransformationConfigValidator(TransformationRegistry.standard()),
+            new com.universalimporter.domain.validation.ValidationConfigValidator(), Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
     void a_valid_schema_makes_a_configuring_session_ready() {
