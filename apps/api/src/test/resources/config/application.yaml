@@ -1,0 +1,9 @@
+# Loaded on top of the main application.yaml in every test context (Spring Boot reads classpath:/config/ after
+# classpath:/). A test context has its own, empty database: the cleanup would take every directory of the default
+# storage folder, the developer's own, for an orphan and delete it. So tests keep their files apart and the cleanup
+# only runs where a test turns it on, with its own storage directory.
+importer:
+  storage:
+    dir: ${java.io.tmpdir}/universal-importer-tests
+  cleanup:
+    enabled: false

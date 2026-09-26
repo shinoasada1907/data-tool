@@ -184,20 +184,27 @@
       interval: PT1H
   ```
 
-- [ ] 4.1 Viết `SessionCleanupSchedulerTest` (unit, service là mock):
+- [x] 4.1 Viết `SessionCleanupSchedulerTest` (unit, service là mock):
   | Case | Mong đợi |
   |---|---|
   | service trả `CleanupReport(2,1,0,0)` | `run()` gọi `cleanupExpired()` đúng 1 lần |
   | service ném `RuntimeException("db down")` | `run()` không ném exception |
-- [ ] 4.2 Viết `SessionCleanupSchedulerStartupTest` với `@SpringBootTest`, `@Import(TestcontainersConfiguration.class)` và `@MockitoSpyBean SessionCleanupService`:
+- [x] 4.2 Viết `SessionCleanupSchedulerStartupTest` với `@SpringBootTest`, `@Import(TestcontainersConfiguration.class)` và `@MockitoSpyBean SessionCleanupService`:
   | Case | Mong đợi |
   |---|---|
   | context vừa khởi động | `verify(service, timeout(5000).atLeastOnce()).cleanupExpired()` |
   | inject `CleanupProperties` | `sessionTtl` = `Duration.ofHours(24)`; `interval` = `Duration.ofHours(1)`; `enabled` = true |
-- [ ] 4.3 Chạy `./mvnw -q test -Dtest=SessionCleanupSchedulerTest,SessionCleanupSchedulerStartupTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 4.4 Tạo `SchedulingConfig` và `SessionCleanupScheduler`, sửa `application.yaml`.
-- [ ] 4.5 Chạy lại lệnh ở 4.3. Mong đợi: PASS.
-- [ ] 4.6 Commit: `feat(infra): schedule session cleanup at startup and hourly`
+- [x] 4.3 Chạy `./mvnw -q test -Dtest=SessionCleanupSchedulerTest,SessionCleanupSchedulerStartupTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 4.4 Tạo `SchedulingConfig` và `SessionCleanupScheduler`, sửa `application.yaml`.
+  - **Thêm `src/test/resources/config/application.yaml`**: tắt cleanup và đổi storage sang `${java.io.tmpdir}/universal-importer-tests` cho **mọi** test context.
+    - **LÝ DO**: `ApiApplicationTests` và `ApiDocsIntegrationTest` không đặt `importer.storage.dir`, nên dùng đúng thư mục storage mặc định của app dev. DB của test thì trống, nên cleanup chạy lúc khởi động sẽ coi mọi thư mục cũ hơn 24h ở đó là mồ côi và **xoá dữ liệu dev của người dùng**.
+    - Đặt ở `config/` vì Spring Boot nạp nó **thêm** vào `application.yaml` chính, không thay thế.
+    - Test nào cần cleanup (4.2) thì tự bật, trên `@TempDir` riêng.
+  - Cũng vì vậy, `application.yaml` ghi chú: mỗi instance cần thư mục storage riêng. Ghi vào README.
+  - `@MockitoSpyBean(reset = MockReset.NONE)` ở 4.2. **LÝ DO**: lần gọi cần kiểm xảy ra một lần lúc context khởi động; mặc định spy bị reset sau mỗi test, nên nếu test kia chạy trước thì lần gọi bị xoá.
+  - **Thêm luật ArchUnit** `scheduling_lives_in_infrastructure`: `@Scheduled` và `@EnableScheduling` chỉ nằm ở `infrastructure` (theo Global Constraints).
+- [x] 4.5 Chạy lại lệnh ở 4.3. Mong đợi: PASS.
+- [x] 4.6 Commit: `feat(infra): schedule session cleanup at startup and hourly`
 
 ## 5. Integration test cho dọn dẹp
 

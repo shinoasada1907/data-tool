@@ -4,8 +4,11 @@ import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import org.junit.jupiter.api.Test;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
 
 /**
@@ -24,6 +27,17 @@ class ArchitectureTest {
                 .should().onlyDependOnClassesThat()
                 .resideInAnyPackage("java..", "com.universalimporter.domain..")
                 .allowEmptyShould(true)
+                .check(PRODUCTION_CLASSES);
+    }
+
+    /** BE-F11: when things run is a technical concern; the use cases stay callable directly. */
+    @Test
+    void scheduling_lives_in_infrastructure() {
+        methods().that().areAnnotatedWith(Scheduled.class)
+                .should().beDeclaredInClassesThat().resideInAPackage("com.universalimporter.infrastructure..")
+                .check(PRODUCTION_CLASSES);
+        classes().that().areAnnotatedWith(EnableScheduling.class)
+                .should().resideInAPackage("com.universalimporter.infrastructure..")
                 .check(PRODUCTION_CLASSES);
     }
 
