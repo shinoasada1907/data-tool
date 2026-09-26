@@ -3,6 +3,7 @@ package com.universalimporter.api.common;
 import com.universalimporter.domain.common.DomainException;
 import com.universalimporter.domain.common.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -37,8 +38,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return respond(problem, ex.code(), request);
     }
 
+    /**
+     * Once the response has started (a download failing midway, BE-F10) no error body may follow: it would land
+     * inside the file. The exception is thrown back, so the container drops the connection instead.
+     */
     @ExceptionHandler(Exception.class)
-    ResponseEntity<ProblemDetail> handleUnexpected(Exception ex, HttpServletRequest request) {
+    ResponseEntity<ProblemDetail> handleUnexpected(Exception ex, HttpServletRequest request,
+                                                   HttpServletResponse response) throws Exception {
+        if (response.isCommitted()) {
+            log.warn("Error after the response to {} {} started; dropping the connection", request.getMethod(),
+                    request.getRequestURI());
+            throw ex;
+        }
         // The details stay in the server log; the client only learns that something went wrong.
         log.error("Unexpected error on {} {}", request.getMethod(), request.getRequestURI(), ex);
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
