@@ -57,6 +57,12 @@ public class InMemoryResultStore implements ResultStore {
     private int opened;
     private int closed;
     private boolean failReads;
+    private boolean failCloses;
+
+    /** Closing a row stream fails from now on, as when a reader cannot release its file. */
+    public void failCloses() {
+        this.failCloses = true;
+    }
 
     /** Row streams closed so far. */
     public int closedStreams() {
@@ -147,7 +153,12 @@ public class InMemoryResultStore implements ResultStore {
                 .filter(row -> row.valid() == (view == ResultView.VALID))
                 .skip(skip)
                 .peek(row -> rowsRead++)
-                .onClose(() -> closed++);
+                .onClose(() -> {
+                    closed++;
+                    if (failCloses) {
+                        throw new UncheckedIOException(new IOException("cannot close"));
+                    }
+                });
     }
 
     @Override

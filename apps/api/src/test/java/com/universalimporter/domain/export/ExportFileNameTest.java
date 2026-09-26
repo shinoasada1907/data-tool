@@ -33,6 +33,12 @@ class ExportFileNameTest {
     }
 
     @Test
+    void invisible_format_characters_cannot_spoof_the_extension() {
+        assertThat(ExportFileName.of("invoice\u202Efdp.exe.csv", "-valid.csv")).isEqualTo("invoice_fdp.exe-valid.csv");
+        assertThat(ExportFileName.of("a\u0085b.csv", "-valid.csv")).isEqualTo("a_b-valid.csv");
+    }
+
+    @Test
     void a_missing_name_is_export() {
         assertThat(ExportFileName.of(null, "-valid.csv")).isEqualTo("export-valid.csv");
     }

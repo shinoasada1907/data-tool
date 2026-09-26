@@ -273,7 +273,7 @@
   | `GET …/errors/export` | trả `ExportDownload("khách hàng-errors.csv", "text/csv;charset=UTF-8", …)` | 200; `Content-Disposition` chứa `filename*=UTF-8''kh%C3%A1ch%20h%C3%A0ng-errors.csv` |
   | `GET …/errors/export` | ném `DomainException(SESSION_NOT_FOUND, …)` | 404; `$.code` = `SESSION_NOT_FOUND` |
 - [x] 5.2 Chạy `./mvnw -q test -Dtest=ExportControllerTest`. Mong đợi: FAIL vì lỗi compile.
-- [x] 5.3 Tạo `ExportController`:
+- [x] 5.3 Tạo `ExportController` *(sau review: ghi đồng bộ, không dùng `StreamingResponseBody`; xem 7.2b)*:
   - `format` nhận dạng `@RequestParam(required = false) String`, rồi gọi `ExportFormat.parse`.
   - `StreamingResponseBody` gọi `download.body().writeTo(out)`. Gặp `IOException` hoặc `RuntimeException` thì `log.error("Export stream failed for session {}", id, e)` rồi ném lại.
   - **Thêm** (phát hiện khi viết test "lỗi giữa chừng không chèn JSON lỗi"):
@@ -283,7 +283,7 @@
     - Kiểm với Tomcat thật (`a_failure_midway_drops_the_download_instead_of_sending_a_short_file`): client nhận `IOException: closed`.
     - Kiểm ngược: bỏ nhánh "đã commit" trong handler thì client nhận một response **trọn vẹn** mà không thấy lỗi.
 
-  Thêm `spring.mvc.async.request-timeout: 5m` vào `application.yaml`.
+  ~~Thêm `spring.mvc.async.request-timeout: 5m` vào `application.yaml`.~~ Đã thêm rồi gỡ, vì không còn async (xem 7.2b).
 - [x] 5.4 Chạy lại lệnh ở 5.2. Mong đợi: PASS.
 - [x] 5.5 Commit: `feat(api): export and error report download endpoints`
 
@@ -325,9 +325,42 @@
 
 ## 7. Kiểm tra toàn bộ và hoàn tất
 
-- [ ] 7.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm cả ArchitectureTest (`domain/export` chỉ dùng JDK).
-- [ ] 7.2 Chạy app thật. Upload, cấu hình, process, rồi:
+- [x] 7.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm cả ArchitectureTest (`domain/export` chỉ dùng JDK).
+  - Kết quả 2026-09-27: 791 test, 0 failure, 0 error.
+  - Sau khi sửa theo review: 797 test, 0 failure, 0 error.
+- [x] 7.2 Chạy app thật. Upload, cấu hình, process, rồi:
   - `curl -OJ "localhost:8080/api/import-sessions/{id}/export?format=csv"`: mở file bằng Excel hoặc LibreOffice, kiểm tiếng Việt hiển thị đúng và ô `'=…` không chạy công thức;
   - `curl -OJ ".../errors/export"`.
-- [ ] 7.3 Tick đủ checkbox; chỗ nào làm khác kế hoạch thì gạch và ghi LÝ DO. Commit: `docs(openspec): complete be-f10 tasks`
-- [ ] 7.4 Hỏi người dùng trước khi merge vào `main`. Sau khi merge: `openspec archive be-f10-export -y`, commit phần archive.
+  - Kết quả (cổng 8081, worktree BE, file `customers-sample.csv` upload dưới tên `khách hàng.csv`; không dùng cổng 8080 vì người dùng đang chạy ở đó):
+    - trước khi process: 409;
+    - JSON: 3 row hợp lệ, có kiểu đúng (`"age":30`, `null`);
+    - CSV: có BOM và CRLF, tiếng Việt (`Cường`, `Dũng 2`) đọc lại đúng;
+    - báo cáo lỗi: 6 dòng theo đúng thứ tự;
+    - `Content-Disposition` có `filename*=UTF-8''kh%C3%A1ch%20h%C3%A0ng-valid.csv`, kèm `filename="khach hang-valid.csv"` là tên ASCII dự phòng do Spring tự thêm;
+    - `format=xml` → 400;
+    - log không chứa giá trị ô.
+  - ~~Mở bằng Excel/LibreOffice~~: chỉ kiểm bằng cách đọc lại theo RFC 4180 và kiểm byte BOM. **LÝ DO**: phiên này chạy tự động, không có người mở GUI. Quy tắc formula guard đã có test riêng (`'=...`).
+
+- [x] 7.2b Sửa theo review của senior-reviewer. Mỗi mục kèm **LÝ DO**:
+  - **BLOCKER**: request async timeout kết thúc thành 200 với file bị cắt ngắn, client không biết.
+    - ~~`StreamingResponseBody` + `spring.mvc.async.request-timeout: 5m`~~ → **ghi đồng bộ** thẳng vào `HttpServletResponse`. Xem design F10-D1 và F10-D8.
+  - **MAJOR**: Tomcat include trang `/error` vào response đã commit, tức chèn JSON vào file.
+    - Thêm `CommittedErrorPageFilter`.
+    - Test bằng raw socket (`a_failure_after_the_file_started_drops_the_connection_with_nothing_appended`): không có chunk kết thúc, không có `"timestamp"`/`"code"`.
+    - Kiểm ngược: bỏ filter thì thấy `{"timestamp":…}` ở cuối file và test đỏ.
+  - **MAJOR**: stream row bị rò khi `writeTo` không bao giờ chạy.
+    - `ExportDownload` là `AutoCloseable`, đóng lặp lại được và không ném lỗi. Controller đóng nó bằng try-with-resources.
+    - Test: `a_download_that_is_never_written_still_releases_its_rows`, và `closed == 1` trong mọi case của controller.
+  - **MAJOR**: mỗi lần tải chiếm một trong 8 thread async. Ghi đồng bộ dùng thread của Tomcat. Chưa đặt giới hạn số lần tải đồng thời; đó là việc về sau.
+  - **MAJOR — test rỗng (vacuous)**:
+    - test lỗi giữa chừng qua HTTP thật giờ đọc raw socket;
+    - chốt chặn "row lỗi không vào file hợp lệ" giờ kích hoạt được (xem design F10-D2), có test ở `FileResultStoreTest`.
+  - **MINOR**:
+    - client rời đi chỉ ghi log debug;
+    - đóng row lỗi sau khi đã ghi xong thì chỉ warn (test `a_failure_to_release_the_rows_after_writing_them_all_is_not_an_error`);
+    - lỗi khi chưa commit trả `500 EXPORT_FAILED` sạch (test cả MockMvc lẫn HTTP thật);
+    - integration test thêm dòng `0.0000001` để kiểm mapper thật của app.
+  - **NIT**: `ExportFileName` thay cả `\p{Cc}` và `\p{Cf}` (có test bidi U+202E và C1 U+0085).
+  - Chép lại từ review, về quy trình: agent review đã lỡ kill script mutation của phiên FE (filter tiến trình quá rộng). Phiên FE đã khôi phục file và chạy lại, kết quả sạch.
+- [x] 7.3 Tick đủ checkbox; chỗ nào làm khác kế hoạch thì gạch và ghi LÝ DO. Commit: `docs(openspec): complete be-f10 tasks`
+- [x] ~~7.4 Hỏi người dùng trước khi merge vào `main`.~~ **LÝ DO**: người dùng cho tự merge feature → `dev`, không đụng `main`. Archive bằng `openspec archive be-f10-export -y` trên nhánh feature trước khi merge.

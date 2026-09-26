@@ -46,7 +46,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     ResponseEntity<ProblemDetail> handleUnexpected(Exception ex, HttpServletRequest request,
                                                    HttpServletResponse response) throws Exception {
         if (response.isCommitted()) {
-            log.warn("Error after the response to {} {} started; dropping the connection", request.getMethod(),
+            // Already logged where it happened; the container drops the connection.
+            log.debug("Error after the response to {} {} started; dropping the connection", request.getMethod(),
                     request.getRequestURI());
             throw ex;
         }

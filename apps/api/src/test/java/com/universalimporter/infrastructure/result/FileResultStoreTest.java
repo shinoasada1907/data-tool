@@ -280,6 +280,23 @@ class FileResultStoreTest {
     }
 
     @Test
+    void a_line_with_errors_in_the_valid_file_reads_back_as_invalid() throws IOException {
+        FileResultStore store = store();
+        commit(store, "h");
+        Files.writeString(root.resolve(ID + "/result/valid.ndjson"), "{\"rowNumber\":2,\"values\":{\"name\":\"x\"},"
+                + "\"errors\":[{\"rowNumber\":2,\"fieldName\":\"name\",\"stage\":\"VALIDATION\",\"rule\":\"required\","
+                + "\"step\":null,\"code\":\"VALIDATION_REQUIRED\",\"message\":\"m\",\"sourceValue\":null}]}\n");
+
+        try (Stream<RowResult> rows = store.readRows(ID, ResultView.VALID, 0)) {
+            // Its errors show that the pipeline routed it wrongly; the export's last guard can then drop it.
+            assertThat(rows.toList()).singleElement().satisfies(row -> {
+                assertThat(row.valid()).isFalse();
+                assertThat(row.errors()).hasSize(1);
+            });
+        }
+    }
+
+    @Test
     void rows_are_parsed_only_as_far_as_the_caller_reads() throws IOException {
         FileResultStore store = thousandRowsWithLine500Corrupt();
 

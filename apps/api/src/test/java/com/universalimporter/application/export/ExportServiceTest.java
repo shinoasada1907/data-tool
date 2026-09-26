@@ -75,32 +75,55 @@ class ExportServiceTest {
 
     @Test
     void valid_rows_as_json() throws IOException {
+        try (ExportDownload download = service.prepareValidRows(ID, ExportFormat.JSON)) {
+            assertThat(download.fileName()).isEqualTo("customers-valid.json");
+            assertThat(download.contentType()).isEqualTo("application/json");
+            assertThat(body(download)).isEqualTo("[{\"name\":\"An\",\"email\":\"an@x.com\"}]");
+        }
+        assertThat(results.closedStreams()).isEqualTo(1);
+    }
+
+    @Test
+    void a_download_that_is_never_written_still_releases_its_rows() {
+        ExportDownload download = service.prepareErrorReport(ID);
+
+        download.close();
+        download.close();
+
+        assertThat(results.opened()).isEqualTo(1);
+        assertThat(results.closedStreams()).isEqualTo(1);
+    }
+
+    @Test
+    void a_failure_to_release_the_rows_after_writing_them_all_is_not_an_error() throws IOException {
+        results.failCloses();
         ExportDownload download = service.prepareValidRows(ID, ExportFormat.JSON);
 
-        assertThat(download.fileName()).isEqualTo("customers-valid.json");
-        assertThat(download.contentType()).isEqualTo("application/json");
         assertThat(body(download)).isEqualTo("[{\"name\":\"An\",\"email\":\"an@x.com\"}]");
+        download.close();
+
         assertThat(results.closedStreams()).isEqualTo(1);
     }
 
     @Test
     void valid_rows_as_csv() throws IOException {
-        ExportDownload download = service.prepareValidRows(ID, ExportFormat.CSV);
-
-        assertThat(download.fileName()).isEqualTo("customers-valid.csv");
-        assertThat(download.contentType()).isEqualTo("text/csv;charset=UTF-8");
-        assertThat(CsvTestReader.read(bytes(download))).containsExactly(List.of("name", "email"), List.of("An", "an@x.com"));
+        try (ExportDownload download = service.prepareValidRows(ID, ExportFormat.CSV)) {
+            assertThat(download.fileName()).isEqualTo("customers-valid.csv");
+            assertThat(download.contentType()).isEqualTo("text/csv;charset=UTF-8");
+            assertThat(CsvTestReader.read(bytes(download)))
+                    .containsExactly(List.of("name", "email"), List.of("An", "an@x.com"));
+        }
     }
 
     @Test
     void the_error_report_reads_the_invalid_rows() throws IOException {
-        ExportDownload download = service.prepareErrorReport(ID);
-
-        assertThat(download.fileName()).isEqualTo("customers-errors.csv");
-        assertThat(download.contentType()).isEqualTo("text/csv;charset=UTF-8");
-        assertThat(CsvTestReader.read(bytes(download))).hasSize(2).last()
-                .isEqualTo(List.of("3", "email", "VALIDATION", "email", "", "VALIDATION_EMAIL",
-                        "Value is not a valid email address.", "not-an-email"));
+        try (ExportDownload download = service.prepareErrorReport(ID)) {
+            assertThat(download.fileName()).isEqualTo("customers-errors.csv");
+            assertThat(download.contentType()).isEqualTo("text/csv;charset=UTF-8");
+            assertThat(CsvTestReader.read(bytes(download))).hasSize(2).last()
+                    .isEqualTo(List.of("3", "email", "VALIDATION", "email", "", "VALIDATION_EMAIL",
+                            "Value is not a valid email address.", "not-an-email"));
+        }
     }
 
     @Test
@@ -131,17 +154,18 @@ class ExportServiceTest {
 
     @Test
     void the_file_is_the_result_that_was_checked_even_if_it_is_deleted_before_streaming() throws IOException {
-        ExportDownload download = service.prepareValidRows(ID, ExportFormat.JSON);
-        results.delete(ID);
+        try (ExportDownload download = service.prepareValidRows(ID, ExportFormat.JSON)) {
+            results.delete(ID);
 
-        assertThat(body(download)).contains("an@x.com");
+            assertThat(body(download)).contains("an@x.com");
+        }
     }
 
     @Test
     void streaming_does_not_hold_the_session_lock() throws Exception {
-        ExportDownload download = service.prepareValidRows(ID, ExportFormat.JSON);
         boolean[] lockFree = {false};
-        try (ExecutorService other = Executors.newSingleThreadExecutor()) {
+        try (ExportDownload download = service.prepareValidRows(ID, ExportFormat.JSON);
+             ExecutorService other = Executors.newSingleThreadExecutor()) {
             download.body().writeTo(new ByteArrayOutputStream() {
                 @Override
                 public void write(byte[] bytes, int offset, int length) {

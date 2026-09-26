@@ -26,7 +26,7 @@ import java.util.UUID;
  * Prepares downloads of a processed result (design F10-D1): every check, and the opening of the rows, happens
  * before the first byte, so a problem is still an ordinary error response. The rows are the detached stream of
  * {@link ResultQueryService#openCurrent}: writing them holds no lock and is not disturbed by a later run or
- * configuration change.
+ * configuration change. The caller closes the download, written or not.
  */
 @Service
 public class ExportService {
@@ -58,22 +58,28 @@ public class ExportService {
         String fileName = fileName(sessionId, exporter.fileSuffix());
         CurrentResult current = open(sessionId, ResultView.VALID);
         List<TargetField> fields = current.configuration().schema().fields();
-        return new ExportDownload(fileName, exporter.contentType(), out -> {
-            try (current) {
-                exporter.write(fields, current.rows(), out);
-            }
-        });
+        return new ExportDownload(fileName, exporter.contentType(),
+                out -> exporter.write(fields, current.rows(), out), () -> release(sessionId, current));
     }
 
     /** As {@link #prepareValidRows}, over the invalid rows. */
     public ExportDownload prepareErrorReport(UUID sessionId) {
         String fileName = fileName(sessionId, errorExporter.fileSuffix());
         CurrentResult current = open(sessionId, ResultView.INVALID);
-        return new ExportDownload(fileName, errorExporter.contentType(), out -> {
-            try (current) {
-                errorExporter.write(current.rows(), out);
-            }
-        });
+        return new ExportDownload(fileName, errorExporter.contentType(),
+                out -> errorExporter.write(current.rows(), out), () -> release(sessionId, current));
+    }
+
+    /**
+     * Quiet: once the last byte is written, failing to release the rows must not turn a complete download into a
+     * failed one. Closing a stream twice does nothing.
+     */
+    private static void release(UUID sessionId, CurrentResult current) {
+        try {
+            current.close();
+        } catch (RuntimeException e) {
+            log.warn("Rows of session {} could not be released: {}", sessionId, e.getClass().getName());
+        }
     }
 
     private String fileName(UUID sessionId, String suffix) {

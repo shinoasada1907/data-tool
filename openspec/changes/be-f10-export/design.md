@@ -61,19 +61,36 @@ List<TargetField> currentFields(UUID sessionId);   // trong tasks này gọi là
   2. đọc schema hiện tại;
   3. **mở** stream từ `ResultStore`. Mở thất bại (`UncheckedIOException` hoặc `IOException`) thì ném `DomainException(EXPORT_FAILED)`, và client nhận ProblemDetail 500.
 - Hàm trả về `ExportDownload(fileName, contentType, ExportBody)`, trong đó `ExportBody` là functional interface `writeTo(OutputStream)` của tầng application. Tầng này không phụ thuộc kiểu web của Spring.
-- Controller bọc `ExportBody` thành `StreamingResponseBody`.
+- ~~Controller bọc `ExportBody` thành `StreamingResponseBody`.~~ *(Đổi sau review)*: controller **ghi đồng bộ** thẳng vào `HttpServletResponse` (xem ghi chú bên dưới).
   - Nếu có lỗi **sau khi** đã gửi byte đầu tiên thì không thể đổi status nữa. Hệ thống ghi log `error` (có `sessionId`, không có dữ liệu), ném lỗi ra để Spring đóng kết nối, và MUST NOT chèn JSON lỗi vào giữa file.
   - FE thấy tải thất bại, vì `fetch` báo lỗi mạng.
 - Stream nguồn luôn được đóng trong `finally` của `writeTo`.
-- *(Bổ sung khi làm)*:
+- *(Bổ sung khi làm, sửa lại sau review)*:
+  - **Vì sao bỏ `StreamingResponseBody`**, cả ba lý do đều đã đo được:
+    1. Timeout của request async tính từ lúc `startAsync`, không được gia hạn khi đang ghi. Khi timeout, Spring bỏ qua lỗi vì response đã commit, nên Tomcat kết thúc chunk như bình thường: client nhận **200 với file bị cắt ngắn** mà không hề biết.
+    2. Task có thể bị huỷ trước khi chạy (timeout lúc còn trong hàng đợi, client bỏ đi), nên `writeTo` không bao giờ chạy và stream row không được đóng.
+    3. Mỗi lần tải chiếm một trong 8 thread của `applicationTaskExecutor`.
+  - **Ghi đồng bộ** tránh được cả ba:
+    - không có timeout async; client treo thì bị cắt theo write timeout của socket;
+    - `ExportDownload` là `AutoCloseable`, controller đóng nó bằng try-with-resources trên mọi nhánh (có test cho trường hợp không bao giờ ghi);
+    - dùng thread của Tomcat (200).
   - Bước 1 và 3 là **một** lệnh `ResultQueryService.openCurrent(id, view)`: kiểm và mở row cùng lúc dưới khoá session, rồi nhả khoá.
   - Stream trả về là stream tách rời (xem be-f09): ghi file không giữ khoá, và không bị ảnh hưởng hay chặn bởi lần process hoặc lần đổi config kế tiếp.
-  - Lỗi khi đang ghi: controller gọi `HttpServletResponse.flushBuffer()` để commit, vì Spring 7 bọc stream bằng `NonFlushingOutputStream`, rồi ném lại. `GlobalExceptionHandler` thấy response đã commit thì ném lỗi ra cho Tomcat, Tomcat cắt kết nối (`CLOSE_NOW`). Nhờ vậy client thấy tải thất bại, không bao giờ nhận file ngắn trông như trọn vẹn, và không có JSON lỗi chèn vào file.
+  - Lỗi khi đang ghi:
+    - **Chưa có byte nào tới client** (response chưa commit, tức phần đã ghi còn trong buffer 8KB): `response.reset()`, gồm cả header `Content-Disposition`, rồi ném `DomainException(EXPORT_FAILED)`. Client nhận `500` problem+json sạch.
+    - **Đã commit**: ném lỗi ra. `GlobalExceptionHandler` thấy response đã commit thì ném tiếp cho Tomcat, và Tomcat cắt kết nối (`CLOSE_NOW`). Client thấy tải thất bại (thiếu chunk kết thúc).
+    - Trước khi cắt, Tomcat còn **include trang `/error`** vào response đã commit, tức chèn JSON `{"timestamp":…}` vào giữa file. Review đo được điều này; mình đã kiểm lại bằng kiểm ngược.
+      - `CommittedErrorPageFilter` (lắp vào `/error`, cho INCLUDE và ERROR) bỏ qua khi response đã commit.
+      - Integration test đọc raw socket để kiểm: không có chunk kết thúc, không có JSON lỗi.
+    - Client rời đi (`DisconnectedClientHelper`) chỉ ghi log debug.
+  - **Giới hạn khi triển khai**: sau một proxy chỉ nói HTTP/1.0 (ví dụ nginx mặc định `proxy_http_version 1.0`), kết nối bị cắt trông giống hệt kết thúc body. Cần `proxy_http_version 1.1`; ghi vào README (F11).
+  - Đóng row sau khi đã ghi xong mà lỗi thì chỉ ghi log warn, không làm hỏng một file đã trọn vẹn.
   - Writer JSON chỉ đóng generator khi thành công, vì đóng thì tự thêm `]`.
 - *Phương án khác*: ghi toàn bộ ra file tạm rồi mới gửi. Loại, vì tốn đĩa gấp đôi, trong khi D7 đã bảo đảm file nguồn không bị ghi dở.
 
 ### F10-D2. Chỉ row hợp lệ vào file valid
 - Chỉ đọc `ResultView.VALID`. Ngoài ra còn lọc phòng thủ `row.valid() && row.errors().isEmpty()`. Row vi phạm thì bị bỏ qua, và ghi log `warn` kèm `rowNumber`.
+- *(Sửa sau review)*: bản đầu thì chốt chặn này **không bao giờ kích hoạt**, vì `FileResultStore` đặt `valid = (view == VALID)`. Giờ một dòng có `errors` luôn được đọc ra là row lỗi, dù nằm ở file nào. Chốt chặn dựa vào nội dung dòng, độc lập với việc F08 xếp dòng vào file nào (có test).
 - Việc bỏ qua này không bao giờ được xảy ra nếu F08 đúng; nó chỉ là chốt chặn cuối cho yêu cầu "Không export invalid rows vào valid output".
 
 ### F10-D3. JSON
@@ -106,7 +123,8 @@ List<TargetField> currentFields(UUID sessionId);   // trong tasks này gọi là
 ### F10-D6. Tên file và `Content-Disposition`
 - `ExportFileName.of(originalFileName, suffix)`:
   1. Bỏ **đuôi cuối cùng** (`report.final.xlsx` thành `report.final`).
-  2. Thay `"`, `\`, `/` và ký tự điều khiển bằng `_`.
+  2. Thay `"`, `\`, `/` và ký tự điều khiển bằng `_`. *(Sau review)*: gồm mọi ký tự điều khiển (`\p{Cc}`, cả C1) và ký tự định dạng ẩn (`\p{Cf}`, ví dụ bidi override U+202E, có thể dùng để giả đuôi file trên thanh tải về).
+     - Tên như `.hidden.csv` sẽ ra `.hidden-valid.csv`, tức một dotfile trên macOS/Linux. Chấp nhận được, vì đúng quy tắc "bỏ đuôi cuối cùng".
   3. Nếu phần tên rỗng thì dùng `export`.
   4. Nối `suffix` vào: `-valid.json`, `-valid.csv` hoặc `-errors.csv`.
 - Header được tạo bằng `ContentDisposition.attachment().filename(name, StandardCharsets.UTF_8).build()`, để có `filename*=UTF-8''<percent-encoded>` theo RFC 5987.
@@ -115,7 +133,9 @@ List<TargetField> currentFields(UUID sessionId);   // trong tasks này gọi là
 - Bắt buộc có; nhận `json` hoặc `csv`, không phân biệt hoa thường. Thiếu hoặc giá trị khác thì trả 400 `REQUEST_INVALID`, và service không được gọi.
 
 ### F10-D8. Timeout của stream
-- Đặt `spring.mvc.async.request-timeout: 5m` trong `application.yaml`. Mặc định Tomcat cắt request async sau 30 giây; 5 phút thừa sức cho giới hạn upload 20MB.
+- ~~Đặt `spring.mvc.async.request-timeout: 5m` trong `application.yaml`. Mặc định Tomcat cắt request async sau 30 giây; 5 phút thừa sức cho giới hạn upload 20MB.~~ **Bỏ.**
+  - **LÝ DO**: không còn request async (xem F10-D1).
+  - Con số 5 phút tính theo kích thước upload, không tính theo lượng byte phải gửi qua mạng: 20MB CSV có thể thành khoảng 130MB JSON, và ở 3 Mbps thì tải mất hơn 5 phút. Timeout kiểu này là cái đã làm file bị cắt ngắn một cách lặng lẽ.
 
 ## Risks / Trade-offs
 
