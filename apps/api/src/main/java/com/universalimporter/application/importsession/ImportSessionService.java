@@ -74,14 +74,10 @@ public class ImportSessionService {
         return SessionDetails.of(session, ImportConfiguration.empty(id));
     }
 
-    public ImportSession get(UUID id) {
-        return repository.findById(id)
-                .orElseThrow(() -> new DomainException(ErrorCode.SESSION_NOT_FOUND, "Import session not found."));
-    }
-
     /** The session with its stored configuration; a session never configured has the empty one. */
     public SessionDetails details(UUID id) {
-        ImportSession session = get(id);
+        ImportSession session = repository.findById(id)
+                .orElseThrow(() -> new DomainException(ErrorCode.SESSION_NOT_FOUND, "Import session not found."));
         ImportConfiguration configuration = configurations.findBySessionId(id)
                 .orElseGet(() -> ImportConfiguration.empty(id));
         return SessionDetails.of(session, configuration);

@@ -39,7 +39,8 @@ class ApiDocsIntegrationTest {
         assertThat(paths).containsKeys(
                 "/api/import-sessions",
                 "/api/import-sessions/{id}",
-                "/api/import-sessions/{id}/preview");
+                "/api/import-sessions/{id}/preview",
+                "/api/import-sessions/{id}/schema");
     }
 
     @Test

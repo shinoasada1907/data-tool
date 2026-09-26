@@ -222,7 +222,7 @@
   // PUT /api/import-sessions/{id}/schema → 200 ConfigUpdateResponseDto
   ```
 
-- [ ] 6.1 Viết `SchemaControllerTest` (`@WebMvcTest(SchemaController.class)`, `@MockitoBean ConfigurationService`):
+- [x] 6.1 Viết `SchemaControllerTest` (`@WebMvcTest(SchemaController.class)`, `@MockitoBean ConfigurationService`):
   | Request | Stub | Mong đợi |
   |---|---|---|
   | PUT `{"fields":[{"name":"email","type":"email","required":true,"order":0}]}` | trả kết quả `READY` | 200; `$.session.status` `READY`; `$.session.config.schema.fields[0].name` `email`; `$.session.readiness.ready` true; `$.warnings` `[]`. Service nhận đúng `FieldSpec("email","email",true,0)` |
@@ -233,13 +233,15 @@
   | PUT hợp lệ | ném `SESSION_NOT_FOUND` | 404; `$.code` `SESSION_NOT_FOUND` |
   | PUT hợp lệ | ném `SESSION_STATE_INVALID` | 409; `$.code` `SESSION_STATE_INVALID` |
   | PUT `{"fields":[{"name":"a","type":"string","order":0}]}` (không có `required`) | trả kết quả bất kỳ | service nhận `required` = false |
-- [ ] 6.2 Sửa `ImportSessionControllerTest`:
+- [x] 6.2 Sửa `ImportSessionControllerTest`:
   - upload và `GET /{id}` trả `$.config.schema.fields` (mảng), `$.readiness.ready`, `$.readiness.issues[0].code` `SCHEMA_EMPTY`;
   - `GET` với id không tồn tại vẫn trả 404 `SESSION_NOT_FOUND`.
-- [ ] 6.3 Chạy `./mvnw -q test -Dtest=SchemaControllerTest,ImportSessionControllerTest`. Mong đợi: FAIL.
-- [ ] 6.4 Cài các DTO và controller. Sửa `ImportSessionDto.from(SessionDetails)` và `ImportSessionController`.
-- [ ] 6.5 Chạy lại lệnh ở 6.3. Mong đợi: PASS.
-- [ ] 6.6 Commit: `feat(api): PUT schema endpoint; sessions expose config and readiness`
+- [x] 6.3 Chạy `./mvnw -q test -Dtest=SchemaControllerTest,ImportSessionControllerTest`. Mong đợi: FAIL.
+- [x] 6.4 Cài các DTO và controller. Sửa `ImportSessionDto.from(SessionDetails)` và `ImportSessionController`.
+  - ~~`TargetFieldDto(String name, String type, boolean required, Integer order)`~~ → `Boolean required`; `toSpecs()` coi `null` là `false`. **LÝ DO:** Jackson 3 mặc định bật `FAIL_ON_NULL_FOR_PRIMITIVES`, nên với `boolean` thì body thiếu `required` bị 400 `REQUEST_INVALID`, trái spec ("thiếu `required` thì mặc định `false`"). Case cuối của 6.1 bắt được lỗi này. `"required": "yes"` vẫn là 400.
+  - Làm thêm: `SchemaControllerTest` có case `{"fields":[null]}` → 400; `ApiDocsIntegrationTest` kiểm thêm path `/api/import-sessions/{id}/schema` (spec api-docs: tài liệu liệt kê mọi endpoint hiện có).
+- [x] 6.5 Chạy lại lệnh ở 6.3. Mong đợi: PASS.
+- [x] 6.6 Commit: `feat(api): PUT schema endpoint; sessions expose config and readiness`
 
 ## 7. Integration test qua HTTP thật
 
