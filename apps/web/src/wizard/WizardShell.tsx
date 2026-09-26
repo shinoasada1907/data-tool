@@ -1,6 +1,7 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import { MappingStep } from '../features/mapping/MappingStep'
 import { PreviewStep } from '../features/preview/PreviewStep'
+import { ResultStep } from '../features/result/ResultStep'
 import { RulesStep } from '../features/rules/RulesStep'
 import { SchemaStep } from '../features/schema/SchemaStep'
 import { UploadStep } from '../features/upload/UploadStep'
@@ -75,17 +76,7 @@ function renderStep(step: StepId) {
       return <MappingStep />
     case 'rules':
       return <RulesStep />
-    default:
-      return <StepPlaceholder step={step} />
+    case 'result':
+      return <ResultStep />
   }
-}
-
-/** Chỗ giữ cho các bước chưa làm; mỗi feature thay bằng màn thật (task 4.3). */
-function StepPlaceholder({ step }: { step: StepId }) {
-  return (
-    <section className={styles.placeholder}>
-      <h2 tabIndex={-1}>{stepLabels[step]}</h2>
-      <p className={styles.placeholderBox}>{messages.stepInProgress}</p>
-    </section>
-  )
 }

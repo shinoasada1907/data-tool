@@ -12,3 +12,8 @@ export function Spinner({ label }: { label: string }) {
     </div>
   )
 }
+
+/** Chỉ ô vuông xoay, đặt cạnh chữ của một vùng `role="status"` có sẵn (ví dụ "Đang xử lý…" cạnh nút chạy). */
+export function SpinnerMark() {
+  return <span className={styles.mark} aria-hidden="true" />
+}

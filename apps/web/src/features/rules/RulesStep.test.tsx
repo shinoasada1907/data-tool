@@ -1,62 +1,16 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { HttpResponse } from 'msw'
 import { describe, expect, test } from 'vitest'
 import App from '../../App'
-import { configUpdateFixture, importSessionFixture } from '../../mocks/fixtures'
-import { testFile } from '../../test/files'
-import { mockSaveMapping, mockSaveSchema, mockUpload } from '../../test/http'
-
-type User = ReturnType<typeof userEvent.setup>
-
-const saved = () => HttpResponse.json(configUpdateFixture())
-
-// Preview mặc định (csvPreviewFixture) sinh 4 field: "2024" (string), "Họ tên" (string), "1" (number), "Email" (email).
-
-function nextButton() {
-  return screen.getByRole('button', { name: /^Tiếp/ })
-}
-
-function fieldRegion(name: string) {
-  return screen.getByRole('group', { name })
-}
-
-function schemaGroupByName(name: string) {
-  return screen
-    .getAllByRole('group', { name: /^Field \d+$/ })
-    .find((group) => (within(group).getByRole('textbox', { name: 'Tên field' }) as HTMLInputElement).value === name)!
-}
-
-/** Upload → Schema (đánh dấu bắt buộc / đổi kiểu theo tên) → lưu → Mapping (mặc định) → lưu → Biến đổi & kiểm tra. */
-async function openRulesStep(
-  user: User,
-  { required = [], types = {} }: { required?: string[]; types?: Record<string, string> } = {},
-) {
-  mockUpload(() => HttpResponse.json(importSessionFixture(), { status: 201 }))
-  mockSaveSchema(saved)
-  mockSaveMapping(saved)
-  render(<App />)
-  await user.upload(screen.getByLabelText('Chọn file CSV hoặc XLSX'), testFile('khach-hang.csv'))
-  await screen.findByRole('table', { name: 'Dữ liệu xem trước' })
-  await user.click(nextButton())
-  await screen.findByRole('heading', { level: 2, name: 'Schema đích' })
-  for (const name of required) {
-    await user.click(within(schemaGroupByName(name)).getByRole('checkbox', { name: 'Bắt buộc' }))
-  }
-  for (const [name, type] of Object.entries(types)) {
-    await user.selectOptions(within(schemaGroupByName(name)).getByRole('combobox', { name: 'Kiểu' }), type)
-  }
-  await user.click(nextButton())
-  await screen.findByRole('heading', { level: 2, name: 'Mapping' })
-  await user.click(nextButton())
-  await screen.findByRole('heading', { level: 2, name: 'Biến đổi & kiểm tra' })
-}
-
-async function addStep(user: User, fieldName: string, type: string) {
-  const region = fieldRegion(fieldName)
-  await user.selectOptions(within(region).getByRole('combobox', { name: 'Loại biến đổi' }), type)
-  await user.click(within(region).getByRole('button', { name: 'Thêm biến đổi' }))
-}
+import {
+  addStep,
+  fieldRegion,
+  nextButton,
+  openRulesStep,
+  runButton,
+  schemaGroupByName,
+  type User,
+} from '../../test/flows'
 
 function steps(fieldName: string) {
   return within(within(fieldRegion(fieldName)).getByRole('list', { name: 'Các bước biến đổi' })).queryAllByRole(
@@ -68,13 +22,10 @@ function summary(fieldName: string) {
   return within(fieldRegion(fieldName)).getByTestId('transformation-summary').textContent
 }
 
-function runButton() {
-  return screen.getByRole('button', { name: /^Chạy xử lý/ })
-}
-
 describe('bước Biến đổi & kiểm tra', () => {
   test('mỗi field một khối theo thứ tự schema; chưa có biến đổi thì tóm tắt "Không biến đổi"', async () => {
     const user = userEvent.setup()
+    render(<App />)
     await openRulesStep(user)
 
     const names = screen
@@ -87,6 +38,7 @@ describe('bước Biến đổi & kiểm tra', () => {
   describe('biến đổi', () => {
     test('thêm trim rồi uppercase: tóm tắt "trim → uppercase"; "Lên" ở uppercase thì thành "uppercase → trim"', async () => {
       const user = userEvent.setup()
+      render(<App />)
       await openRulesStep(user)
 
       await addStep(user, 'Họ tên', 'trim')
@@ -102,6 +54,7 @@ describe('bước Biến đổi & kiểm tra', () => {
 
     test('defaultValue để trống: lỗi tại ô giá trị, "Chạy xử lý" khoá kèm lý do liệt kê field', async () => {
       const user = userEvent.setup()
+      render(<App />)
       await openRulesStep(user)
 
       await addStep(user, 'Họ tên', 'defaultValue')
@@ -118,6 +71,7 @@ describe('bước Biến đổi & kiểm tra', () => {
 
     test('dateFormat: hai ô định dạng có gợi ý mẫu; outputFormat điền sẵn yyyy-MM-dd và sửa được ở field string', async () => {
       const user = userEvent.setup()
+      render(<App />)
       await openRulesStep(user)
 
       await addStep(user, 'Họ tên', 'dateFormat')
@@ -141,6 +95,7 @@ describe('bước Biến đổi & kiểm tra', () => {
 
     test('mẫu ngày có khoảng trắng ở đầu hoặc cuối: cảnh báo tại ô (BE nhận nhưng mọi dòng sẽ lỗi)', async () => {
       const user = userEvent.setup()
+      render(<App />)
       await openRulesStep(user)
       await addStep(user, 'Họ tên', 'dateFormat')
 
@@ -152,6 +107,7 @@ describe('bước Biến đổi & kiểm tra', () => {
 
     test('dateFormat ở field kiểu date: outputFormat chỉ đọc, luôn là yyyy-MM-dd', async () => {
       const user = userEvent.setup()
+      render(<App />)
       await openRulesStep(user, { types: { '2024': 'date' } })
 
       await addStep(user, '2024', 'dateFormat')
@@ -163,6 +119,7 @@ describe('bước Biến đổi & kiểm tra', () => {
 
     test('dateFormat không có trim đứng trước: nhắc thêm trim, vì BE không tự bỏ khoảng trắng', async () => {
       const user = userEvent.setup()
+      render(<App />)
       await openRulesStep(user)
 
       await addStep(user, 'Họ tên', 'dateFormat')
@@ -179,6 +136,7 @@ describe('bước Biến đổi & kiểm tra', () => {
 
     test('"Xoá" bước: focus sang control đầu tiên bấm được của bước kề bên (ô tham số nếu có)', async () => {
       const user = userEvent.setup()
+      render(<App />)
       await openRulesStep(user)
       await addStep(user, 'Họ tên', 'trim')
       await addStep(user, 'Họ tên', 'defaultValue')
@@ -190,6 +148,7 @@ describe('bước Biến đổi & kiểm tra', () => {
 
     test('tóm tắt chuỗi biến đổi là vùng live: thêm, xoá, đổi thứ tự đều được đọc cho screen reader', async () => {
       const user = userEvent.setup()
+      render(<App />)
       await openRulesStep(user)
 
       expect(within(fieldRegion('Họ tên')).getByTestId('transformation-summary')).toHaveAttribute('aria-live', 'polite')
@@ -197,6 +156,7 @@ describe('bước Biến đổi & kiểm tra', () => {
 
     test('"Xoá" bước: focus sang bước kề bên; hết bước thì về ô chọn loại biến đổi', async () => {
       const user = userEvent.setup()
+      render(<App />)
       await openRulesStep(user)
       await addStep(user, 'Họ tên', 'trim')
       await addStep(user, 'Họ tên', 'lowercase')
@@ -228,6 +188,7 @@ describe('bước Biến đổi & kiểm tra', () => {
 
     test('đổi kiểu field khỏi string: rule email biến mất, unique vẫn bật', async () => {
       const user = userEvent.setup()
+      render(<App />)
       await openRulesStep(user)
       await user.click(within(fieldRegion('Họ tên')).getByRole('checkbox', { name: /email/ }))
       await user.click(within(fieldRegion('Họ tên')).getByRole('checkbox', { name: /unique/ }))
@@ -242,6 +203,7 @@ describe('bước Biến đổi & kiểm tra', () => {
 
     test('đổi kiểu field sang date: định dạng đầu ra của dateFormat thành yyyy-MM-dd, chỉ đọc', async () => {
       const user = userEvent.setup()
+      render(<App />)
       await openRulesStep(user)
       await addStep(user, 'Họ tên', 'dateFormat')
       const output = within(steps('Họ tên')[0]).getByRole('combobox', { name: 'Định dạng đầu ra' })
@@ -261,6 +223,7 @@ describe('bước Biến đổi & kiểm tra', () => {
   describe('kiểm tra', () => {
     test('field bắt buộc kiểu number: rule suy ra required và type:number; có unique, không có email', async () => {
       const user = userEvent.setup()
+      render(<App />)
       await openRulesStep(user, { required: ['1'] })
 
       const region = fieldRegion('1')
@@ -274,6 +237,7 @@ describe('bước Biến đổi & kiểm tra', () => {
 
     test('field kiểu email: rule suy ra type:email, không có tuỳ chọn email', async () => {
       const user = userEvent.setup()
+      render(<App />)
       await openRulesStep(user)
 
       const region = fieldRegion('Email')
@@ -283,6 +247,7 @@ describe('bước Biến đổi & kiểm tra', () => {
 
     test('field kiểu string có tuỳ chọn email và unique; lựa chọn còn nguyên khi quay lại bước', async () => {
       const user = userEvent.setup()
+      render(<App />)
       await openRulesStep(user)
 
       await user.click(within(fieldRegion('Họ tên')).getByRole('checkbox', { name: /unique/ }))

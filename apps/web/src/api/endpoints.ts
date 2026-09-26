@@ -1,6 +1,9 @@
 import { request } from './client'
+import { RESULT_PAGE_SIZE, type ResultQuery } from '../domain/types'
 import type {
   MappingConfigDto,
+  PipelineResultDto,
+  PipelineSummaryDto,
   SourcePreviewDto,
   TargetSchemaDto,
   TransformationConfigDto,
@@ -57,6 +60,28 @@ export async function putValidations(sessionId: string, body: ValidationConfigDt
   })
 }
 
+/**
+ * Chạy pipeline trên toàn bộ file. BE xử lý đồng bộ nên file lớn có thể mất vài phút; timeout nới lên
+ * `PROCESS_TIMEOUT_MS` thay vì 30 giây mặc định (design D6).
+ */
+export const PROCESS_TIMEOUT_MS = 300_000
+
+export function postProcess(sessionId: string): Promise<PipelineSummaryDto> {
+  return request(`${SESSIONS}/${encodeURIComponent(sessionId)}/process`, {
+    method: 'POST',
+    validate: isPipelineSummaryDto,
+    timeoutMs: PROCESS_TIMEOUT_MS,
+  })
+}
+
+/** Một trang kết quả của lần chạy gần nhất; `field`/`code` chỉ gửi khi có (spec result-review). */
+export function getResult(sessionId: string, query: ResultQuery): Promise<PipelineResultDto> {
+  const params = new URLSearchParams({ view: query.view, page: String(query.page), size: String(RESULT_PAGE_SIZE) })
+  if (query.field !== null) params.set('field', query.field)
+  if (query.code !== null) params.set('code', query.code)
+  return request(`${SESSIONS}/${encodeURIComponent(sessionId)}/result?${params}`, { validate: isPipelineResultDto })
+}
+
 /** Chỉ kiểm đó là body của PUT cấu hình (không phải trang HTML từ proxy); nội dung không dùng tới. */
 function isConfigUpdateResponse(value: unknown): value is { session: unknown } {
   return isRecord(value) && isRecord(value.session)
@@ -80,6 +105,55 @@ function isSourcePreviewDto(value: unknown): value is SourcePreviewDto {
         row.values.every((cell) => cell === null || typeof cell === 'string'),
     )
   )
+}
+
+function isPipelineSummaryDto(value: unknown): value is PipelineSummaryDto {
+  return (
+    isRecord(value) &&
+    typeof value.total === 'number' &&
+    typeof value.valid === 'number' &&
+    typeof value.invalid === 'number' &&
+    isCountMap(value.errorCountsByCode) &&
+    isCountMap(value.errorCountsByField) &&
+    typeof value.processedAt === 'string'
+  )
+}
+
+function isPipelineResultDto(value: unknown): value is PipelineResultDto {
+  if (!isRecord(value) || !isPipelineSummaryDto(value.summary) || !isRecord(value.page)) return false
+  const page = value.page
+  return (
+    typeof page.number === 'number' &&
+    typeof page.totalElements === 'number' &&
+    typeof page.totalPages === 'number' &&
+    Array.isArray(value.rows) &&
+    value.rows.every(
+      (row) =>
+        isRecord(row) &&
+        typeof row.rowNumber === 'number' &&
+        typeof row.valid === 'boolean' &&
+        isRecord(row.values) &&
+        Array.isArray(row.errors) &&
+        row.errors.every(isImportErrorDto),
+    )
+  )
+}
+
+function isImportErrorDto(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.fieldName === 'string' &&
+    (value.stage === 'TRANSFORMATION' || value.stage === 'VALIDATION') &&
+    typeof value.rule === 'string' &&
+    (value.step === null || typeof value.step === 'number') &&
+    typeof value.code === 'string' &&
+    typeof value.message === 'string' &&
+    (value.sourceValue === null || typeof value.sourceValue === 'string')
+  )
+}
+
+function isCountMap(value: unknown): value is Record<string, number> {
+  return isRecord(value) && Object.values(value).every((count) => typeof count === 'number')
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

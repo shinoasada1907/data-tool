@@ -1,4 +1,4 @@
-import { useCallback, useId, useMemo, type ReactNode } from 'react'
+import { useCallback, useId, useMemo, useRef, type ReactNode } from 'react'
 import { checkTransformations, type TransformationIssue } from '../../domain/configRules'
 import { normalizeFieldName } from '../../domain/schemaRules'
 import type { FieldKey, Transformation, TransformationId, UserRule } from '../../domain/types'
@@ -6,7 +6,9 @@ import { messages, stepLabels } from '../../shared/messages'
 import { useWizard } from '../../wizard/context'
 import { isBusy, type TransformationEdit } from '../../wizard/state'
 import { StepActions } from '../../wizard/StepActions'
+import { SaveFailureBanner } from '../../wizard/SaveFailureBanner'
 import { StepHeader } from '../../wizard/StepHeader'
+import { useRunPipeline } from '../run/useRunPipeline'
 import styles from './RulesStep.module.css'
 import { TransformationEditor } from './TransformationEditor'
 import { ValidationEditor } from './ValidationEditor'
@@ -37,20 +39,38 @@ export function RulesStep() {
   }, [fields, transformations, check])
   const saving = isBusy(state)
   const titleId = useId()
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  const editorRef = useRef<HTMLFieldSetElement>(null)
   const datePatternsId = useId()
+  const { run, running, blockedReason, serverErrors, failure, clearOnEdit } = useRunPipeline({
+    headingRef: titleRef,
+    focusField: (key) => {
+      const target = editorRef.current?.querySelector<HTMLElement>(`[data-field-key="${key}"] [data-issue-target]`)
+      target?.focus()
+      return Boolean(target)
+    },
+  })
 
   const editTransformations = useCallback(
-    (key: FieldKey, edit: TransformationEdit) => dispatch({ type: 'transformationsEdited', key, edit }),
-    [dispatch],
+    (key: FieldKey, edit: TransformationEdit) => {
+      clearOnEdit()
+      dispatch({ type: 'transformationsEdited', key, edit })
+    },
+    [dispatch, clearOnEdit],
   )
   const toggleRule = useCallback(
-    (key: FieldKey, rule: UserRule, enabled: boolean) => dispatch({ type: 'validationToggled', key, rule, enabled }),
-    [dispatch],
+    (key: FieldKey, rule: UserRule, enabled: boolean) => {
+      clearOnEdit()
+      dispatch({ type: 'validationToggled', key, rule, enabled })
+    },
+    [dispatch, clearOnEdit],
   )
 
   return (
     <section aria-labelledby={titleId} className={styles.stepPage}>
-      <StepHeader id={titleId} title={stepLabels.rules} intro={messages.rules.intro} />
+      <StepHeader id={titleId} title={stepLabels.rules} intro={messages.rules.intro} headingRef={titleRef} />
+
+      {failure && <SaveFailureBanner failure={failure} />}
 
       <datalist id={datePatternsId}>
         {DATE_PATTERNS.map((pattern) => (
@@ -58,10 +78,17 @@ export function RulesStep() {
         ))}
       </datalist>
 
-      <fieldset className={styles.editor} disabled={saving}>
+      <fieldset ref={editorRef} className={styles.editor} disabled={saving}>
         <legend className="sr-only">{stepLabels.rules}</legend>
         {fields.map((field) => (
-          <FieldRules key={field.key} name={normalizeFieldName(field.name)} type={field.type} required={field.required}>
+          <FieldRules
+            key={field.key}
+            fieldKey={field.key}
+            name={normalizeFieldName(field.name)}
+            type={field.type}
+            required={field.required}
+            error={serverErrors[field.key]}
+          >
             <TransformationEditor
               field={field}
               steps={transformations[field.key] ?? NO_STEPS}
@@ -76,9 +103,10 @@ export function RulesStep() {
 
       <StepActions
         onBack={() => dispatch({ type: 'navigate', step: 'mapping' })}
-        onNext={() => undefined}
+        onNext={run}
         nextLabel={messages.rules.run}
-        nextBlockedReason={check.blockedReason ?? messages.rules.runPending}
+        nextBlockedReason={blockedReason}
+        progressLabel={running ? messages.run.running : null}
       />
     </section>
   )
@@ -86,23 +114,35 @@ export function RulesStep() {
 
 /**
  * Một field: nhóm (không phải landmark) có tên là tên field, để file nhiều cột không tạo hàng trăm landmark cho screen
- * reader; tiêu đề h3 vẫn dùng để điều hướng (review FE-F06/F07).
+ * reader; tiêu đề h3 vẫn dùng để điều hướng (review FE-F06/F07). Lỗi BE của field (422 khi lưu transformations hoặc
+ * validations) nằm ngay dưới đầu thẻ, là mô tả của nhóm và là chỗ nhận focus sau khi chạy lỗi.
  */
 function FieldRules({
+  fieldKey,
   name,
   type,
   required,
+  error,
   children,
 }: {
+  fieldKey: FieldKey
   name: string
   type: string
   required: boolean
+  error: string | undefined
   children: ReactNode
 }) {
   const headingId = useId()
+  const errorId = useId()
 
   return (
-    <div role="group" aria-labelledby={headingId} className={styles.fieldCard}>
+    <div
+      role="group"
+      aria-labelledby={headingId}
+      aria-describedby={error ? errorId : undefined}
+      data-field-key={fieldKey}
+      className={styles.fieldCard}
+    >
       <div className={styles.fieldHeader}>
         <h3 id={headingId} className={styles.fieldName}>
           {name}
@@ -112,6 +152,11 @@ function FieldRules({
           {required && <span className={styles.required}>{messages.mapping.requiredBadge}</span>}
         </span>
       </div>
+      {error && (
+        <p id={errorId} className={styles.fieldError} tabIndex={-1} data-issue-target>
+          {error}
+        </p>
+      )}
       <div className={styles.fieldBody}>{children}</div>
     </div>
   )

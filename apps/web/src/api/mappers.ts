@@ -3,6 +3,8 @@ import {
   ISO_DATE_FORMAT,
   USER_RULES,
   type MappingDraft,
+  type PipelineSummary,
+  type ResultPage,
   type SessionInfo,
   type SourcePreview,
   type TargetField,
@@ -13,6 +15,8 @@ import {
 import type {
   ImportSessionDto,
   MappingConfigDto,
+  PipelineResultDto,
+  PipelineSummaryDto,
   SourcePreviewDto,
   TargetSchemaDto,
   TransformationConfigDto,
@@ -121,5 +125,39 @@ export function toValidationConfigDto(
         (rule) => ({ targetField: normalizeFieldName(field.name), type: rule }),
       )
     }),
+  }
+}
+
+export function toPipelineSummary(dto: PipelineSummaryDto): PipelineSummary {
+  return {
+    total: dto.total,
+    valid: dto.valid,
+    invalid: dto.invalid,
+    errorCountsByCode: dto.errorCountsByCode,
+    errorCountsByField: dto.errorCountsByField,
+    processedAt: dto.processedAt,
+  }
+}
+
+/** `rowNumber` trong từng lỗi trùng với dòng chứa nó nên bỏ; `size` luôn là `RESULT_PAGE_SIZE` FE đã gửi. */
+export function toResultPage(dto: PipelineResultDto): ResultPage {
+  return {
+    number: dto.page.number,
+    totalElements: dto.page.totalElements,
+    totalPages: dto.page.totalPages,
+    rows: dto.rows.map((row) => ({
+      rowNumber: row.rowNumber,
+      valid: row.valid,
+      values: row.values,
+      errors: row.errors.map((error) => ({
+        fieldName: error.fieldName,
+        stage: error.stage,
+        rule: error.rule,
+        step: error.step,
+        code: error.code,
+        message: error.message,
+        sourceValue: error.sourceValue,
+      })),
+    })),
   }
 }

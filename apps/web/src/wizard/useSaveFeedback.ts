@@ -14,6 +14,11 @@ export interface SaveFailure {
   reupload: boolean
 }
 
+export interface ReportOverrides {
+  fieldErrors?: readonly { field: string | null; message: string }[]
+  reupload?: boolean
+}
+
 /**
  * Phản hồi sau một lần lưu cấu hình (PUT schema, mapping…), dùng chung cho các bước để cùng một luật (review FE-F05):
  * lỗi BE gắn theo field, khối lỗi ở đầu bước, và nơi đặt focus sau khi lưu lỗi.
@@ -40,6 +45,7 @@ export function useSaveFeedback() {
   /**
    * Báo lỗi lưu. `fields` là đúng bản đã gửi (để ghép `errors[].field` theo tên đã gửi). `focusField(key)` đưa focus
    * tới control đang mang lỗi của field đó và trả true nếu làm được; không thì focus `fallback` (tiêu đề bước).
+   * `overrides` cho bước cần khác luật chung: danh sách lỗi thay cho `errors[]` của BE, hoặc buộc hiện "Upload lại".
    */
   const report = useCallback(
     (
@@ -47,6 +53,7 @@ export function useSaveFeedback() {
       fields: readonly TargetField[],
       focusField: (key: FieldKey) => boolean,
       fallback: HTMLElement | null,
+      overrides: ReportOverrides = {},
     ) => {
       if (!(error instanceof ApiError)) {
         // Lỗi lập trình: user chỉ thấy câu chung, nên stack phải nằm ở console.
@@ -55,14 +62,14 @@ export function useSaveFeedback() {
         fallback?.focus()
         return
       }
-      const matched = matchServerErrors(fields, error.fieldErrors)
+      const matched = matchServerErrors(fields, overrides.fieldErrors ?? error.fieldErrors)
       // Gắn lỗi vào DOM trước rồi mới focus: screen reader đọc control lúc nó nhận focus (design D14).
       flushSync(() => {
         setServerErrors(matched.byKey)
         setFailure({
           text: describeApiError(error) ?? { headline: messages.unexpected },
           items: matched.general,
-          reupload: isSessionUnusable(error),
+          reupload: overrides.reupload ?? isSessionUnusable(error),
         })
       })
       // Nút "Tiếp" bị khoá trong lúc lưu nên đã mất focus: đưa tới field lỗi đầu tiên, hoặc tiêu đề bước.

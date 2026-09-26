@@ -1,8 +1,14 @@
 import { http, HttpResponse } from 'msw'
 import { describe, expect, test } from 'vitest'
-import { configUpdateFixture, csvPreviewFixture, problemFixture } from '../mocks/fixtures'
+import {
+  configUpdateFixture,
+  csvPreviewFixture,
+  pipelineResultFixture,
+  pipelineSummaryFixture,
+  problemFixture,
+} from '../mocks/fixtures'
 import { server } from '../mocks/node'
-import { getPreview, putMapping, putSchema, putTransformations, putValidations } from './endpoints'
+import { getPreview, getResult, postProcess, putMapping, putSchema, putTransformations, putValidations } from './endpoints'
 
 describe('getPreview', () => {
   test('gọi GET /api/import-sessions/{id}/preview?limit=50 và trả về SourcePreviewDto', async () => {
@@ -105,5 +111,60 @@ describe('putTransformations và putValidations', () => {
 
     await expect(call()).resolves.toBeUndefined()
     expect(received).toEqual({ path: `/api/import-sessions/s-1/${section}`, body })
+  })
+})
+
+describe('postProcess', () => {
+  test('gửi POST /api/import-sessions/{id}/process không có body; 200 trả summary', async () => {
+    let received: { method: string; path: string; body: string } | null = null
+    server.use(
+      http.post('/api/import-sessions/:id/process', async ({ request }) => {
+        received = { method: request.method, path: new URL(request.url).pathname, body: await request.text() }
+        return HttpResponse.json(pipelineSummaryFixture())
+      }),
+    )
+
+    await expect(postProcess('s-1')).resolves.toEqual(pipelineSummaryFixture())
+    expect(received).toEqual({ method: 'POST', path: '/api/import-sessions/s-1/process', body: '' })
+  })
+
+  test('body 200 thiếu số đếm thì báo INVALID_RESPONSE', async () => {
+    server.use(http.post('/api/import-sessions/:id/process', () => HttpResponse.json({ sessionId: 's-1' })))
+
+    await expect(postProcess('s-1')).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
+  })
+})
+
+describe('getResult', () => {
+  test('gửi view, page, size=50; bộ lọc chỉ gửi khi có', async () => {
+    const urls: URL[] = []
+    server.use(
+      http.get('/api/import-sessions/:id/result', ({ request }) => {
+        urls.push(new URL(request.url))
+        return HttpResponse.json(pipelineResultFixture())
+      }),
+    )
+
+    await getResult('s-1', { view: 'invalid', page: 2, field: null, code: null })
+    await getResult('s-1', { view: 'invalid', page: 0, field: 'Họ tên', code: 'VALIDATION_EMAIL' })
+
+    expect(urls[0].pathname).toBe('/api/import-sessions/s-1/result')
+    expect(Object.fromEntries(urls[0].searchParams)).toEqual({ view: 'invalid', page: '2', size: '50' })
+    expect(Object.fromEntries(urls[1].searchParams)).toEqual({
+      view: 'invalid',
+      page: '0',
+      size: '50',
+      field: 'Họ tên',
+      code: 'VALIDATION_EMAIL',
+    })
+  })
+
+  test('body 200 sai dạng (dòng thiếu errors) thì báo INVALID_RESPONSE', async () => {
+    const broken = { ...pipelineResultFixture(), rows: [{ rowNumber: 2, valid: true, values: {} }] }
+    server.use(http.get('/api/import-sessions/:id/result', () => HttpResponse.json(broken)))
+
+    await expect(getResult('s-1', { view: 'valid', page: 0, field: null, code: null })).rejects.toMatchObject({
+      code: 'INVALID_RESPONSE',
+    })
   })
 })

@@ -1,7 +1,15 @@
 import { describe, expect, test } from 'vitest'
-import { csvPreviewFixture, importSessionFixture, xlsxPreviewFixture } from '../mocks/fixtures'
+import {
+  csvPreviewFixture,
+  importSessionFixture,
+  pipelineResultFixture,
+  pipelineSummaryFixture,
+  xlsxPreviewFixture,
+} from '../mocks/fixtures'
 import {
   toMappingConfigDto,
+  toPipelineSummary,
+  toResultPage,
   toSessionInfo,
   toSourcePreview,
   toTargetSchemaDto,
@@ -176,6 +184,50 @@ describe('toValidationConfigDto', () => {
   test('không bật rule nào thì gửi danh sách rỗng', () => {
     expect(toValidationConfigDto([{ key: 'f1', name: 'email', type: 'email', required: true }], {})).toEqual({
       validations: [],
+    })
+  })
+})
+
+describe('kết quả xử lý', () => {
+  test('toPipelineSummary giữ số đếm và thời điểm chạy', () => {
+    expect(toPipelineSummary(pipelineSummaryFixture())).toEqual({
+      total: 120,
+      valid: 100,
+      invalid: 20,
+      errorCountsByCode: { TRANSFORMATION_FAILED: 5, VALIDATION_EMAIL: 15 },
+      errorCountsByField: { '1': 5, Email: 15 },
+      processedAt: '2026-09-26T09:00:00Z',
+    })
+  })
+
+  test('toResultPage giữ số trang, tổng, và từng dòng với lỗi đầy đủ (bỏ rowNumber lặp lại trong lỗi)', () => {
+    const page = toResultPage(pipelineResultFixture())
+
+    expect(page).toMatchObject({ number: 0, totalElements: 20, totalPages: 1 })
+    expect(page.rows[0]).toEqual({
+      rowNumber: 3,
+      valid: false,
+      values: { Email: 'binh@', 'Họ tên': 'Trần Bình', '1': null, '2024': 'A02' },
+      errors: [
+        {
+          fieldName: '1',
+          stage: 'TRANSFORMATION',
+          rule: 'dateFormat',
+          step: 1,
+          code: 'TRANSFORMATION_FAILED',
+          message: 'Value does not match pattern dd/MM/yyyy.',
+          sourceValue: '31/02/2024',
+        },
+        {
+          fieldName: 'Email',
+          stage: 'VALIDATION',
+          rule: 'email',
+          step: null,
+          code: 'VALIDATION_EMAIL',
+          message: 'Value is not a valid email address.',
+          sourceValue: 'binh@',
+        },
+      ],
     })
   })
 })

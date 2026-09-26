@@ -70,3 +70,54 @@ export type ValidationsDraft = Readonly<Record<FieldKey, readonly UserRule[]>>
 
 /** Kiểu `date` chỉ nhận ISO sau transformation (design D19). */
 export const ISO_DATE_FORMAT = 'yyyy-MM-dd'
+
+export type ResultView = 'valid' | 'invalid'
+
+/** Số dòng mỗi trang kết quả (spec result-review). */
+export const RESULT_PAGE_SIZE = 50
+
+export interface PipelineSummary {
+  total: number
+  valid: number
+  invalid: number
+  /** Số lỗi theo mã, key sắp theo tên mã. */
+  errorCountsByCode: Readonly<Record<string, number>>
+  /** Số lỗi theo field, key theo thứ tự schema lúc chạy. */
+  errorCountsByField: Readonly<Record<string, number>>
+  processedAt: string
+}
+
+export interface RowError {
+  fieldName: string
+  stage: 'TRANSFORMATION' | 'VALIDATION'
+  rule: string
+  /** `order` của transformation (đếm từ 0); null với validation. */
+  step: number | null
+  code: string
+  message: string
+  /** Giá trị trước transformation. */
+  sourceValue: string | null
+}
+
+export interface ResultRow {
+  rowNumber: number
+  valid: boolean
+  /** Theo tên field; hiển thị theo thứ tự schema, không theo thứ tự key. */
+  values: Readonly<Record<string, unknown>>
+  errors: readonly RowError[]
+}
+
+/** Trang kết quả đang xem: tab, số trang (từ 0) và bộ lọc (chỉ có nghĩa ở tab Lỗi). */
+export interface ResultQuery {
+  view: ResultView
+  page: number
+  field: string | null
+  code: string | null
+}
+
+export interface ResultPage {
+  number: number
+  totalElements: number
+  totalPages: number
+  rows: readonly ResultRow[]
+}

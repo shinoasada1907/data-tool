@@ -1,4 +1,5 @@
 import { http, HttpResponse } from 'msw'
+import { onTestFinished } from 'vitest'
 import { problemFixture } from '../mocks/fixtures'
 import { server } from '../mocks/node'
 
@@ -6,6 +7,10 @@ export const UPLOAD_URL = '/api/import-sessions'
 export const PREVIEW_URL = '/api/import-sessions/:id/preview'
 export const SCHEMA_URL = '/api/import-sessions/:id/schema'
 export const MAPPING_URL = '/api/import-sessions/:id/mapping'
+export const TRANSFORMATIONS_URL = '/api/import-sessions/:id/transformations'
+export const VALIDATIONS_URL = '/api/import-sessions/:id/validations'
+export const PROCESS_URL = '/api/import-sessions/:id/process'
+export const RESULT_URL = '/api/import-sessions/:id/result'
 
 type Responder = () => Response | Promise<Response>
 
@@ -62,6 +67,53 @@ export function mockSaveSchema(...responders: Responder[]) {
 /** PUT /api/import-sessions/{id}/mapping. */
 export function mockSaveMapping(...responders: Responder[]) {
   return mockPutJson(MAPPING_URL, responders)
+}
+
+/** PUT /api/import-sessions/{id}/transformations. */
+export function mockSaveTransformations(...responders: Responder[]) {
+  return mockPutJson(TRANSFORMATIONS_URL, responders)
+}
+
+/** PUT /api/import-sessions/{id}/validations. */
+export function mockSaveValidations(...responders: Responder[]) {
+  return mockPutJson(VALIDATIONS_URL, responders)
+}
+
+/** POST /api/import-sessions/{id}/process. */
+export function mockProcess(...responders: Responder[]) {
+  return mockSequence(http.post, PROCESS_URL, responders)
+}
+
+type ResultResponder = (query: Record<string, string>) => Response | Promise<Response>
+
+/** GET /api/import-sessions/{id}/result; `queries` ghi query của từng lần gọi, responder nhận query đó. */
+export function mockResult(...responders: ResultResponder[]) {
+  const queries: Record<string, string>[] = []
+  server.use(
+    http.get(RESULT_URL, ({ request }) => {
+      const query = Object.fromEntries(new URL(request.url).searchParams)
+      queries.push(query)
+      return responders[Math.min(queries.length - 1, responders.length - 1)](query)
+    }),
+  )
+  return { calls: () => queries.length, queries }
+}
+
+/**
+ * Ghi mọi request theo đúng thứ tự gửi, dạng "PUT transformations" hay "GET result?view=invalid&page=0&size=50"
+ * (đoạn cuối của path cộng query), để test trình tự giữa nhiều endpoint.
+ */
+export function recordRequests() {
+  const log: string[] = []
+  const listener = ({ request }: { request: Request }) => {
+    const url = new URL(request.url)
+    log.push(`${request.method} ${url.pathname.split('/').pop()}${decodeURIComponent(url.search)}`)
+  }
+  server.events.on('request:start', listener)
+  onTestFinished(() => {
+    server.events.removeListener('request:start', listener)
+  })
+  return log
 }
 
 /** Promise do test tự mở, để giữ request ở trạng thái đang chạy. */

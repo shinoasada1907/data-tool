@@ -1,7 +1,15 @@
 import { describe, expect, test } from 'vitest'
-import type { SessionInfo, SourcePreview, TargetField } from '../domain/types'
+import type { PipelineSummary, ResultPage, ResultQuery, SessionInfo, SourcePreview, TargetField } from '../domain/types'
 import { wizardReducer } from './reducer'
-import { initialWizardState, isBusy, type SchemaEdit, type TransformationEdit, type WizardState } from './state'
+import {
+  initialWizardState,
+  isBusy,
+  type ResultState,
+  type SchemaEdit,
+  type TransformationEdit,
+  type WizardAction,
+  type WizardState,
+} from './state'
 
 const session: SessionInfo = { id: 's-1', fileName: 'khach-hang.csv', fileType: 'CSV', sizeBytes: 1024 }
 const atPreview: WizardState = { ...initialWizardState, step: 'preview', session }
@@ -505,5 +513,106 @@ describe('transformations và validations', () => {
       expect(next.validations).toEqual({ draft: {}, saved: false })
       expect(next.nextTransformationSeq).toBe(1)
     }
+  })
+})
+
+describe('kết quả xử lý', () => {
+  const summary: PipelineSummary = {
+    total: 3,
+    valid: 2,
+    invalid: 1,
+    errorCountsByCode: { VALIDATION_EMAIL: 1 },
+    errorCountsByField: { email: 1 },
+    processedAt: '2026-09-26T09:00:00Z',
+  }
+  const query: ResultQuery = { view: 'invalid', page: 0, field: null, code: null }
+  const page: ResultPage = {
+    number: 0,
+    totalElements: 1,
+    totalPages: 1,
+    rows: [{ rowNumber: 2, valid: false, values: { email: 'x' }, errors: [] }],
+  }
+  const columns = ['email']
+  // Đã lưu schema, mapping, transformations và validations; đang ở bước Biến đổi & kiểm tra.
+  const ready: WizardState = {
+    ...atPreview,
+    step: 'rules',
+    preview,
+    schema: { draft: [{ key: 'f1', name: 'email', type: 'string', required: true }], saved: true },
+    mapping: { draft: { f1: { kind: 'column', column: 'name' } }, saved: true },
+    transformations: { draft: {}, saved: true },
+    validations: { draft: {}, saved: true },
+    nextFieldSeq: 2,
+  }
+  const completed = wizardReducer(ready, { type: 'processCompleted', summary, columns, query, page })
+  const result = completed.result as ResultState
+
+  test('processCompleted lưu kết quả (chưa cũ) và sang bước Kết quả', () => {
+    expect(completed.step).toBe('result')
+    expect(completed.result).toEqual({ summary, columns, query, page, stale: false })
+  })
+
+  test('resultPageLoaded thay trang đang xem và truy vấn, giữ tóm tắt và cột', () => {
+    const nextQuery: ResultQuery = { view: 'valid', page: 1, field: null, code: null }
+    const nextPage: ResultPage = { ...page, number: 1, totalPages: 2 }
+
+    const next = wizardReducer(completed, { type: 'resultPageLoaded', query: nextQuery, page: nextPage })
+
+    expect(next.result).toEqual({ ...result, query: nextQuery, page: nextPage })
+  })
+
+  test('resultUnavailable đánh dấu kết quả là cũ, giữ tóm tắt và trang đang xem (design D18)', () => {
+    expect(wizardReducer(completed, { type: 'resultUnavailable' }).result).toEqual({ ...result, stale: true })
+  })
+
+  test('chưa có kết quả thì resultPageLoaded và resultUnavailable không làm gì', () => {
+    expect(wizardReducer(ready, { type: 'resultPageLoaded', query, page })).toBe(ready)
+    expect(wizardReducer(ready, { type: 'resultUnavailable' })).toBe(ready)
+  })
+
+  const edits: [string, WizardAction][] = [
+    ['sửa schema', { type: 'schemaEdited', edit: { kind: 'update', key: 'f1', patch: { required: false } } }],
+    ['sửa mapping', { type: 'mappingEdited', key: 'f1', mapping: { kind: 'constant', value: 'a@b.c' } }],
+    ['sửa transformation', { type: 'transformationsEdited', key: 'f1', edit: { kind: 'add', type: 'trim' } }],
+    ['bật validation', { type: 'validationToggled', key: 'f1', rule: 'unique', enabled: true }],
+  ]
+
+  test.each(edits)('%s thì kết quả bị đánh dấu cũ (spec import-wizard)', (_label, action) => {
+    const next = wizardReducer(completed, action)
+
+    expect(next.result).toEqual({ ...result, stale: true })
+  })
+
+  test('thao tác không đổi gì (bật rule đã bật) thì kết quả không bị đánh dấu cũ', () => {
+    const withUnique = wizardReducer(ready, { type: 'validationToggled', key: 'f1', rule: 'unique', enabled: true })
+    const done = wizardReducer(withUnique, { type: 'processCompleted', summary, columns, query, page })
+
+    const next = wizardReducer(done, { type: 'validationToggled', key: 'f1', rule: 'unique', enabled: true })
+
+    expect(next).toBe(done)
+  })
+
+  test('lưu một phần cấu hình, điều hướng, request bận không làm kết quả cũ', () => {
+    let next = wizardReducer(completed, { type: 'requestStarted' })
+    next = wizardReducer(next, { type: 'requestSettled' })
+    next = wizardReducer(next, { type: 'navigate', step: 'rules' })
+    next = wizardReducer(next, { type: 'sectionSaved', section: 'validations', draft: next.validations.draft })
+
+    expect(next.result?.stale).toBe(false)
+  })
+
+  test('chạy lại thành công thay kết quả cũ và bỏ đánh dấu cũ', () => {
+    const stale = wizardReducer(completed, { type: 'resultUnavailable' })
+    const newSummary = { ...summary, invalid: 0, valid: 3 }
+    const validQuery: ResultQuery = { ...query, view: 'valid' }
+
+    const next = wizardReducer(stale, { type: 'processCompleted', summary: newSummary, columns, query: validQuery, page })
+
+    expect(next.result).toEqual({ summary: newSummary, columns, query: validQuery, page, stale: false })
+  })
+
+  test('sessionCreated và reset xoá kết quả', () => {
+    expect(wizardReducer(completed, { type: 'sessionCreated', session: { ...session, id: 's-2' } }).result).toBeNull()
+    expect(wizardReducer(completed, { type: 'reset' }).result).toBeNull()
   })
 })

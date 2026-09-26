@@ -1,4 +1,11 @@
-import type { ApiProblemDto, ConfigUpdateResponseDto, ImportSessionDto, SourcePreviewDto } from '../api/dto'
+import type {
+  ApiProblemDto,
+  ConfigUpdateResponseDto,
+  ImportSessionDto,
+  PipelineResultDto,
+  PipelineSummaryDto,
+  SourcePreviewDto,
+} from '../api/dto'
 
 // Fixture theo đúng shape của contract V0.1 (đủ mọi field, không chỉ field test đọc).
 
@@ -73,6 +80,81 @@ export function xlsxPreviewFixture(overrides: Partial<SourcePreviewDto> = {}): S
 /** Body 200 của mọi PUT cấu hình; FE bỏ qua nội dung (design D6) nhưng fixture vẫn đúng shape. */
 export function configUpdateFixture(overrides: Partial<ConfigUpdateResponseDto> = {}): ConfigUpdateResponseDto {
   return { session: importSessionFixture(), warnings: [], ...overrides }
+}
+
+/** Summary sau khi chạy trên preview mặc định (4 field sinh từ csvPreviewFixture). */
+export function pipelineSummaryFixture(overrides: Partial<PipelineSummaryDto> = {}): PipelineSummaryDto {
+  return {
+    sessionId: SESSION_ID,
+    status: 'PROCESSED',
+    total: 120,
+    valid: 100,
+    invalid: 20,
+    errorCountsByCode: { TRANSFORMATION_FAILED: 5, VALIDATION_EMAIL: 15 },
+    errorCountsByField: { '1': 5, Email: 15 },
+    processedAt: '2026-09-26T09:00:00Z',
+    ...overrides,
+  }
+}
+
+/**
+ * Một trang kết quả. Key của `values` cố ý lệch thứ tự schema (JS đưa key dạng số "1", "2024" lên đầu), để bắt lỗi
+ * hiển thị cột theo thứ tự key.
+ */
+export function pipelineResultFixture(overrides: Partial<PipelineResultDto> = {}): PipelineResultDto {
+  return {
+    summary: pipelineSummaryFixture(),
+    view: 'invalid',
+    page: { number: 0, size: 50, totalElements: 20, totalPages: 1 },
+    rows: [
+      {
+        rowNumber: 3,
+        valid: false,
+        values: { Email: 'binh@', 'Họ tên': 'Trần Bình', '1': null, '2024': 'A02' },
+        errors: [
+          {
+            rowNumber: 3,
+            fieldName: '1',
+            stage: 'TRANSFORMATION',
+            rule: 'dateFormat',
+            step: 1,
+            code: 'TRANSFORMATION_FAILED',
+            message: 'Value does not match pattern dd/MM/yyyy.',
+            sourceValue: '31/02/2024',
+          },
+          {
+            rowNumber: 3,
+            fieldName: 'Email',
+            stage: 'VALIDATION',
+            rule: 'email',
+            step: null,
+            code: 'VALIDATION_EMAIL',
+            message: 'Value is not a valid email address.',
+            sourceValue: 'binh@',
+          },
+        ],
+      },
+    ],
+    ...overrides,
+  }
+}
+
+/** Trang dòng hợp lệ: giá trị đã ép kiểu (số, boolean, null). */
+export function validResultFixture(overrides: Partial<PipelineResultDto> = {}): PipelineResultDto {
+  return pipelineResultFixture({
+    view: 'valid',
+    page: { number: 0, size: 50, totalElements: 100, totalPages: 2 },
+    rows: [
+      {
+        rowNumber: 2,
+        valid: true,
+        values: { Email: 'an@example.com', 'Họ tên': 'Nguyễn An', '1': 10, '2024': 'A01' },
+        errors: [],
+      },
+      { rowNumber: 5, valid: true, values: { Email: null, 'Họ tên': 'Lê Chi', '1': 7, '2024': 'A03' }, errors: [] },
+    ],
+    ...overrides,
+  })
 }
 
 const STATUS_TITLES: Record<number, string> = {

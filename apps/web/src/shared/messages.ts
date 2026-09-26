@@ -64,7 +64,6 @@ export const messages = {
 
   stepperLabel: 'Các bước import',
   stepDone: '(đã xong)',
-  stepInProgress: 'Bước này đang được phát triển.',
   errorCodeLabel: 'Mã lỗi',
 
   network: 'Không kết nối được máy chủ',
@@ -180,12 +179,53 @@ export const messages = {
       unique: 'unique (không cho trùng giá trị)',
     },
     run: 'Chạy xử lý',
-    runPending: 'Chức năng chạy xử lý đang được hoàn thiện',
     surroundingSpaces: 'Định dạng có khoảng trắng ở đầu hoặc cuối: mọi dòng sẽ không khớp.',
     missingValue: 'Cần giá trị mặc định',
     missingInputFormat: 'Cần định dạng đầu vào',
     missingOutputFormat: 'Cần định dạng đầu ra',
     blockedMissingParams: (names: string[]) => `Còn bước biến đổi thiếu tham số: ${names.join(', ')}`,
+  },
+
+  run: {
+    running: 'Đang xử lý…',
+  },
+
+  result: {
+    intro: 'Kết quả của lần chạy gần nhất trên toàn bộ file.',
+    summaryLabel: 'Tóm tắt kết quả',
+    total: 'Tổng',
+    valid: 'Hợp lệ',
+    invalid: 'Lỗi',
+    stale: 'Cấu hình đã thay đổi — kết quả này là của lần chạy trước',
+    rerun: 'Chạy lại',
+    tabsLabel: 'Dòng kết quả',
+    tab: (label: string, count: number) => `${label} (${formatNumber(count)})`,
+    tableLabel: { valid: 'Dòng hợp lệ', invalid: 'Dòng lỗi' },
+    rowNumber: 'Dòng',
+    flagged: 'có lỗi',
+    rowErrors: (rowNumber: number) => `Lỗi của dòng ${rowNumber}`,
+    transformationRule: (rule: string, step: number | null) =>
+      step === null ? `biến đổi ${rule}` : `biến đổi ${rule} ở bước ${step}`,
+    validationRule: (rule: string) => `rule ${rule}`,
+    sourceValue: 'Giá trị nguồn',
+    filtersLabel: 'Lọc dòng lỗi',
+    fieldFilter: 'Lọc theo field',
+    allFields: 'Tất cả field',
+    codeFilter: 'Lọc theo mã lỗi',
+    allCodes: 'Tất cả mã lỗi',
+    filterOption: (label: string, count: number) => `${label} (${formatNumber(count)})`,
+    clearFilters: 'Xoá lọc',
+    empty: { valid: 'Không có dòng hợp lệ', invalid: 'Không có dòng lỗi' },
+    emptyFiltered: 'Không có dòng lỗi khớp bộ lọc',
+    loading: 'Đang tải kết quả…',
+    pageStatus: (label: string, page: number, total: number) => `${label}: trang ${page} / ${total}`,
+  },
+
+  pagination: {
+    label: 'Phân trang',
+    previous: 'Trước',
+    next: 'Sau',
+    page: (page: number, total: number) => `Trang ${page} / ${total}`,
   },
 
   schema: {

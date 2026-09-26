@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import type { SessionInfo, SourcePreview } from '../domain/types'
+import type { PipelineSummary, SessionInfo, SourcePreview } from '../domain/types'
 import { canEnter, isStepDone } from './guards'
 import { initialWizardState, type WizardState } from './state'
 
@@ -15,6 +15,23 @@ const withSavedMapping: WizardState = {
   ...withSavedSchema,
   mapping: { draft: { f1: { kind: 'column', column: 'Email' } }, saved: true },
 }
+
+const summary: PipelineSummary = {
+  total: 1,
+  valid: 1,
+  invalid: 0,
+  errorCountsByCode: {},
+  errorCountsByField: {},
+  processedAt: '2026-09-26T09:00:00Z',
+}
+const result: NonNullable<WizardState['result']> = {
+  summary,
+  columns: ['email'],
+  query: { view: 'valid', page: 0, field: null, code: null },
+  page: { number: 0, totalElements: 1, totalPages: 1, rows: [] },
+  stale: false,
+}
+const withResult: WizardState = { ...withSavedMapping, result }
 
 describe('isStepDone', () => {
   test('bước Upload xong khi đã có session', () => {
@@ -37,8 +54,10 @@ describe('isStepDone', () => {
     expect(isStepDone('mapping', withSavedMapping)).toBe(true)
   })
 
-  test('lát F05 chưa có bước nào sau Mapping được coi là xong', () => {
+  test('bước Biến đổi & kiểm tra xong khi đã có kết quả và kết quả chưa cũ', () => {
     expect(isStepDone('rules', withSavedMapping)).toBe(false)
+    expect(isStepDone('rules', withResult)).toBe(true)
+    expect(isStepDone('rules', { ...withResult, result: { ...result, stale: true } })).toBe(false)
   })
 })
 
@@ -88,8 +107,19 @@ describe('canEnter', () => {
     expect(canEnter('rules', schemaEdited).allowed).toBe(false)
   })
 
-  // Lát F05 chưa có kết quả trong state nên bước Kết quả luôn khoá.
-  test('bước Kết quả vẫn khoá khi mapping đã lưu', () => {
+  test('chưa chạy xử lý thì khoá bước Kết quả, kèm lý do', () => {
     expect(canEnter('result', withSavedMapping)).toEqual({ allowed: false, reason: 'Cần chạy xử lý trước' })
+  })
+
+  test('đã có kết quả thì vào được bước Kết quả, kể cả khi kết quả đã cũ', () => {
+    expect(canEnter('result', withResult)).toEqual({ allowed: true })
+    expect(canEnter('result', { ...withResult, result: { ...result, stale: true } })).toEqual({ allowed: true })
+  })
+
+  // Spec import-wizard: sửa schema thì bước Result bị khoá cho đến khi mapping được lưu lại.
+  test('có kết quả nhưng mapping chưa lưu thì khoá bước Kết quả với lý do của mapping', () => {
+    const mappingEdited: WizardState = { ...withResult, mapping: { ...withResult.mapping, saved: false } }
+
+    expect(canEnter('result', mappingEdited)).toEqual({ allowed: false, reason: 'Cần lưu mapping trước' })
   })
 })

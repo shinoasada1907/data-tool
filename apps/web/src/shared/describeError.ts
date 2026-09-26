@@ -18,14 +18,19 @@ export function describeApiError(error: ApiError): ErrorText | null {
   if (error.kind === 'timeout') return { headline: messages.timeout }
 
   const code = error.code ?? undefined
-  // hasOwn: code như "constructor" không được lấy nhầm thuộc tính kế thừa của object.
-  const known = code && Object.hasOwn(errorCodeMessages, code) ? errorCodeMessages[code] : undefined
+  const known = code ? codeMessage(code) : undefined
   if (known) {
     return error.detail ? { headline: known, detail: error.detail, code } : { headline: known, code }
   }
 
   const headline = error.detail ?? error.title ?? statusMessage(error.status)
   return code ? { headline, code } : { headline }
+}
+
+/** Thông điệp FE của một `code` (lỗi API, lỗi theo dòng, readiness issue); mã lạ thì undefined. */
+export function codeMessage(code: string): string | undefined {
+  // hasOwn: code như "constructor" không được lấy nhầm thuộc tính kế thừa của object.
+  return Object.hasOwn(errorCodeMessages, code) ? errorCodeMessages[code] : undefined
 }
 
 function statusMessage(status: number | null): string {

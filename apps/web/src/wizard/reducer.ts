@@ -36,18 +36,28 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
       return state.schema.draft.length === 0 ? generateSchema(loaded) : loaded
     }
     case 'schemaEdited':
-      return editSchema(state, action.edit)
+      return withStaleResult(state, editSchema(state, action.edit))
     case 'mappingEdited': {
       const { [action.key]: _previous, ...others } = state.mapping.draft
       const draft: MappingDraft = action.mapping ? { ...others, [action.key]: action.mapping } : others
-      return { ...state, mapping: { draft, saved: false } }
+      return withStaleResult(state, { ...state, mapping: { draft, saved: false } })
     }
     case 'transformationsEdited':
-      return editTransformations(state, action.key, action.edit)
+      return withStaleResult(state, editTransformations(state, action.key, action.edit))
     case 'validationToggled':
-      return toggleValidation(state, action.key, action.rule, action.enabled)
+      return withStaleResult(state, toggleValidation(state, action.key, action.rule, action.enabled))
     case 'sectionSaved':
       return markSaved(state, action)
+    case 'processCompleted': {
+      const { summary, columns, query, page } = action
+      return { ...state, step: 'result', result: { summary, columns, query, page, stale: false } }
+    }
+    case 'resultPageLoaded':
+      if (!state.result) return state
+      return { ...state, result: { ...state.result, query: action.query, page: action.page } }
+    case 'resultUnavailable':
+      if (!state.result || state.result.stale) return state
+      return { ...state, result: { ...state.result, stale: true } }
     case 'navigate':
       if (isBusy(state) || !canEnter(action.step, state).allowed) return state
       return { ...state, step: action.step }
@@ -58,6 +68,15 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
     case 'reset':
       return { ...initialWizardState, pendingRequests: state.pendingRequests }
   }
+}
+
+/**
+ * Mọi thay đổi cấu hình làm kết quả hiện có thành cũ (spec import-wizard): FE đánh dấu ngay lúc sửa, không muộn hơn
+ * lúc BE xoá kết quả (design D18). Thao tác không đổi gì (reducer trả lại đúng state cũ) thì không tính là sửa.
+ */
+function withStaleResult(before: WizardState, after: WizardState): WizardState {
+  if (after === before || !after.result || after.result.stale) return after
+  return { ...after, result: { ...after.result, stale: true } }
 }
 
 /**

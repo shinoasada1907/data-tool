@@ -50,6 +50,19 @@
   background: var(--color-surface-subtle);
 }
 
+/* Ô có lỗi: nền đỏ nhạt, viền trái đỏ đậm. */
+.table tbody td[data-flagged] {
+  background: var(--color-danger-bg);
+  box-shadow: inset 4px 0 0 var(--color-danger);
+}
+
+/* Dòng chi tiết ngay dưới dòng dữ liệu: không kẻ lại viền trên, nội dung dính bên trái khi cuộn ngang. */
+.table tbody tr[data-detail] > td {
+  padding-top: 0;
+  border-top: 0;
+  background: var(--color-surface);
+}
+
 .table [data-row-number] {
   position: sticky;
   left: 0;

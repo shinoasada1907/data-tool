@@ -3,6 +3,9 @@ import type {
   FieldMapping,
   FieldType,
   MappingDraft,
+  PipelineSummary,
+  ResultPage,
+  ResultQuery,
   SessionInfo,
   SourcePreview,
   TargetField,
@@ -22,7 +25,18 @@ export interface Section<T> {
   saved: boolean
 }
 
-// Lát FE-F06/F07. FE-F08/F09 thêm result (design D2).
+/** Kết quả của lần chạy gần nhất (design D2, D18). */
+export interface ResultState {
+  summary: PipelineSummary
+  /** Tên field (đã chuẩn hoá) theo thứ tự schema lúc chạy: cột của bảng kết quả, không lấy từ key của `values`. */
+  columns: readonly string[]
+  /** Tab, trang và bộ lọc của trang đang xem. */
+  query: ResultQuery
+  page: ResultPage
+  /** Cấu hình đã sửa sau lần chạy này, hoặc BE báo kết quả không còn: chỉ còn xem trang đang có và chạy lại. */
+  stale: boolean
+}
+
 export interface WizardState {
   step: StepId
   /** Số request làm đổi state đang chạy. Lớn hơn 0 thì khoá điều hướng (xem isBusy). */
@@ -40,6 +54,7 @@ export interface WizardState {
   transformations: Section<TransformationsDraft>
   /** Chỉ rule do user bật (`email`, `unique`); `required` và `type` do BE suy ra (design D7). */
   validations: Section<ValidationsDraft>
+  result: ResultState | null
 }
 
 export const initialWizardState: WizardState = {
@@ -53,6 +68,7 @@ export const initialWizardState: WizardState = {
   mapping: { draft: {}, saved: false },
   transformations: { draft: {}, saved: false },
   validations: { draft: {}, saved: false },
+  result: null,
 }
 
 export type SchemaEdit =
@@ -86,6 +102,17 @@ export type WizardAction =
   | { type: 'sectionSaved'; section: 'mapping'; draft: MappingDraft }
   | { type: 'sectionSaved'; section: 'transformations'; draft: TransformationsDraft }
   | { type: 'sectionSaved'; section: 'validations'; draft: ValidationsDraft }
+  /** Trình tự "Chạy xử lý" xong: kết quả mới thay kết quả cũ và wizard sang bước Kết quả. */
+  | {
+      type: 'processCompleted'
+      summary: PipelineSummary
+      columns: readonly string[]
+      query: ResultQuery
+      page: ResultPage
+    }
+  | { type: 'resultPageLoaded'; query: ResultQuery; page: ResultPage }
+  /** `GET result` trả `409 RESULT_NOT_AVAILABLE` (design D18). */
+  | { type: 'resultUnavailable' }
   | { type: 'navigate'; step: StepId }
   | { type: 'requestStarted' }
   | { type: 'requestSettled' }
