@@ -125,13 +125,19 @@
   - FE-F04 đã xong `configUpdateFixture` (body 200 của PUT cấu hình) và helper `mockSaveSchema` (ghi lại body JSON của từng lần PUT).
   - FE-F05 thêm `mockSaveMapping`; hai helper dùng chung `mockPutJson`.
     - `mocks/handlers.ts` có handler mặc định cho GET preview. **LÝ DO:** upload xong là bước Xem trước gọi preview ngay; không có handler thì mọi test upload cũ phụ thuộc may rủi thời gian (request bị huỷ lúc unmount trước khi MSW kịp báo lỗi).
-- [ ] 3.9 Chế độ `dev:mock`:
+- [x] 3.9 Chế độ `dev:mock`:
   - Tạo `mocks/browser.ts`; chạy `pnpm dlx msw init public/ --save` để sinh `public/mockServiceWorker.js`.
   - `main.tsx` chỉ import động và khởi động worker khi `VITE_USE_MOCK=true`.
   - Tạo `.env.mock`; script `dev:mock` = `vite --mode mock`.
 
   Kiểm: `pnpm dev:mock` mở được app không cần BE; bản build thường không tải chunk mock.
   - Chưa làm ở FE-F01. **LÝ DO:** lúc này chỉ bước Upload chạy được, và BE thật đã có upload, nên chế độ mock chưa đem lại gì. Sẽ làm khi có từ hai bước chạy được trở lên.
+  - Làm ở FE-F11:
+    - BE giả có trạng thái theo session ở `mocks/devHandlers.ts` (`createDevHandlers()`), tách khỏi `mocks/handlers.ts` của test: test vẫn tự khai báo từng response và vẫn báo lỗi khi có request lạ.
+    - Dữ liệu là mẫu cố định trong `fixtures.ts`, không chạy logic dữ liệu (design D8). Summary khớp các dòng mẫu. Sửa cấu hình sau khi chạy thì result và export trả 409 như BE thật. Export đặt tên theo tên file upload, JSON giữ thứ tự schema.
+    - ~~Script `dev:mock` = `vite --mode mock`, `main.tsx` khởi động worker khi `VITE_USE_MOCK=true` (qua `config.ts`).~~ **Đổi — LÝ DO:** `main.tsx` đọc thẳng `import.meta.env.VITE_USE_MOCK` thay vì qua `config.ts`, để Vite thay bằng hằng số lúc build và bỏ hẳn nhánh mock: bản build thường chỉ có một chunk JS, không có code MSW (đã kiểm `dist/assets`).
+    - Test `mocks/devHandlers.test.tsx` đi hết luồng với BE giả (upload → … → tải JSON; sửa rule rồi chạy lại), để chế độ này không hỏng mà không ai biết.
+    - Kiểm bằng Chrome headless với `pnpm dev:mock`, không có BE nào chạy: đi hết 6 bước, ba file tải về đúng tên và nội dung, console sạch.
 
 ## 4. Khung wizard (phần khung của FE-F11, làm trước để các bước cắm vào)
 

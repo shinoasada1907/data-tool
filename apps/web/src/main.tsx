@@ -11,8 +11,20 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+/**
+ * Chế độ `pnpm dev:mock` (design D15): bật MSW worker làm BE giả trước khi render. Đọc thẳng `import.meta.env` (không qua
+ * `config.ts`) để Vite thay bằng hằng số lúc build: bản build thường bỏ hẳn nhánh này và không có chunk mock nào.
+ */
+async function startMockBackend() {
+  if (import.meta.env.VITE_USE_MOCK !== 'true') return
+  const { worker } = await import('./mocks/browser')
+  await worker.start({ onUnhandledRequest: 'bypass' })
+}
+
+void startMockBackend().then(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  )
+})
