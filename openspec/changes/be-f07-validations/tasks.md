@@ -127,12 +127,12 @@
   // UniqueRule.type() = "unique" → Invalid(VALIDATION_UNIQUE, "Duplicate value; first seen in row <n>.")
   ```
 
-- [ ] 3.1 Viết `EmailRuleTest`:
+- [x] 3.1 Viết `EmailRuleTest`:
   | Input | Mong đợi |
   |---|---|
   | `"an@example.com"` | `Valid` |
   | `"an.example.com"` | `Invalid(VALIDATION_EMAIL, "Value is not a valid email address.")` |
-- [ ] 3.2 Viết `UniqueTrackerTest`. Mỗi case là một chuỗi lệnh chạy trên một tracker mới:
+- [x] 3.2 Viết `UniqueTrackerTest`. Mỗi case là một chuỗi lệnh chạy trên một tracker mới:
   | Chuỗi lệnh | Mong đợi |
   |---|---|
   | `stage("email","a@x.com")`, `commitRow(2)`, `firstRowOf("email","a@x.com")` | `Optional.of(2)` |
@@ -141,18 +141,18 @@
   | `stage("email","x")`, `commitRow(2)`, `firstRowOf("code","x")` | `Optional.empty()` |
   | `stage("email","A@x.com")`, `commitRow(2)`, `firstRowOf("email","a@x.com")` | `Optional.empty()` |
   | `commitRow(2)` rồi `stage("email","b")`, `commitRow(3)`, rồi `stage("email","b")`, `commitRow(4)` | `firstRowOf("email","b")` = `Optional.of(3)` (bản đầu tiên thắng) |
-- [ ] 3.3 Viết `UniqueRuleTest`, dùng `UniqueRule` với tracker thật:
+- [x] 3.3 Viết `UniqueRuleTest`, dùng `UniqueRule` với tracker thật:
   | Tình huống | Mong đợi |
   |---|---|
   | Row 2 `"a@x.com"` → `Valid`, `commitRow(2)`; row 3 `"a@x.com"` | `Invalid(VALIDATION_UNIQUE, "Duplicate value; first seen in row 2.")` |
   | Row 2 `"a@x.com"` → `Valid`, `discardRow()`; row 3 `"a@x.com"` | `Valid` |
   | Row 2 `new BigDecimal("1.0")` → `commitRow(2)`; row 3 `new BigDecimal("1.00")`; row 4 `new BigDecimal("1")` | row 3 và row 4 đều `Invalid(VALIDATION_UNIQUE, "Duplicate value; first seen in row 2.")` |
-- [ ] 3.4 Chạy `./mvnw -q test -Dtest=EmailRuleTest,UniqueTrackerTest,UniqueRuleTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 3.5 Tạo các class. `UniqueTracker` dùng:
+- [x] 3.4 Chạy `./mvnw -q test -Dtest=EmailRuleTest,UniqueTrackerTest,UniqueRuleTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 3.5 Tạo các class. `UniqueTracker` dùng:
   - `Map<String, Map<Object, Integer>>` cho các giá trị đã ghi nhận;
   - `Map<String, Set<Object>>` cho các giá trị đang stage.
-- [ ] 3.6 Chạy lại lệnh ở 3.4. Mong đợi: PASS.
-- [ ] 3.7 Commit: `feat(domain): email rule and two-phase unique tracking`
+- [x] 3.6 Chạy lại lệnh ở 3.4. Mong đợi: PASS.
+- [x] 3.7 Commit: `feat(domain): email rule and two-phase unique tracking`
 
 ## 4. Registry và FieldValidator
 
