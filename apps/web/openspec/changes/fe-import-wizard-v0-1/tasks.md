@@ -540,7 +540,7 @@
   - Thiếu một test và đã bổ sung: GET result gặp `SESSION_NOT_FOUND` thì hiện "Upload lại", không có "Thử lại". Sau khi gộp FE-F10, test này theo hành vi mới: "Upload lại" nằm trong cảnh báo kết quả cũ và nhận focus.
 - [x] 13.3 Viết lại `apps/web/README.md`: yêu cầu cài đặt, biến môi trường, `pnpm dev` (chạy với BE thật; Postgres khởi động bằng `docker compose up -d` với `docker-compose.yml` ở gốc repo), `pnpm dev:mock`, `pnpm test`, demo flow từng bước.
   - Thay README mẫu của Vite. Demo từng bước dùng `customers-sample.csv` (fixture pipeline của BE), cấu hình và kết quả mong đợi như lần kiểm với BE thật ở 13.4.
-- [ ] 13.4 Kiểm tay với BE thật, khi các feature BE tương ứng đã có. Ghi kết quả từng mục ngay dưới task này:
+- [x] 13.4 Kiểm tay với BE thật, khi các feature BE tương ứng đã có. Ghi kết quả từng mục ngay dưới task này:
   - CSV happy path;
   - XLSX happy path;
   - field required để trống và giá trị sai kiểu ra lỗi đúng (Q1);
@@ -589,4 +589,16 @@
     - Vùng status báo "Đã tải <tên file>" sau mỗi lượt.
     - Sửa rule rồi quay lại bước Kết quả: cả ba nút khoá kèm lý do "Chạy lại để tải kết quả khớp cấu hình hiện tại".
     - Console không có lỗi hay cảnh báo.
+  - **Các mục còn lại (2026-09-27)**, BE `dev` `e3c7020` (có BE-F01 đến BE-F10) chạy ở 8081 từ worktree FE, Vite 5175, Chrome headless:
+    - **Upload file hỏng:** CSV có byte không phải UTF-8 ở dòng 3. Hiện "Không đọc được file; CSV phải mã hoá UTF-8 và phân cách bằng dấu phẩy", dòng phụ là detail của BE "File is not valid UTF-8 (near row 3).", kèm mã `FILE_PARSE_ERROR`.
+    - **File vượt 20 MB (`413`):** Vite chạy với `VITE_MAX_UPLOAD_MB=30` để file 21 MB lọt qua bước kiểm phía client.
+      - Qua proxy dev của Vite, Chrome nhận `ERR_CONNECTION_RESET` thay cho 413, và FE hiện "Không kết nối được máy chủ" kèm "Upload lại".
+      - Đã probe để tìm nguyên nhân: Chrome gọi thẳng BE (trang cùng origin 8081) nhận đúng `413 FILE_TOO_LARGE` cả 3 lần; curl nhận 413 cả khi gọi thẳng lẫn qua proxy. Vậy lỗi nằm ở cách proxy của Vite chuyển câu trả lời sớm của BE cho trình duyệt đang upload, không phải ở BE hay FE.
+      - Không sửa: bản chạy thật không đi qua proxy này; trong dev, FE chặn trước file vượt giới hạn (khớp `IMPORTER_MAX_FILE_SIZE`), nên chỉ gặp khi hai giới hạn lệch nhau. Cách FE hiển thị 413 đã có test với MSW.
+    - **XLSX happy path:** `types.xlsx` (fixture của BE). Hiện "Sheet: Data" và 15 cột; schema đoán kiểu (`int`/`decimal`/`big` → `number`, `bool` → `boolean`, `date_*` → `date`); chạy xử lý ra 1 dòng hợp lệ. Bảng 15 cột cuộn ngang, `84901234567` hiện đủ chữ số; "Tải báo cáo lỗi" khoá kèm lý do "Không có dòng lỗi để tải".
+    - **Đổi tên field rồi chạy lại:** thêm `trim` cho field `text`, đổi tên thành `text mới` ở bước Schema, rồi đi lại Mapping và Biến đổi.
+      - Rule `trim` vẫn còn trên field đã đổi tên.
+      - PUT schema, mapping và transformations đều mang tên mới (`"targetField":"text mới"`), cùng PUT validations.
+      - Bảng kết quả mới dùng tên mới và không còn cảnh báo kết quả cũ.
+    - Console chỉ có hai dòng Chrome ghi request lỗi của hai ca cố ý làm hỏng (422 và reset). Không có lỗi hay cảnh báo nào của app.
 - [ ] 13.5 `pnpm test`, `pnpm lint`, `pnpm build` đều xanh; đối chiếu từng mục "Done when" phía FE của F01–F11 trong Notion.
