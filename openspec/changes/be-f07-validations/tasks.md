@@ -211,7 +211,7 @@
   public final class ValidationConfigValidator { public ValidationConfigCheck check(ValidationConfig config, TargetSchema schema); }
   ```
 
-- [ ] 5.1 Viết `ValidationConfigValidatorTest`. Schema gồm `name` (string, required), `email` (email), `age` (number), `note` (string).
+- [x] 5.1 Viết `ValidationConfigValidatorTest`. Schema gồm `name` (string, required), `email` (email), `age` (number), `note` (string).
   | Input | effective | warnings `(field, code)` | errors `(field, message)` |
   |---|---|---|---|
   | `[{email,unique}]` (`params = null`) | `[{email,unique}]` | `[]` | `[]` |
@@ -228,10 +228,10 @@
   | `[{age,email},{phone,unique}]` | — | — | 2 errors, đúng thứ tự trong input |
 
   Mọi phần tử của `errors` có `code = "CONFIG_INVALID"`. Khi `errors` không rỗng, `effective` là `null`.
-- [ ] 5.2 Chạy `./mvnw -q test -Dtest=ValidationConfigValidatorTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 5.3 Tạo các class theo design V5.
-- [ ] 5.4 Chạy lại lệnh ở 5.2. Mong đợi: PASS.
-- [ ] 5.5 Commit: `feat(domain): validate and normalise validation configuration`
+- [x] 5.2 Chạy `./mvnw -q test -Dtest=ValidationConfigValidatorTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 5.3 Tạo các class theo design V5.
+- [x] 5.4 Chạy lại lệnh ở 5.2. Mong đợi: PASS.
+- [x] 5.5 Commit: `feat(domain): validate and normalise validation configuration`
 
 ## 6. Prune khi schema đổi
 
