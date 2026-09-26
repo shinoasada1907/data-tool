@@ -246,10 +246,15 @@
 
 ## 8. Kiểm tra toàn bộ và hoàn tất
 
-- [ ] 8.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, kể cả ArchitectureTest.
-- [ ] 8.2 Chạy app thật với fixture:
+- [x] 8.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, kể cả ArchitectureTest.
+  - Kết quả 2026-09-26: 73 suite, 657 test, 0 failure, 0 error.
+- [x] 8.2 Chạy app thật với fixture:
   - upload, cấu hình bằng `curl`, rồi `POST /process`;
   - mở thư mục `result/` kiểm nội dung;
   - log không chứa giá trị ô.
+  - Kết quả (cổng 8081, worktree BE):
+    - 4 PUT đều 200; `POST /process` → 200 `PROCESSED`, total 6 / valid 3 / invalid 3, summary khớp spec;
+    - `valid.ndjson`: 3 dòng, dòng đầu đúng từng byte như spec. `invalid.ndjson`: row 3, 4, 6 với đúng lỗi;
+    - không có ``; log không chứa giá trị ô nào.
 - [ ] 8.3 Tick đủ checkbox. Chỗ nào làm khác kế hoạch thì gạch ngang và ghi LÝ DO. Cập nhật bảng "API contract V0.1", dòng #8 (thêm 422/500 theo OQ1), khi archive. Commit: `docs(openspec): complete be-f08 tasks`
 - [ ] 8.4 Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f08-pipeline -y`.
