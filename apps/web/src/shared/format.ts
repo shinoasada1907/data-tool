@@ -16,3 +16,10 @@ export function formatBytes(bytes: number): string {
   const number = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: digits() }).format(value)
   return `${number} ${BYTE_UNITS[unit]}`
 }
+
+const integerFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 })
+
+/** Số đếm theo vi-VN, có dấu chấm ngăn cách hàng nghìn: `1.200`. */
+export function formatNumber(value: number): string {
+  return integerFormat.format(value)
+}

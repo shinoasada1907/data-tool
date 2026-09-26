@@ -1,4 +1,5 @@
 import type { StepId } from '../wizard/state'
+import { formatNumber } from './format'
 
 /**
  * Thông điệp tiếng Việt theo `code` của BE. BE cam kết không đổi `code`; `message`/`detail` của BE
@@ -69,6 +70,16 @@ export const messages = {
   serverError: (status: number) => `Máy chủ đang lỗi (${status})`,
   requestFailed: (status: number) => `Yêu cầu không thành công (${status})`,
 
+  nav: {
+    back: 'Quay lại',
+    next: 'Tiếp',
+  },
+
+  /** Session hết hạn hoặc đã hỏng: chỉ còn cách upload lại (design D12). */
+  sessionUnusableAction: 'Upload lại',
+  retry: 'Thử lại',
+  emptyCell: 'Ô trống',
+
   guard: {
     needUpload: 'Cần upload file trước',
     needPreview: 'Cần tải xong dữ liệu xem trước',
@@ -103,5 +114,16 @@ export const messages = {
       empty: 'File rỗng (0 byte)',
       tooLarge: (mb: number) => `File vượt giới hạn ${mb} MB`,
     },
+  },
+
+  preview: {
+    summaryLabel: 'Thông tin file',
+    rowsShown: (shown: number, total: number) => `Xem trước ${formatNumber(shown)} / ${formatNumber(total)} dòng`,
+    sheet: (name: string) => `Sheet: ${name}`,
+    loading: 'Đang tải dữ liệu xem trước…',
+    tableLabel: 'Dữ liệu xem trước',
+    rowNumber: 'Dòng',
+    noRows: 'File không có dòng dữ liệu',
+    noRowsHint: 'Vẫn có thể khai báo schema và mapping dựa trên các cột ở trên.',
   },
 } as const

@@ -4,7 +4,7 @@
 > - Nhóm 5–12 có thể làm trên nhánh riêng theo gợi ý của Notion (`feature/fe-f01-upload`, …).
 > - Task nào làm khác kế hoạch: gạch task cũ và ghi **LÝ DO** ngay tại chỗ.
 > - Contract: bám mục "API contract V0.1" trong `design.md`. Nếu có chỗ lệch, file BE `openspec/changes/archive/2026-09-25-be-f01-import-session/design.md` là chuẩn.
-> - BE thật: feature BE nào đã merge vào `main` thì có thể kiểm với BE thật ngay (checklist 13.4). Hiện có BE-F01 (upload, `GET /api/import-sessions/{id}`) và BE-F02 (đọc CSV, `GET .../preview`; với XLSX, trước khi có BE-F03, preview trả `409 SESSION_STATE_INVALID`). Endpoint chưa có trả `404 REQUEST_INVALID`, và FE phải hiển thị nó như lỗi thường (4.6).
+> - BE thật: feature BE nào đã merge vào `dev` thì có thể kiểm với BE thật ngay (checklist 13.4). Luồng nhánh: feature → `dev`, rồi `dev` → `main` khi xong hết (design → Migration Plan). Tới ngày 2026-09-26, `dev` có BE-F01 (upload, `GET /api/import-sessions/{id}`), BE-F02 (đọc CSV, `GET .../preview`), BE-F03 (đọc XLSX) và Swagger UI (`/swagger-ui.html`). BE-F04 trở đi chưa bắt đầu. Endpoint chưa có trả `404 REQUEST_INVALID`, và FE phải hiển thị nó như lỗi thường (4.6).
 > - **Làm theo lát cắt của từng feature** (áp dụng từ FE-F01, ngày 2026-09-26). **LÝ DO:** Agent Working Rule của pack Notion quy định: nhận FE-Fxx thì chỉ làm phạm vi feature đó và dependency bắt buộc. Vì vậy các task nền của nhóm 3 và 4 được làm dần theo từng feature. Task nào mới xong một phần thì chưa tick, và ghi rõ phần đã xong ở feature nào.
 
 ## 1. Nền tảng dự án
@@ -34,10 +34,11 @@
   - Kiểu `ImportMetaEnv` khai báo ở `src/env.d.ts`.
   - Đã chạy thử `vite` thật: trang tải được; `/api` được proxy tới 8080 (BE tắt thì nhận `502`).
 - [x] 1.5 `src/index.css`: CSS variables (màu, khoảng cách, font, trạng thái lỗi/cảnh báo/thành công), reset tối thiểu, khung app `min-width: 1024px`.
-- [ ] 1.6 `shared/messages.ts` và `shared/format.ts`, có test cho `format.ts`:
+- [x] 1.6 `shared/messages.ts` và `shared/format.ts`, có test cho `format.ts`:
   - `messages.ts`: chuỗi UI tiếng Việt, cùng thông điệp cho **mọi** mã trong bảng "Mã lỗi và các mã khác" của design (lỗi API, lỗi theo row, readiness issue).
   - `format.ts`: `formatBytes`, `formatNumber` theo `vi-VN`, ví dụ `1,2 MB`, `1.200`.
   - FE-F01 đã xong: `messages.ts` (đủ mọi mã), `formatBytes` có test. `formatNumber` làm ở FE-F02, vì lúc đó mới cần hiển thị tổng số dòng.
+  - FE-F02 đã xong `formatNumber`, có test; số 4 chữ số cũng có dấu chấm (`1.200`), đúng ví dụ của spec source-preview.
 
 ## 2. Chốt contract với BE
 
@@ -54,7 +55,7 @@
 ## 3. API client và contract
 
 - [x] 3.1 `api/dto.ts`: khai báo đủ các kiểu trong mục "API contract V0.1" của `design.md`, gồm cả `ImportSessionDto.config` và `readiness` (V0.1 chưa dùng).
-- [ ] 3.2 TDD `api/client.ts` (`request()` và `ApiError` có `detail`). Ca test:
+- [x] 3.2 TDD `api/client.ts` (`request()` và `ApiError` có `detail`). Ca test:
   - 2xx có JSON;
   - problem+json có `code`, `detail` và `errors[]`;
   - `404 SESSION_NOT_FOUND` và `404 REQUEST_INVALID` giữ đúng `code` để phân biệt;
@@ -65,6 +66,9 @@
     - `ApiError` và `errorFromHttpResponse` có test: ProblemDetail đủ trường, `errors[]` sai dạng bị bỏ qua, body HTML, JSON hỏng, `413` không có code.
     - Hai thứ này nằm ở **`api/apiError.ts`** chứ không ở `client.ts`. **LÝ DO:** upload (XHR) và `request()` (fetch) dùng chung phần parse lỗi.
   - Còn lại `request()` bằng fetch: làm ở FE-F02, cùng GET preview.
+  - FE-F02 đã xong `request()`, test với MSW đủ các ca trên, thêm: body 2xx sai dạng hoặc không phải JSON → `INVALID_RESPONSE`; signal đã huỷ từ trước thì không gửi request. Đã làm mutation check (bỏ Accept, bỏ signal, bỏ validate, coi huỷ là lỗi mạng): đều có test fail.
+  - **`request()` nhận thêm `validate` (bắt buộc).** **LÝ DO:** giống upload (D6), body lệch contract phải báo lỗi rõ ràng thay vì để bảng vỡ lúc render.
+  - Hiện `request()` mới hỗ trợ GET. Method và body JSON thêm ở FE-F04, cùng PUT schema, để có test đi kèm.
 - [ ] 3.3 TDD `api/contentDisposition.ts`: `filename*=UTF-8''…` (ưu tiên), `filename="…"`, `filename=` không có ngoặc kép, không có header → `null`; loại `/` và `\` khỏi tên. → Làm ở FE-F10.
 - [ ] 3.4 TDD `api/download.ts`: 2xx → `{blob, filename}`; lỗi → ném `ApiError`, không trả blob; `saveBlob()` tạo object URL, click `<a download>` rồi revoke URL. → Làm ở FE-F10.
 - [x] 3.5 TDD `api/upload.ts` (XHR):
@@ -78,6 +82,7 @@
   - Cách đổi từng mã lỗi sang `ApiError` đã có test ở 3.2 (`apiError.ts`), nên test của upload chỉ giữ một ca lỗi đại diện (`415`). Bốn mã còn lại được kiểm ở test component 5.2.
 - [ ] 3.6 `api/endpoints.ts`: 10 hàm cho các endpoint FE dùng (không gồm `GET /api/import-sessions/{id}`). Test với MSW: method, path, query và body của từng hàm; PUT trả `200 {session, warnings}` thì hàm vẫn resolve và bỏ qua body.
   - FE-F01 chỉ cần upload (3.5). Mỗi hàm còn lại làm cùng feature dùng nó.
+  - FE-F02 đã xong `getPreview` (`limit=50`), có test với MSW: path, query, và body 200 sai dạng → `INVALID_RESPONSE` (kể cả ô không phải chuỗi hay `null`, vì React không vẽ boolean và vỡ trang với object).
 - [ ] 3.7 `domain/types.ts` và TDD `api/mappers.ts`:
   - đổi key ↔ tên field; `order` theo vị trí;
   - mapping chỉ gồm field đã map;
@@ -86,6 +91,7 @@
   - validations chỉ có `email`/`unique`, không có `params`;
   - preview giữ đúng thứ tự `columns[]`.
   - FE-F01 đã xong: `SessionInfo` và `toSessionInfo`. Hàm này chỉ chép field nên không có unit test riêng; test component 5.3 kiểm nó (tên file của session hiện đúng khi quay lại bước Upload). Phần còn lại làm theo feature.
+  - FE-F02 đã xong `SourcePreview` và `toSourcePreview`, có test: thứ tự `columns[]` giữ nguyên kể cả cột tên dạng số, `values` theo vị trí.
 - [ ] 3.8 Mock cho test:
   - `mocks/fixtures.ts`, đúng shape của contract V0.1:
     - preview CSV và XLSX, trong đó có cột tên dạng số, `totalRows` luôn có;
@@ -98,6 +104,10 @@
     - `mocks/node.ts`; `src/test/setup.ts` (có `onUnhandledRequest: 'error'`);
     - helper `src/test/http.ts` (`mockUpload` có đếm số request, `gate` để giữ request đang chạy) và `src/test/files.ts`.
   - Fixture preview/result và session store làm theo feature.
+  - FE-F02 đã xong:
+    - `csvPreviewFixture` (cột tên dạng số `2024` và `1`, ô `null`, ô chỉ có khoảng trắng, số dòng nhảy cóc) và `xlsxPreviewFixture` (có `sheetName`). Shape đã đối chiếu với response của BE thật.
+    - Helper `mockPreview` (dùng chung logic với `mockUpload`).
+    - `mocks/handlers.ts` có handler mặc định cho GET preview. **LÝ DO:** upload xong là bước Xem trước gọi preview ngay; không có handler thì mọi test upload cũ phụ thuộc may rủi thời gian (request bị huỷ lúc unmount trước khi MSW kịp báo lỗi).
 - [ ] 3.9 Chế độ `dev:mock`:
   - Tạo `mocks/browser.ts`; chạy `pnpm dlx msw init public/ --save` để sinh `public/mockServiceWorker.js`.
   - `main.tsx` chỉ import động và khởi động worker khi `VITE_USE_MOCK=true`.
@@ -116,8 +126,11 @@
   - **Thêm action `navigate`**, vốn không có trong danh sách trên. **LÝ DO:** mọi lần đổi bước đều đi qua reducer, để guard `canEnter` và trạng thái bận được áp ở đúng một chỗ, stepper không tự quyết.
   - ~~`busyChanged`~~ được thay bằng `requestStarted`/`requestSettled`: `pendingRequests` là bộ đếm, `isBusy()` suy ra từ nó, và có hook `useBusyRequest()` bọc request. **LÝ DO (review FE-F01):** với cờ boolean, mỗi component phải tự ghép cặp bật/tắt. Quên `finally` là điều hướng bị khoá vĩnh viễn, còn hai request chồng nhau thì request xong trước nhả khoá sớm (design D2).
   - Các action còn lại làm theo feature.
+  - FE-F02 đã xong `previewLoaded`, có test. Action mang id mà FE đã dùng để gửi request; khác session hiện tại thì reducer bỏ qua, để response về muộn của session cũ không ghi đè session mới. `sessionCreated` và `reset` xoá preview.
+    - ~~So với `sessionId` trong response của BE~~ **LÝ DO đổi (review FE-F02):** nếu id BE gửi lại lệch dạng, reducer lặng lẽ bỏ response và spinner quay mãi mà không báo lỗi. Vì vậy model `SourcePreview` cũng bỏ field `sessionId`.
 - [ ] 4.2 TDD `wizard/guards.ts`: `canEnter(step, state)` trả `{allowed, reason}`; test đủ bảng điều kiện của spec `import-wizard`.
   - FE-F01 đã xong: Upload và Xem trước theo điều kiện thật. Các bước sau khoá kèm lý do, cho tới khi feature tương ứng đưa state của nó vào.
+  - FE-F02 đã xong: bước Schema mở khi preview đã tải, kể cả file không có dòng dữ liệu; bước Xem trước được tính là "đã xong" khi có preview.
 - [x] 4.3 `WizardContext.tsx`, `WizardShell.tsx` và `shared/ui/Stepper`: 6 bước với trạng thái xong/đang ở/khoá; bấm bước bị khoá thì hiện lý do; khoá điều hướng khi `busy`; mỗi bước tạm là placeholder. Có component test.
   - **`WizardContext.tsx` được tách làm hai**: `wizard/context.ts` (context và hook `useWizard`) và `wizard/WizardProvider.tsx` (component). **LÝ DO:** luật `react/only-export-components` của oxlint (phục vụ Fast Refresh) không cho một file vừa export component vừa export hook.
   - `Stepper` là component generic, không biết gì về wizard; `WizardShell` tính trạng thái từng bước bằng `canEnter` và `isStepDone`.
@@ -134,18 +147,20 @@
     - `ErrorBanner` (có nút hành động tuỳ chọn) và `ConfirmPanel` (focus vào nút xác nhận khi hiện ra).
     - Phần chọn nội dung được tách thành hàm thuần `describeApiError` ở `shared/describeError.ts`, có test đủ thứ tự ưu tiên, lỗi mạng, huỷ. Vì vậy `ErrorBanner` nhận `ErrorText` thay vì `ApiError`, và dùng được cho cả lỗi kiểm tra phía client.
   - Còn lại:
-    - `EmptyState`, `Spinner`, `DataTable` → FE-F02;
+    - ~~`EmptyState`, `Spinner`, `DataTable` → FE-F02~~ Đã xong ở FE-F02, test qua component test của bước Xem trước. `DataTable` có thêm `EmptyCell` cho ô `null`; cách chia độ rộng cột ghi ở design D14.
     - chế độ danh sách `fieldErrors` → FE-F04 / FE-F08;
     - `Pagination` → FE-F09.
+  - **Thêm `wizard/StepActions.tsx`** (nút "Quay lại"/"Tiếp" ở chân bước), vốn không có trong danh sách trên. **LÝ DO:** mọi bước từ Preview tới Rules đều cần cặp nút này, cùng luật khoá khi bận và luôn hiện lý do khoá cạnh nút "Tiếp" (spec import-wizard, target-schema).
 - [x] 4.5 Đăng ký `beforeunload` khi có session và gỡ khi reset; test cả hai chiều.
   - Hook `wizard/useBeforeUnload.ts`, test trong `WizardShell.test.tsx`: chưa có session; có session; đang upload thay thế thì vẫn cảnh báo, vì session cũ còn cho tới khi có session mới.
   - `returnValue = true` chứ không phải `''`: chuỗi rỗng bị trình duyệt cũ coi là "không hỏi".
-- [ ] 4.6 Session không dùng được nữa:
+- [x] 4.6 Session không dùng được nữa:
   - `code` là `SESSION_NOT_FOUND` hoặc `SESSION_STATE_INVALID` → `ErrorBanner` có nút "Upload lại", bấm thì chạy action `reset`;
   - `404` mang mã khác (`REQUEST_INVALID`) → lỗi thường.
 
   Test rằng không tự reset, và cả ba trường hợp trên.
   - Làm ở FE-F02, vì GET preview là lệnh đầu tiên gọi endpoint của session sau khi upload.
+  - Đã xong: `isSessionUnusable` (theo `code`) và `isRetryable` (lỗi mạng, 5xx) nằm ở `api/apiError.ts`, có unit test; `isRetryable` chuyển từ `UploadStep` sang đây để các bước dùng chung. Component test ở bước Xem trước phủ cả ba trường hợp: `SESSION_NOT_FOUND`, `SESSION_STATE_INVALID` (có "Upload lại", không tự reset, bấm thì về bước Upload trống) và `404 REQUEST_INVALID` (lỗi thường). Các bước sau dùng lại cùng luật; task 13.2 rà lại toàn bộ.
 
 ## 5. FE-F01 Upload (spec import-upload)
 
@@ -185,17 +200,31 @@
 
 ## 6. FE-F02/F03 Source Preview (spec source-preview)
 
-- [ ] 6.1 `PreviewStep`:
+- [x] 6.1 `PreviewStep`:
   - gọi GET preview một lần cho mỗi session và lưu vào state;
   - `DataTable` theo `columns[]`, cột "Dòng", placeholder cho ô `null`, giá trị hiển thị nguyên như BE trả;
   - dòng tổng quan: "Xem trước x / y dòng" (`totalRows` luôn có) và `sheetName`.
 
   Test: cột tên dạng số giữ đúng thứ tự; XLSX hiện tên sheet, CSV thì không; quay lại bước không gọi lại API.
-- [ ] 6.2 Các trạng thái, mỗi trạng thái có test:
+  - Có thêm test: ô `null` hiện placeholder (không hiện chữ `null`), ô chỉ có khoảng trắng giữ nguyên; "Tiếp" sang Schema và bước Xem trước được đánh dấu đã xong; chạy trong `StrictMode` thì request bị huỷ ở lần chạy effect đầu không hiện thành lỗi.
+  - **GET preview không khoá stepper** (không đi qua `useBusyRequest`). **LÝ DO:** ghi ở design D2.
+  - Đã làm mutation check (luôn gọi lại preview, in thẳng `null`, nhận biết session hỏng theo status, "Thử lại" không xoá lỗi, bỏ khoá "Tiếp", báo cả lỗi huỷ): đều có test fail. Ca "báo cả lỗi huỷ" ban đầu lọt; bổ sung test StrictMode mới bắt được.
+  - Bổ sung sau review FE-F02, mỗi mục có test và đã làm mutation check:
+    - rời bước khi đang tải thì request bị huỷ (test đọc `request.signal` ở handler MSW); trong lúc tải, stepper và "Quay lại" vẫn bấm được;
+    - vùng live luôn nằm trong DOM, báo "Đang tải…" rồi "Xem trước x / y dòng";
+    - focus: "Tiếp", "Quay lại", "Upload lại" và upload xong đều đưa focus tới tiêu đề bước mới; "Thử lại" đưa focus về tiêu đề bước; đổi bước bằng stepper thì focus ở lại nút stepper;
+    - ô số dòng là row header, vùng cuộn lấy tên từ caption.
+- [x] 6.2 Các trạng thái, mỗi trạng thái có test:
   - đang tải;
   - chỉ có header, không có dòng dữ liệu;
   - ~~`FILE_PARSE_ERROR` → banner, nút "Upload file khác", khoá "Tiếp"~~ **Bỏ — LÝ DO:** BE đọc và kiểm toàn bộ file ngay lúc upload, nên `FILE_EMPTY`/`FILE_PARSE_ERROR` trả về ở bước Upload (task 5.2), không bao giờ xảy ra ở preview;
   - 5xx hoặc lỗi mạng → "Thử lại".
+  - Đã test: đang tải (chỉ báo và nút "Tiếp" khoá kèm lý do); chỉ có header ("File không có dòng dữ liệu", vẫn sang được Schema); lỗi mạng, `500`, `502` HTML → "Thử lại" gọi lại và hiện bảng.
+  - Lỗi preview là state cục bộ của bước: rời bước rồi quay lại thì bước tự gọi lại, không cần bấm "Thử lại". **LÝ DO:** preview chưa tải được thì chưa có gì để giữ; vào lại bước coi như một lần thử mới. Với lỗi 4xx, lần gọi lại cũng chỉ hiện lại đúng lỗi đó, không hại gì. Giữ lỗi trong wizard state chỉ thêm action mà không đem lại gì cho user. Spec "không gọi lại API" áp cho preview **đã tải xong** (có test).
+
+> **Review FE-F02** (senior-reviewer, 2026-09-26). Đã sửa: huỷ request và quyết định không khoá stepper chưa có test; guard response cũ so với id do BE gửi lại; mất focus khi nút biến mất; vùng live bị gắn/gỡ khỏi DOM; validator chưa kiểm kiểu ô; lỗi lạ không được log; ô số dòng chưa là row header và tên vùng cuộn bị đọc hai lần. Các góp ý không làm, và lý do:
+> - Timeout 30 giây cho `request()`: ghi ở design D6. Timeout chung sẽ áp cả lên các lệnh PUT sau này, và PUT hết giờ trong khi BE đã ghi thì FE báo lỗi sai. Phụ thuộc "không khoá stepper là lối thoát khi BE treo" đã ghi ở D2.
+> - Giữ lỗi preview trong wizard state: xem ghi chú ngay trên.
   - ~~Lưu ý khi làm: cho tới khi có BE-F03, preview của session XLSX trả `409 SESSION_STATE_INVALID`…~~ **Không còn cần. LÝ DO:** BE-F03 đã merge vào `main` (`e7f6f21`); upload XLSX giờ trả `201` ở `CONFIGURING`, và preview dùng chung shape với CSV.
 - [x] ~~6.3 Cảnh báo khi `columns[].name` trùng nhau hoặc rỗng (giả định Q9); có test.~~ **Bỏ — LÝ DO:** BE tự đặt lại tên header trùng hoặc rỗng (`Email (2)`, `Column C`), nên `columns[].name` luôn duy nhất và không rỗng (Q9).
 
@@ -308,4 +337,12 @@
   - sửa cấu hình rồi chạy lại;
   - lỗi hiển thị nhất quán, gồm upload file hỏng (`FILE_PARSE_ERROR`) và file vượt 20 MB (`413`);
   - file tải về đúng tên và đúng nội dung.
+
+  Kết quả từng phần:
+  - **FE-F02 (2026-09-26)**, BE bản `main` `4b75cf6` chạy ở 8080, FE `pnpm dev` qua proxy, Chrome headless điều khiển bằng DevTools Protocol:
+    - CSV có header dạng số và trùng tên, dòng trống, ô rỗng, ô chỉ có khoảng trắng: bảng đúng thứ tự (`2024 | Họ tên | 1 | Email | email (2)`), số dòng 2, 3, 5, ô rỗng hiện gạch ngang, "Xem trước 3 / 3 dòng".
+    - XLSX `types.xlsx` (fixture của BE): "Sheet: Data", 15 cột, giá trị đúng như BE đổi sang chuỗi (`84901234567`, `2024-12-25T13:45:30`, `#N/A`, `13:30:00`). Thay file XLSX khi đang có session CSV đi qua hộp xác nhận đúng.
+    - "Tiếp" sang bước Schema. Console không có lỗi hay cảnh báo.
+    - Ảnh chụp lộ lỗi bảng bị bóp cột; đã sửa (design D14).
+    - Sau các sửa đổi của review, chạy lại cùng kịch bản với BE `main` ở cổng 8081 (Vite 5174, `API_PROXY_TARGET=http://localhost:8081`): kết quả như trên, console sạch. Lý do đổi cổng: lúc đó 8080 là bản BE cũ do IntelliJ chạy từ thư mục chính (nhánh FE, chỉ có code BE-F01), không có endpoint preview.
 - [ ] 13.5 `pnpm test`, `pnpm lint`, `pnpm build` đều xanh; đối chiếu từng mục "Done when" phía FE của F01–F11 trong Notion.

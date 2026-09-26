@@ -1,0 +1,30 @@
+/* Ô vuông vàng viền mực xoay chậm (hướng C); tắt chuyển động khi user chọn giảm chuyển động. */
+.spinner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5) 0;
+  color: var(--color-muted);
+  font-weight: 600;
+}
+
+.mark {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: var(--border);
+  background: var(--color-accent);
+  animation: spin 1.2s steps(4) infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mark {
+    animation: none;
+  }
+}

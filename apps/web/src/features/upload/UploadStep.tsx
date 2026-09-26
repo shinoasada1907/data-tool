@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { ApiError } from '../../api/apiError'
+import { ApiError, isRetryable } from '../../api/apiError'
 import { toSessionInfo } from '../../api/mappers'
 import { uploadSourceFile } from '../../api/upload'
 import { config } from '../../config'
@@ -37,11 +37,6 @@ function rejectionMessage(reason: FileRejection): string {
     case 'tooLarge':
       return messages.upload.rejected.tooLarge(config.maxUploadMb)
   }
-}
-
-/** Gửi lại đúng file đó chỉ có ích khi lỗi mạng hoặc lỗi phía máy chủ; lỗi 4xx thì gửi lại vẫn lỗi y hệt. */
-function isRetryable(error: ApiError): boolean {
-  return error.kind === 'network' || (error.status !== null && error.status >= 500)
 }
 
 export function UploadStep() {
@@ -132,7 +127,7 @@ export function UploadStep() {
 
   return (
     <section aria-labelledby={titleId} className={styles.step}>
-      <h2 id={titleId} className={styles.title}>
+      <h2 id={titleId} className={styles.title} tabIndex={-1}>
         {messages.upload.title}
       </h2>
 

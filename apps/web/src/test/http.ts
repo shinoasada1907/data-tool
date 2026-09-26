@@ -3,6 +3,7 @@ import { problemFixture } from '../mocks/fixtures'
 import { server } from '../mocks/node'
 
 export const UPLOAD_URL = '/api/import-sessions'
+export const PREVIEW_URL = '/api/import-sessions/:id/preview'
 
 type Responder = () => Response | Promise<Response>
 
@@ -14,19 +15,29 @@ export function problemResponse(status: number, code: string, detail: string): R
 }
 
 /**
- * Handler cho POST /api/import-sessions trả lần lượt từng response; lần gọi vượt quá danh sách dùng
- * response cuối. `calls()` cho biết đã có bao nhiêu request thật sự tới "server".
+ * Handler trả lần lượt từng response; lần gọi vượt quá danh sách dùng response cuối. `calls()` cho biết đã có
+ * bao nhiêu request thật sự tới "server".
  */
-export function mockUpload(...responders: Responder[]) {
+function mockSequence(method: typeof http.get, url: string, responders: Responder[]) {
   let calls = 0
   server.use(
-    http.post(UPLOAD_URL, () => {
+    method(url, () => {
       const responder = responders[Math.min(calls, responders.length - 1)]
       calls += 1
       return responder()
     }),
   )
   return { calls: () => calls }
+}
+
+/** POST /api/import-sessions. */
+export function mockUpload(...responders: Responder[]) {
+  return mockSequence(http.post, UPLOAD_URL, responders)
+}
+
+/** GET /api/import-sessions/{id}/preview. */
+export function mockPreview(...responders: Responder[]) {
+  return mockSequence(http.get, PREVIEW_URL, responders)
 }
 
 /** Promise do test tự mở, để giữ request ở trạng thái đang chạy. */

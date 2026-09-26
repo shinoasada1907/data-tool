@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { formatBytes } from './format'
+import { formatBytes, formatNumber } from './format'
 
 test.each([
   [0, '0 B'],
@@ -12,4 +12,14 @@ test.each([
   [3 * 1024 * 1024 * 1024, '3 GB'],
 ])('formatBytes(%i) = %j theo định dạng vi-VN', (bytes, expected) => {
   expect(formatBytes(bytes)).toBe(expected)
+})
+
+test.each([
+  [0, '0'],
+  [50, '50'],
+  // Spec source-preview: "Xem trước 50 / 1.200 dòng", nên số 4 chữ số cũng phải có dấu phân cách.
+  [1200, '1.200'],
+  [1_234_567, '1.234.567'],
+])('formatNumber(%i) = %j theo định dạng vi-VN', (value, expected) => {
+  expect(formatNumber(value)).toBe(expected)
 })

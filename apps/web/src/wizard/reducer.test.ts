@@ -1,16 +1,33 @@
 import { describe, expect, test } from 'vitest'
-import type { SessionInfo } from '../domain/types'
+import type { SessionInfo, SourcePreview } from '../domain/types'
 import { wizardReducer } from './reducer'
 import { initialWizardState, isBusy, type WizardState } from './state'
 
 const session: SessionInfo = { id: 's-1', fileName: 'khach-hang.csv', fileType: 'CSV', sizeBytes: 1024 }
-const atPreview: WizardState = { step: 'preview', pendingRequests: 0, session }
+const atPreview: WizardState = { ...initialWizardState, step: 'preview', session }
+const preview: SourcePreview = { sheetName: null, columns: ['name'], rows: [], totalRows: 0 }
 
 describe('wizardReducer', () => {
   test('sessionCreated lưu session và chuyển sang bước Xem trước', () => {
     const next = wizardReducer(initialWizardState, { type: 'sessionCreated', session })
 
-    expect(next).toEqual({ step: 'preview', pendingRequests: 0, session })
+    expect(next).toEqual({ ...initialWizardState, step: 'preview', session })
+  })
+
+  test('sessionCreated bỏ preview của session cũ', () => {
+    const loaded: WizardState = { ...atPreview, preview }
+    const other: SessionInfo = { ...session, id: 's-2' }
+
+    expect(wizardReducer(loaded, { type: 'sessionCreated', session: other }).preview).toBeNull()
+  })
+
+  test('previewLoaded lưu preview của session hiện tại', () => {
+    expect(wizardReducer(atPreview, { type: 'previewLoaded', sessionId: 's-1', preview }).preview).toEqual(preview)
+  })
+
+  // sessionId là id FE đã dùng để gửi request, không phải field BE gửi lại.
+  test('previewLoaded của request gửi cho session khác (về muộn sau khi đã upload file mới) bị bỏ qua', () => {
+    expect(wizardReducer(atPreview, { type: 'previewLoaded', sessionId: 's-old', preview })).toBe(atPreview)
   })
 
   test('không chuyển tới bước đang bị khoá', () => {
@@ -30,7 +47,7 @@ describe('wizardReducer', () => {
   })
 
   test('reset đưa wizard về trạng thái ban đầu', () => {
-    expect(wizardReducer(atPreview, { type: 'reset' })).toEqual(initialWizardState)
+    expect(wizardReducer({ ...atPreview, preview }, { type: 'reset' })).toEqual(initialWizardState)
   })
 
   describe('đếm request đang chạy', () => {

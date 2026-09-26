@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { errorFromHttpResponse } from './apiError'
+import { ApiError, errorFromHttpResponse, isRetryable, isSessionUnusable } from './apiError'
 
 const PROBLEM = 'application/problem+json'
 
@@ -52,5 +52,31 @@ describe('errorFromHttpResponse', () => {
 
   test('413 không có code (ví dụ trả từ proxy) thì nhận code FILE_TOO_LARGE', () => {
     expect(errorFromHttpResponse(413, 'text/html', '<html>Too large</html>').code).toBe('FILE_TOO_LARGE')
+  })
+})
+
+describe('isRetryable', () => {
+  test.each([
+    ['lỗi mạng', true, new ApiError({ kind: 'network' })],
+    ['502 từ proxy', true, new ApiError({ kind: 'http', status: 502 })],
+    ['500 INTERNAL_ERROR', true, new ApiError({ kind: 'http', status: 500, code: 'INTERNAL_ERROR' })],
+    ['422 FILE_PARSE_ERROR', false, new ApiError({ kind: 'http', status: 422, code: 'FILE_PARSE_ERROR' })],
+    ['404 SESSION_NOT_FOUND', false, new ApiError({ kind: 'http', status: 404, code: 'SESSION_NOT_FOUND' })],
+    ['bị huỷ', false, new ApiError({ kind: 'aborted' })],
+  ])('%s → %s', (_, expected, error) => {
+    expect(isRetryable(error)).toBe(expected)
+  })
+})
+
+describe('isSessionUnusable', () => {
+  // Nhận biết theo code, không theo status (design D12).
+  test.each([
+    ['404 SESSION_NOT_FOUND', true, new ApiError({ kind: 'http', status: 404, code: 'SESSION_NOT_FOUND' })],
+    ['409 SESSION_STATE_INVALID', true, new ApiError({ kind: 'http', status: 409, code: 'SESSION_STATE_INVALID' })],
+    ['404 REQUEST_INVALID (sai endpoint)', false, new ApiError({ kind: 'http', status: 404, code: 'REQUEST_INVALID' })],
+    ['409 SESSION_NOT_READY', false, new ApiError({ kind: 'http', status: 409, code: 'SESSION_NOT_READY' })],
+    ['lỗi mạng', false, new ApiError({ kind: 'network' })],
+  ])('%s → %s', (_, expected, error) => {
+    expect(isSessionUnusable(error)).toBe(expected)
   })
 })

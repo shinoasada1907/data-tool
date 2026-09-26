@@ -76,6 +76,9 @@ describe('khung wizard', () => {
     render(<App />)
     await uploadCsv(user)
 
+    // Ô chọn file biến mất cùng bước Upload: focus sang tiêu đề bước Xem trước (design D14).
+    expect(screen.getByRole('heading', { level: 2, name: 'Xem trước dữ liệu' })).toHaveFocus()
+
     expect(stepButton(/Upload file/)).toHaveAccessibleName('1 Upload file (đã xong)')
     await user.click(stepButton(/Upload file/))
 

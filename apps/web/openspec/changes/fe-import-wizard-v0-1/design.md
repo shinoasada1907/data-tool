@@ -74,6 +74,11 @@ interface WizardState {
   - Mọi request làm đổi state đều chạy qua hook `useBusyRequest()`: hook dispatch `requestStarted` trước khi chạy và `requestSettled` trong `finally`. `isBusy(state)` là `pendingRequests > 0`.
   - `sessionCreated` và `reset` giữ nguyên bộ đếm, vì các request đang chạy vẫn sẽ báo kết thúc sau đó.
   - *Vì sao* (review FE-F01): với boolean, mỗi component phải tự ghép cặp bật/tắt. Quên `finally` ở một chỗ là điều hướng bị khoá vĩnh viễn; hai request chồng nhau thì request xong trước nhả khoá trong khi request kia còn chạy. F02–F10 sẽ lặp lại pattern này ở hàng chục chỗ.
+  - **Ngoại lệ: GET preview không đi qua `useBusyRequest`** (FE-F02).
+    - Tiêu chí không phải "đọc hay ghi": `GET result` cũng là request đọc mà spec vẫn khoá điều hướng. Tiêu chí là: response chỉ bước đang mở dùng tới, request bị huỷ khi bước unmount, và không state nào khác phụ thuộc vào nó trong lúc nó chạy. GET preview thoả cả ba; `GET result` thì không, vì nó đi sau `process` trong cùng một trình tự.
+    - Lớp bảo vệ: rời bước thì request bị huỷ (có test). Thêm một lớp: `previewLoaded` mang id mà FE đã dùng để gửi request, và reducer bỏ qua nếu id đó khác session hiện tại. **Không** so với `sessionId` BE gửi lại, vì nếu lệch (viết hoa, alias…) reducer sẽ lặng lẽ bỏ response và spinner quay mãi mà không báo lỗi (review FE-F02).
+    - Nút "Tiếp" vẫn khoá, vì guard của bước Schema đòi preview đã tải.
+    - **Phụ thuộc cần nhớ:** `request()` không có timeout (xem D6), nên khi BE hoặc proxy treo, việc không khoá stepper là lối thoát duy nhất của user. Muốn chuyển preview sang khoá điều hướng thì phải thêm timeout trước.
 - `canEnter(step, state) → { allowed: boolean; reason?: string }` là hàm thuần, test được mà không cần render.
 - *Vì sao*: Notion dặn chưa dùng global state library. Reducer thuần dễ test các quy tắc stale và cascade.
 - *Phương án khác*: `useState` rải theo từng bước. Loại, vì quy tắc cascade (sửa schema kéo theo mapping và rules) sẽ nằm rải rác ở nhiều nơi.
@@ -99,6 +104,10 @@ interface WizardState {
 
 ### D6. API client: `fetch` cho JSON, XHR cho upload, `fetch` + blob cho download
 - `api/client.ts`: hàm `request<T>()` gửi header `Accept: application/json, application/problem+json`, và chuẩn hoá mọi lỗi thành `ApiError` (xem bảng **Xử lý lỗi**).
+  - Mỗi lệnh gọi truyền `validate` kiểm tối thiểu body 2xx theo contract (ví dụ `getPreview` kiểm `columns`, `rows`, `totalRows`). Body sai dạng hoặc không phải JSON thì báo `INVALID_RESPONSE`, giống upload, thay vì để bảng vỡ lúc render.
+  - `isRetryable(error)` (lỗi mạng hoặc 5xx) và `isSessionUnusable(error)` (theo `code`, D12) nằm cạnh `ApiError` trong `api/apiError.ts`, để mọi bước chọn nút hành động ("Thử lại" / "Upload lại") theo cùng một luật.
+  - Không đặt timeout cho `request()`. Review FE-F02 đề xuất 30 giây; không làm, vì timeout chung sẽ áp cả lên các lệnh PUT sau này, và PUT hết giờ trong khi BE đã ghi thì FE báo lỗi sai. Hệ quả: request GET treo thì spinner quay mãi; user thoát bằng cách rời bước (D2). Xem lại khi có số liệu thật về thời gian đọc file lớn.
+  - Lỗi không phải `ApiError` (lỗi lập trình trong mapper, reducer…) hiện câu chung "Đã xảy ra lỗi không mong đợi" và được `console.error`, để còn stack mà tìm.
 - `api/upload.ts`: dùng XHR, vì `fetch` không báo được tiến độ upload. Có `onProgress`, huỷ qua `AbortSignal`. Multipart part tên `file`.
 - `api/download.ts`: kiểm `response.ok` trước; nếu lỗi thì parse ProblemDetail và ném `ApiError`, không trả blob. Nếu thành công thì trả `{ blob, filename }`, với tên file lấy từ `api/contentDisposition.ts`. `saveBlob()` tạo object URL, click một thẻ `<a download>`, rồi revoke URL.
 - Body của PUT (`{ session, warnings }`) được bỏ qua. Warning của BE (`CONFIG_PRUNED`, `TARGET_FIELD_UNMAPPED`, `RULE_IMPLIED_BY_SCHEMA`) đều đã được FE tự tính hoặc tự tránh.
@@ -157,12 +166,22 @@ FE chỉ kiểm **cấu hình**: tên field, field required chưa map, hằng r�
   - Hộp xác nhận hiện ra: focus nút xác nhận.
   - Bắt đầu upload: focus nút "Huỷ".
   - Huỷ hoặc lỗi: focus về ô chọn file.
+  - Đổi bước mà focus rơi về đầu trang (nút "Tiếp"/"Quay lại"/"Upload lại" hoặc ô chọn file biến mất cùng bước cũ): `WizardShell` focus tiêu đề `h2` của bước mới (`tabIndex={-1}`). Đổi bước bằng stepper thì nút stepper vẫn còn, nên focus giữ nguyên ở đó (FE-F02).
+  - Bấm "Thử lại" ở bước Xem trước: khối lỗi biến mất, focus về tiêu đề bước (FE-F02).
+  - Vùng live của bước Xem trước là một `<p role="status">` luôn nằm trong DOM: "Đang tải…" rồi "Xem trước x / y dòng". `Spinner` chỉ để nhìn (`aria-hidden`) (FE-F02).
 - Thả file ra ngoài vùng upload: chặn ở `window` (`dragover`/`drop`, đặt `dropEffect = 'none'`), để trình duyệt không mở file và rời khỏi app. Input bị khoá có `pointer-events: none`, để sự kiện thả rơi vào vùng upload.
 - Sắp xếp bằng nút Lên/Xuống thay vì kéo-thả, vì dùng được bằng bàn phím và không cần thêm thư viện.
 - Chuỗi giao diện bằng tiếng Việt, gom vào `shared/messages.ts`, gồm cả bảng `code → thông điệp`. BE cam kết không đổi `code`, còn `message` và `detail` của BE viết bằng tiếng Anh.
 - **Giao diện theo hướng C "Khối Thuỵ Sĩ" trên Claude Design**: https://claude.ai/artifact/MCkwHpanZPv1TUiW6trSbP (artboard "C · Khối Thuỵ Sĩ"; 5 màn ở hàng đầu là bản sạch/tối giản đầu tiên, đã được thay).
   - Token (màu, bo góc, bóng đổ), font (Be Vietnam Pro, JetBrains Mono) và khung dashboard có sidebar được ghi ở change `fe-app-shell` (design D3–D5).
   - Các bước sau (Preview, Schema, …) theo cùng ngôn ngữ hình ảnh: khung viền mực 2 px, không bo góc, bóng cứng, vàng làm điểm nhấn; bảng bên trong dùng đường kẻ 1 px cho khỏi rối.
+- **`DataTable`** (FE-F02):
+  - Bảng rộng theo nội dung (`width: max-content`, tối thiểu bằng khung) và cuộn ngang trong khung; khung cuộn nhận focus (`role="region"` có tên) để cuộn được bằng bàn phím. Cột số dòng dính bên trái khi cuộn.
+  - Ô giữ nguyên giá trị (`white-space: pre-wrap`: khoảng trắng đầu/cuối và xuống dòng vẫn hiện), chỉ xuống dòng khi dài quá 40 ký tự. Giới hạn đặt ở khối bên trong ô, vì trình duyệt bỏ qua `max-width` của `<td>`.
+  - *Vì sao*: bản đầu để bảng rộng 100% khung. Ảnh chụp preview XLSX 15 cột với BE thật cho thấy ô bị bóp, `84901234567` và ngày giờ bị bẻ thành 3–4 dòng.
+  - Ô `null` hiện gạch ngang mờ, screen reader đọc "Ô trống" (`EmptyCell`), không bao giờ hiện chữ `null`.
+  - Ô số dòng là `<th scope="row">`, để screen reader đọc số dòng khi đi ngang qua các ô. Vùng cuộn lấy tên từ `<caption>` qua `aria-labelledby`, không lặp lại bằng `aria-label`.
+- Nút "Quay lại"/"Tiếp" ở chân bước là component chung `wizard/StepActions.tsx`: bị khoá khi wizard bận; khi "Tiếp" bị khoá, lý do luôn hiện cạnh nút và là `aria-describedby` của nút.
 - `ErrorBanner` có hai dòng:
   - **Dòng chính** chọn theo thứ tự ưu tiên: thông điệp FE theo `code` → `detail` → `title` → thông điệp chung theo HTTP status.
   - **Dòng phụ**: khi dòng chính lấy từ bảng của FE và BE có `detail`, hiện `detail` ở đây. Ví dụ `FILE_PARSE_ERROR` có kèm số dòng bị lỗi.
@@ -213,11 +232,13 @@ src/
     context.ts             # WizardContext và hook useWizard
     WizardProvider.tsx     # tách khỏi context.ts theo luật react/only-export-components
     WizardShell.tsx        # header, Stepper, bước hiện tại; tính trạng thái bước bằng canEnter
+    StepActions.tsx        # nút "Quay lại"/"Tiếp" ở chân bước, kèm lý do khoá
     useBeforeUnload.ts
     useBusyRequest.ts      # bọc request làm bận wizard (bộ đếm trong reducer, D2)
     usePreventFileDrop.ts  # chặn trình duyệt mở file khi thả ra ngoài vùng upload (D14)
   features/
     upload/                # UploadStep.tsx, checkFiles.ts
+    preview/               # PreviewStep.tsx
     preview/  schema/  mapping/  rules/  run/  result/  export/
   shared/
     ui/                    # Stepper (generic), ErrorBanner, ConfirmPanel, DataTable, EmptyState, Spinner, Pagination
@@ -413,7 +434,8 @@ class ApiError extends Error {
 ## Migration Plan
 
 - Không có dữ liệu hay người dùng hiện hữu; thay template trực tiếp.
-- Làm theo nhánh gợi ý trong Notion: `feature/fe-f01-upload`, `feature/fe-f02-source-preview`, …, `feature/fe-f11-wizard-polish`. Không commit thẳng lên `main`. Merge vào `main` phải hỏi trước.
+- Làm theo nhánh gợi ý trong Notion: `feature/fe-f01-upload`, `feature/fe-f02-source-preview`, …, `feature/fe-f11-wizard-polish`.
+- Luồng nhánh (người dùng chốt ngày 2026-09-26): nhánh feature merge vào `dev`; `dev` chỉ vào `main` khi mọi feature đã xong. Không commit thẳng lên `dev` hay `main`; merge vào nhánh chung phải hỏi trước.
 - Nối BE thật theo từng feature, khi feature BE tương ứng đã có trên nhánh của BE. Rollback bằng cách revert nhánh.
 
 ## Open Questions

@@ -75,3 +75,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function stringOrNull(value: unknown): string | null {
   return typeof value === 'string' ? value : null
 }
+
+/** Gửi lại đúng request đó chỉ có ích khi lỗi mạng hoặc lỗi phía máy chủ; lỗi 4xx thì gửi lại vẫn lỗi y hệt. */
+export function isRetryable(error: ApiError): boolean {
+  return error.kind === 'network' || (error.kind === 'http' && error.status !== null && error.status >= 500)
+}
+
+/**
+ * Session không dùng được nữa (hết hạn, hoặc đã FAILED): chỉ còn cách upload lại. Nhận biết theo `code`,
+ * không theo status, vì `404 REQUEST_INVALID` (sai endpoint) chỉ là lỗi thường (design D12).
+ */
+export function isSessionUnusable(error: ApiError): boolean {
+  return error.code === 'SESSION_NOT_FOUND' || error.code === 'SESSION_STATE_INVALID'
+}
