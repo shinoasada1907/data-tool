@@ -196,7 +196,11 @@ export const messages = {
     total: 'Tổng',
     valid: 'Hợp lệ',
     invalid: 'Lỗi',
-    stale: 'Cấu hình đã thay đổi — kết quả này là của lần chạy trước',
+    stale: {
+      configChanged: 'Cấu hình đã thay đổi — kết quả này là của lần chạy trước',
+      unavailable: 'Máy chủ không còn giữ kết quả này — chạy lại để có kết quả mới',
+      sessionUnusable: 'Phiên import không dùng được nữa — kết quả này là của lần chạy trước, hãy upload lại file',
+    },
     rerun: 'Chạy lại',
     tabsLabel: 'Dòng kết quả',
     tab: (label: string, count: number) => `${label} (${formatNumber(count)})`,

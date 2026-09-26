@@ -21,7 +21,7 @@ export function isStepDone(step: StepId, state: WizardState): boolean {
     case 'mapping':
       return hasSavedMapping(state)
     case 'rules':
-      return state.result !== null && !state.result.stale
+      return state.result !== null && state.result.stale === null
     default:
       return false
   }

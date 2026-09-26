@@ -57,7 +57,11 @@ Khi process thành công, wizard sang bước Result & Export, và bước đó 
 
 #### Scenario: Process lỗi khi đã có kết quả
 - **WHEN** đã có kết quả, user chạy lại và POST process trả `422 FILE_PARSE_ERROR`
-- **THEN** kết quả bị đánh dấu cũ, vì BE đã xoá nó
+- **THEN** kết quả bị đánh dấu cũ với lý do session không dùng được nữa, vì BE đã xoá nó
+
+#### Scenario: Process lỗi 5xx nhưng BE giữ kết quả cũ
+- **WHEN** đã có kết quả chưa cũ, user chạy lại, POST process trả `500 INTERNAL_ERROR`, và `GET /api/import-sessions/{id}` cho biết session vẫn `PROCESSED`
+- **THEN** kết quả đang có không bị đánh dấu cũ
 
 #### Scenario: Tải trang kết quả đầu lỗi
 - **WHEN** POST process thành công nhưng GET result trả `503`

@@ -25,6 +25,15 @@ export interface Section<T> {
   saved: boolean
 }
 
+/**
+ * Vì sao kết quả không còn khớp với BE (design D18). Câu cảnh báo và việc còn làm được đi theo lý do:
+ * - `configChanged`: user sửa cấu hình sau lần chạy; chạy lại là đúng.
+ * - `unavailable`: BE báo không còn kết quả (`409 RESULT_NOT_AVAILABLE`), hoặc process lỗi mà không biết BE đã làm gì
+ *   (hết giờ, mất mạng, 5xx); chạy lại có thể được.
+ * - `sessionUnusable`: session đã FAILED hoặc không còn (D12); chạy lại chắc chắn lỗi, chỉ còn cách upload lại.
+ */
+export type StaleReason = 'configChanged' | 'unavailable' | 'sessionUnusable'
+
 /** Kết quả của lần chạy gần nhất (design D2, D18). */
 export interface ResultState {
   summary: PipelineSummary
@@ -37,8 +46,8 @@ export interface ResultState {
    * không chạy lại cả pipeline (review FE-F08/F09).
    */
   page: ResultPage | null
-  /** Cấu hình đã sửa sau lần chạy này, hoặc BE báo kết quả không còn: chỉ còn xem trang đang có và chạy lại. */
-  stale: boolean
+  /** Khác null: kết quả đã cũ, chỉ còn xem trang đang có và làm việc mà lý do cho phép (chạy lại hoặc upload lại). */
+  stale: StaleReason | null
 }
 
 export interface WizardState {
@@ -109,8 +118,8 @@ export type WizardAction =
   /** Process xong: kết quả mới thay kết quả cũ, wizard sang bước Kết quả và bước đó tải trang `query`. */
   | { type: 'processCompleted'; summary: PipelineSummary; columns: readonly string[]; query: ResultQuery }
   | { type: 'resultPageLoaded'; query: ResultQuery; page: ResultPage }
-  /** `GET result` trả `409 RESULT_NOT_AVAILABLE` (design D18). */
-  | { type: 'resultUnavailable' }
+  /** BE không còn kết quả: `409 RESULT_NOT_AVAILABLE`, hoặc process lỗi (design D18). */
+  | { type: 'resultUnavailable'; reason: Exclude<StaleReason, 'configChanged'> }
   | { type: 'navigate'; step: StepId }
   | { type: 'requestStarted' }
   | { type: 'requestSettled' }

@@ -325,22 +325,86 @@ describe('Chạy xử lý', () => {
   })
 
   describe('kết quả cũ khi process lỗi', () => {
-    test('đã có kết quả, process trả 422 FILE_PARSE_ERROR (BE xoá kết quả): bước Kết quả hiện kết quả là cũ', async () => {
+    const SESSION_GONE = 'Phiên import không dùng được nữa — kết quả này là của lần chạy trước, hãy upload lại file'
+    const RESULT_GONE = 'Máy chủ không còn giữ kết quả này — chạy lại để có kết quả mới'
+
+    /** Đã chạy thành công một lần, chạy lần nữa (không sửa gì) với process trả `failure`, rồi mở bước Kết quả. */
+    async function failSecondRun(user: User, failure: () => Response) {
       mockSaveTransformations(saved)
       mockSaveValidations(saved)
-      mockProcess(processed, () => problemResponse(422, 'FILE_PARSE_ERROR', 'Malformed CSV at line 12.'))
+      mockProcess(processed, failure)
       mockResult(resultPage)
+      render(<App />)
+      await openRulesStep(user)
+      await runOnceAndGoBack(user)
+      await user.click(runButton())
+      await screen.findByRole('alert')
+      await user.click(stepButton(/Kết quả/))
+      await screen.findByRole('heading', RESULT_HEADING)
+    }
+
+    // User không sửa gì: không được nói "cấu hình đã thay đổi", và không mời chạy lại một việc chắc chắn lỗi.
+    test('process trả 422 FILE_PARSE_ERROR (session FAILED, BE xoá kết quả): kết quả cũ vì session hỏng, chỉ còn "Upload lại"', async () => {
       const user = userEvent.setup()
+      await failSecondRun(user, () => problemResponse(422, 'FILE_PARSE_ERROR', 'Malformed CSV at line 12.'))
+
+      expect(screen.getByText(SESSION_GONE)).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Chạy lại' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Sau' })).toBeDisabled()
+      await user.click(screen.getByRole('button', { name: 'Upload lại' }))
+      expect(await screen.findByRole('heading', { level: 2, name: 'Upload file nguồn' })).toBeInTheDocument()
+    })
+
+    test('process trả 409 SESSION_STATE_INVALID: kết quả cũ vì session hỏng', async () => {
+      const user = userEvent.setup()
+      await failSecondRun(user, () => problemResponse(409, 'SESSION_STATE_INVALID', 'Session is FAILED.'))
+
+      expect(screen.getByText(SESSION_GONE)).toBeInTheDocument()
+    })
+
+    test('process trả 409 SESSION_NOT_READY khi đã có kết quả (cấu hình trên BE đã đổi): kết quả cũ, mời "Chạy lại"', async () => {
+      const user = userEvent.setup()
+      await failSecondRun(user, () =>
+        problemWithErrors(409, 'SESSION_NOT_READY', [
+          { field: 'Email', code: 'TARGET_FIELD_REQUIRED', message: 'Required target field is not mapped.' },
+        ]),
+      )
+
+      expect(screen.getByText(RESULT_GONE)).toBeInTheDocument()
+    })
+
+    test('mất mạng khi process (không biết BE đã làm gì): kết quả cũ, mời "Chạy lại"', async () => {
+      const user = userEvent.setup()
+      await failSecondRun(user, () => HttpResponse.error())
+
+      expect(screen.getByText(RESULT_GONE)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Chạy lại' })).toBeEnabled()
+    })
+
+    test('process trả 500 và session về READY (BE đã xoá kết quả): kết quả cũ, mời "Chạy lại"', async () => {
+      const user = userEvent.setup()
+      mockSession(() => HttpResponse.json(importSessionFixture({ status: 'READY' })))
+      await failSecondRun(user, () => problemResponse(500, 'INTERNAL_ERROR', 'Unexpected error.'))
+
+      expect(screen.getByText(RESULT_GONE)).toBeInTheDocument()
+    })
+
+    test('process trả 500 rồi hỏi trạng thái thì session đã hết hạn (404): "Upload lại", kết quả cũ vì session hỏng', async () => {
+      const user = userEvent.setup()
+      mockSession(() => problemResponse(404, 'SESSION_NOT_FOUND', 'Import session not found.'))
+      mockSaveTransformations(saved)
+      mockSaveValidations(saved)
+      mockProcess(processed, () => problemResponse(500, 'INTERNAL_ERROR', 'Unexpected error.'))
+      mockResult(resultPage)
       render(<App />)
       await openRulesStep(user)
       await runOnceAndGoBack(user)
 
       await user.click(runButton())
-      await screen.findByRole('alert')
-      await user.click(stepButton(/Kết quả/))
 
-      expect(await screen.findByText('Cấu hình đã thay đổi — kết quả này là của lần chạy trước')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Sau' })).toBeDisabled()
+      expect(within(await screen.findByRole('alert')).getByRole('button', { name: 'Upload lại' })).toBeInTheDocument()
+      await user.click(stepButton(/Kết quả/))
+      expect(await screen.findByText(SESSION_GONE)).toBeInTheDocument()
     })
 
     test('đã có kết quả, process trả 500 nhưng session vẫn PROCESSED (BE giữ kết quả cũ): kết quả không bị coi là cũ', async () => {

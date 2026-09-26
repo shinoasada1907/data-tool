@@ -163,7 +163,8 @@ FE chỉ kiểm **cấu hình**: tên field, field required chưa map, hằng r�
   - `code = SESSION_STATE_INVALID` (409): session đã `FAILED`, ví dụ do đọc file lỗi lúc process.
 - Khi đó FE báo lỗi kèm nút "Upload lại", và **không** tự reset.
 - Riêng `POST /process` trả `422 FILE_PARSE_ERROR` cũng có nghĩa session đã `FAILED`, nên FE hiện nút "Upload lại" ngay, không để user bấm chạy lại vô ích.
-- ~~`500 INTERNAL_ERROR` thì vẫn là lỗi chung, vì có thể không làm hỏng session. Nếu session đã hỏng thật, lệnh ghi kế tiếp sẽ nhận `409 SESSION_STATE_INVALID` và rơi về luật ở trên.~~ **Đổi (FE-F08) — LÝ DO:** BE-F08 xác nhận `500 INTERNAL_ERROR` của process có ba nguyên nhân mà body không phân biệt được: đọc file nguồn lỗi (session `FAILED`, kết quả cũ bị xoá), lưu kết quả lỗi (session giữ nguyên, kết quả cũ còn), bug (session giữ nguyên). Luật cũ bắt user bấm thêm một lần chỉ để nhận 409. Nay sau 5xx của process, FE gọi `GET /api/import-sessions/{id}`: `FAILED` thì "Upload lại"; còn lại là lỗi chung và nút chạy bấm lại được. Không hỏi được trạng thái thì cũng là lỗi chung.
+  - Ngoại lệ của luật "nhận biết theo `code`": với process, FE nhận theo **status 422**, vì BE-F08 bọc mọi lỗi đọc file nguồn (`FILE_PARSE_ERROR`, `FILE_EMPTY`…) thành cùng một luồng làm session `FAILED`; process không có 422 nào khác.
+- ~~`500 INTERNAL_ERROR` thì vẫn là lỗi chung, vì có thể không làm hỏng session. Nếu session đã hỏng thật, lệnh ghi kế tiếp sẽ nhận `409 SESSION_STATE_INVALID` và rơi về luật ở trên.~~ **Đổi (FE-F08) — LÝ DO:** BE-F08 xác nhận `500 INTERNAL_ERROR` của process có ba nguyên nhân mà body không phân biệt được: đọc file nguồn lỗi (session `FAILED`, kết quả cũ bị xoá), lưu kết quả lỗi (session giữ nguyên, kết quả cũ còn), bug (session giữ nguyên). Luật cũ bắt user bấm thêm một lần chỉ để nhận 409. Nay sau 5xx của process, FE gọi `GET /api/import-sessions/{id}`: `FAILED` thì "Upload lại"; còn lại là lỗi chung và nút chạy bấm lại được. Lượt hỏi đó trả `SESSION_NOT_FOUND` (session hết hạn giữa hai request) thì cũng là "Upload lại"; lỗi khác khi hỏi thì là lỗi chung.
 - Nhận biết theo `code`, không theo status. Lý do: BE trả `404` kèm `REQUEST_INVALID` khi gọi sai đường dẫn endpoint; đó chỉ là một lỗi thường, và tự xoá state của user trong trường hợp này là phá hoại.
 
 ### D13. Upload file mới thì xoá toàn bộ cấu hình, nhưng chỉ khi đã có session mới
@@ -287,6 +288,16 @@ src/
   - chỉ còn nút "Chạy lại".
 - Nếu vẫn nhận `409 RESULT_NOT_AVAILABLE` (ví dụ do nguyên nhân phía BE), FE cũng đánh dấu kết quả là cũ và hiện cảnh báo.
 - Process lỗi cũng đánh dấu kết quả là cũ, vì BE có thể đã xoá nó (session `FAILED`, hoặc không biết BE đã làm gì khi hết giờ, mất mạng). Ngoại lệ duy nhất: sau 5xx mà session vẫn `PROCESSED`, BE giữ kết quả cũ (review FE-F08/F09).
+- **Kết quả cũ mang lý do, không phải boolean** (review FE-F08/F09 lần 2). Câu cảnh báo và việc còn làm được đi theo lý do:
+
+  | Lý do | Khi nào | Cảnh báo | Hành động |
+  |---|---|---|---|
+  | `configChanged` | user sửa cấu hình sau lần chạy | "Cấu hình đã thay đổi — kết quả này là của lần chạy trước" | "Chạy lại" |
+  | `unavailable` | `409 RESULT_NOT_AVAILABLE`; process lỗi mà không biết BE đã làm gì | "Máy chủ không còn giữ kết quả này — chạy lại để có kết quả mới" | "Chạy lại" |
+  | `sessionUnusable` | process lỗi và session `FAILED` hoặc không còn | "Phiên import không dùng được nữa — kết quả này là của lần chạy trước, hãy upload lại file" | "Upload lại" |
+
+  - `sessionUnusable` luôn thắng, vì chạy lại chắc chắn lỗi; các lý do khác giữ lý do có trước.
+  - *Vì sao*: bản đầu dùng một boolean cho cả ba. Process trả 422 thì màn Kết quả báo "Cấu hình đã thay đổi" dù user không sửa gì, và mời "Chạy lại" trên session đã `FAILED`.
 - FE đánh dấu cũ cả khi user sửa rồi sửa ngược lại về đúng cấu hình cũ, dù BE vẫn giữ kết quả (BE so `configHash`, PUT không đổi gì thì giữ `PROCESSED`). Chấp nhận: sớm hơn BE thì chỉ tốn một lần chạy lại, còn muộn hơn thì user xem kết quả không khớp cấu hình.
 
 ### D19. `dateFormat` trên field kiểu `date` luôn xuất ISO
