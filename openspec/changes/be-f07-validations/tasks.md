@@ -346,5 +346,17 @@
     - body hợp lệ → 200, rule theo thứ tự `email/unique`, `note/email`, `note/unique`;
     - có `required` và `email` trên field kiểu email → 200, 2 warning `RULE_IMPLIED_BY_SCHEMA`, chỉ lưu `email/unique`;
     - `email` trên `age` (number) → 422 `CONFIG_INVALID`.
-- [ ] 10.3 Tick đủ checkbox; chỗ nào làm khác kế hoạch thì gạch ngang và ghi LÝ DO. (OQ1 "chỉ báo lỗi đầu tiên" đã chốt 2026-09-25: giữ.) Commit: `docs(openspec): complete be-f07 tasks`
-- [ ] 10.4 Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f07-validations -y`.
+- [x] 10.2b (thêm) Review bằng agent `senior-reviewer`. Không có blocker nổ trên nhánh, nhưng có một lỗi sẽ thành blocker khi F08 nối vào. Đã sửa:
+  - **Ô độc làm treo job (sẽ là blocker ở F08):**
+    - regex email backtrack bậc hai;
+    - `new BigDecimal` và `stripTrailingZeros` bậc hai theo độ dài ô.
+
+    Email giờ kiểm bằng code, tuyến tính, tối đa 254 ký tự. Số tối đa 1000 ký tự. Có test `@Timeout` với ô 200 KB và ô một triệu chữ số. Đã thêm vào spec và design V3.
+  - **Rule thiếu `type` → 500:** `Set.of(...).contains(null)` ném NPE. Giờ trả 422 "Unknown validation rule 'null'.". Có test domain và test HTTP.
+  - **`UniqueTracker` phụ thuộc vào việc caller gọi đúng thứ tự:** ~~`commitRow(int)`~~ → `beginRow(n)` / `commitRow()` / `discardRow()`, gọi sai là ném lỗi (design V4).
+  - **`FieldValidator` nhận cả danh sách rule** thì chạy luôn rule của field khác. Giờ chỉ lấy rule có `targetField` trùng field đang kiểm.
+  - **Email nhận NBSP, zero-width space và ký tự điều khiển:** đã chặn.
+  - **Boolean nhận `falſe`:** đã chặn.
+  - **Không làm:** param có giá trị `null` vẫn được coi là không gửi, giống quy ước của F06, nên `{"foo": null}` → 200. Quy ước này thống nhất cho mọi phần cấu hình.
+- [x] 10.3 Tick đủ checkbox; chỗ nào làm khác kế hoạch thì gạch ngang và ghi LÝ DO. (OQ1 "chỉ báo lỗi đầu tiên" đã chốt 2026-09-25: giữ.) Commit: `docs(openspec): complete be-f07 tasks`
+- [x] 10.4 ~~Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f07-validations -y`.~~ → archive trên nhánh feature, tự merge vào `dev`, xoá nhánh. **LÝ DO:** luật nhánh 2026-09-26, và người dùng dặn tự làm hết các phase.

@@ -18,10 +18,10 @@ Với mỗi field có `required = true` trong schema, hệ thống SHALL kiểm 
 ### Requirement: Rule type kiểm và ép kiểu theo field type
 Với mỗi field, hệ thống SHALL kiểm giá trị không rỗng theo `type` của field trong schema, rồi ép sang kiểu thật như sau:
 - `string`: nhận mọi chuỗi, giữ nguyên.
-- `number`: chỉ nhận `^-?\d+(\.\d+)?$` (chữ số ASCII, không trim), ép sang `BigDecimal`.
+- `number`: chỉ nhận `^-?\d+(\.\d+)?$` (chữ số ASCII, không trim), dài tối đa 1000 ký tự, ép sang `BigDecimal`.
 - `boolean`: chỉ nhận `true`, `false`, `1`, `0` (không phân biệt hoa thường), ép sang `Boolean`.
 - `date`: chỉ nhận `yyyy-MM-dd`, parse STRICT, ép sang `LocalDate`.
-- `email`: chỉ nhận `^[^@\s]+@[^@\s]+\.[^@\s]+$`, giữ chuỗi.
+- `email`: đúng một `@`, trước `@` không rỗng, phần sau `@` có một dấu `.` không nằm ở đầu hay cuối; không chứa khoảng trắng nào (kể cả NBSP, khoảng trắng zero-width) hay ký tự điều khiển; dài tối đa 254 ký tự. Giữ chuỗi.
 
 Sai kiểu SHALL sinh lỗi `code = VALIDATION_TYPE`, `rule = "type"`. Riêng field kiểu `email` sinh `code = VALIDATION_EMAIL`, `rule = "email"`. Message MUST NOT chứa giá trị ô.
 
@@ -44,6 +44,14 @@ Sai kiểu SHALL sinh lỗi `code = VALIDATION_TYPE`, `rule = "type"`. Riêng fi
 #### Scenario: Field kiểu email
 - **WHEN** field `email` kiểu `email` nhận lần lượt `"an@example.com"`, `"an@example"`, `"an example@x.com"`, `"a@b@c.com"`
 - **THEN** giá trị đầu hợp lệ; ba giá trị sau sinh lỗi `VALIDATION_EMAIL`, `rule = "email"`, message `Value is not a valid email address.`
+
+#### Scenario: Ô rất dài không làm treo job
+- **WHEN** field `email` kiểu `email` nhận một chuỗi 200 KB có dạng `"a@" + "a." × 100000 + " "`, và field `age` kiểu `number` nhận một chuỗi một triệu chữ số
+- **THEN** cả hai sinh lỗi ngay (`VALIDATION_EMAIL`, `VALIDATION_TYPE`), không mất quá vài giây
+
+#### Scenario: Ký tự vô hình trong email
+- **WHEN** field `email` kiểu `email` nhận `"an@y.com"` kèm một NBSP ở cuối
+- **THEN** field có lỗi `VALIDATION_EMAIL`
 
 #### Scenario: Chuỗi giữ nguyên
 - **WHEN** field `note` kiểu `string` nhận `" a "`
