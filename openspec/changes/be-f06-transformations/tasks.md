@@ -444,5 +444,24 @@
     - 3 bước lỗi → 422 `CONFIG_INVALID` với 4 item (type lạ, field không có, pattern thiếu ngày, field date mà output không phải ISO);
     - `"order":"abc"` → 400 `REQUEST_INVALID`.
   - Log app không chứa giá trị ô.
-- [ ] 11.3 Tick đủ checkbox; chỗ nào làm khác kế hoạch thì gạch ngang và ghi LÝ DO. Commit: `docs(openspec): complete be-f06 tasks`
-- [ ] 11.4 Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f06-transformations -y`.
+- [x] 11.2b (thêm) Review bằng agent `senior-reviewer`: không có blocker. Đã sửa:
+  - **Pattern ghi ra ngày sai mà không báo lỗi (major):** `yy`, `YYYY`, `DD`, `w`, `W`, `F` từng qua được bước kiểm (chỉ round-trip một mẫu 2001-02-03). Giờ các chữ này bị từ chối theo tên, input bắt năm 4 chữ số, và round-trip dùng thêm mẫu 1968-11-29. Chi tiết ở design T3, và đã thêm vào spec.
+  - **Năm ngoài 1–9999** không còn parse được (đổi `y` → `u` từng nhận `-1990`, `0000`, `+19900`).
+  - **Tên tháng** đọc không phân biệt hoa thường.
+  - **Validator:**
+    - vẫn kiểm params khi field không tồn tại, để mọi lỗi về cùng lúc;
+    - step thiếu `targetField` không còn bị báo "Duplicate order … for field 'null'".
+  - **Test hash:**
+    - test cũ vẫn xanh khi bỏ `ORDER_MAP_ENTRIES_BY_KEYS` (đã kiểm ngược): `Map.copyOf` duyệt theo thứ tự đổi theo từng lần chạy JVM, và khoảng 1/8 số lần tình cờ ra đúng thứ tự;
+    - thêm test mapper deterministic (đã kiểm ngược: bỏ feature thì đỏ);
+    - `TransformationsDocument` ghi `params` bằng `TreeMap`, nên JSON lưu cũng ổn định.
+  - **Test log (D13):** bắt log JUL của engine, kiểm rằng log không chứa message exception hay giá trị ô.
+  - **Không làm, kèm lý do:**
+    - OQ2 (giữ bước `dateFormat` nhưng bỏ `outputFormat`): spec đã chốt là bỏ cả bước; ghi ở design OQ2 để người dùng quyết.
+    - Kiểm `defaultValue.value` theo kiểu field: D10 và F05 design đã chốt là hằng đi qua validation như mọi giá trị khác.
+  - **Để lại cho F08** (đường chạy nóng):
+    - dùng lại `DateTimeFormatter` (hiện compile 2 lần mỗi ô);
+    - gom các bước theo field một lần mỗi job, thay vì `stepsFor` quét lại danh sách;
+    - không log WARN mỗi ô cho cùng một lỗi (log lần đầu theo cặp field/type, còn lại chỉ đếm).
+- [x] 11.3 Tick đủ checkbox; chỗ nào làm khác kế hoạch thì gạch ngang và ghi LÝ DO. Commit: `docs(openspec): complete be-f06 tasks`
+- [x] 11.4 ~~Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f06-transformations -y`.~~ → archive trên nhánh feature, tự merge vào `dev`, xoá nhánh. **LÝ DO:** luật nhánh người dùng chốt 2026-09-26, và người dùng dặn tự làm hết các phase.
