@@ -110,7 +110,7 @@
   // type(): "trim" | "uppercase" | "lowercase" | "defaultValue"
   ```
 
-- [ ] 3.1 Viết `TextTransformationsTest`. Test nào đổi locale thì `@AfterEach` phải khôi phục `Locale.getDefault()`.
+- [x] 3.1 Viết `TextTransformationsTest`. Test nào đổi locale thì `@AfterEach` phải khôi phục `Locale.getDefault()`.
   | Transformation | Input | Output |
   |---|---|---|
   | trim | `"  An  "` | `"An"` |
@@ -125,7 +125,7 @@
   | uppercase | `"   "` | `"   "` |
 
   Ngoài ra: `validate(ctx với params {})` trả `[]`; `validate(ctx với params {"foo":"1"})` trả `["Unknown parameter 'foo' for 'trim'."]`.
-- [ ] 3.2 Viết `DefaultValueTransformationTest`, với `params = {"value":"VN"}`:
+- [x] 3.2 Viết `DefaultValueTransformationTest`, với `params = {"value":"VN"}`:
   | Input | Output |
   |---|---|
   | `null` | `"VN"` |
@@ -139,10 +139,10 @@
   | `{}` | `["Parameter 'value' is required."]` |
   | `{"value":"  "}` | `["Parameter 'value' must not be blank."]` |
   | `{"value":"VN","x":"1"}` | `["Unknown parameter 'x' for 'defaultValue'."]` |
-- [ ] 3.3 Chạy `./mvnw -q test -Dtest=TextTransformationsTest,DefaultValueTransformationTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 3.4 Tạo các class ở phần Files. Mỗi transformation kiểm `TextValues.isEmpty` trước và trả nguyên giá trị nếu rỗng; riêng `defaultValue` làm ngược lại.
-- [ ] 3.5 Chạy lại lệnh ở 3.3. Mong đợi: PASS.
-- [ ] 3.6 Commit: `feat(domain): trim, uppercase, lowercase and defaultValue transformations`
+- [x] 3.3 Chạy `./mvnw -q test -Dtest=TextTransformationsTest,DefaultValueTransformationTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 3.4 Tạo các class ở phần Files. Mỗi transformation kiểm `TextValues.isEmpty` trước và trả nguyên giá trị nếu rỗng; riêng `defaultValue` làm ngược lại.
+- [x] 3.5 Chạy lại lệnh ở 3.3. Mong đợi: PASS.
+- [x] 3.6 Commit: `feat(domain): trim, uppercase, lowercase and defaultValue transformations`
 
 ## 4. dateFormat và kiểm pattern ngày
 
