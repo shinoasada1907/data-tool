@@ -2,6 +2,7 @@ package com.universalimporter.domain.validation;
 
 import com.universalimporter.domain.common.RowErrorCode;
 import com.universalimporter.domain.common.TextValues;
+import com.universalimporter.domain.common.ThrottledWarnings;
 import com.universalimporter.domain.schema.FieldType;
 import com.universalimporter.domain.schema.TargetField;
 
@@ -24,10 +25,9 @@ public final class FieldValidator {
             "email", RowErrorCode.VALIDATION_EMAIL,
             "unique", RowErrorCode.VALIDATION_UNIQUE);
 
-    /** The JDK's logger: the domain stays free of logging libraries; Spring Boot routes it to the app's log. */
-    private static final System.Logger LOG = System.getLogger(FieldValidator.class.getName());
-
     private final ValidationRegistry registry;
+    /** The JDK's logger: the domain stays free of logging libraries; Spring Boot routes it to the app's log. */
+    private final ThrottledWarnings warnings = new ThrottledWarnings(System.getLogger(FieldValidator.class.getName()));
 
     public FieldValidator(ValidationRegistry registry) {
         this.registry = registry;
@@ -73,7 +73,7 @@ public final class FieldValidator {
         } catch (RuntimeException bug) {
             // Not the exception itself: its message may quote the cell value (design D13).
             StackTraceElement[] trace = bug.getStackTrace();
-            LOG.log(System.Logger.Level.WARNING, "Validation rule " + type + " failed unexpectedly on field "
+            warnings.warn(type, () -> "Validation rule " + type + " failed unexpectedly on field "
                     + context.fieldName() + ": " + bug.getClass().getName() + (trace.length > 0 ? " at " + trace[0] : ""));
             return FieldValidation.failed(new ValidationFailure(type, CODES.get(type),
                     "Unexpected error while applying rule '" + type + "'."));

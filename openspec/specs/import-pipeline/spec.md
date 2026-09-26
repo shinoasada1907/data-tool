@@ -1,5 +1,8 @@
-## ADDED Requirements
+# import-pipeline Specification
 
+## Purpose
+Chạy pipeline map → transform → validate → ép kiểu trên toàn bộ file của session (`POST /process`), ghi kết quả `valid.ndjson`/`invalid.ndjson`/`summary.json` vào result store một cách nguyên khối, và giữ kết quả khớp với config hiện tại.
+## Requirements
 ### Requirement: Pipeline xử lý từng row theo thứ tự map, transform, validate, ép kiểu
 Với mỗi row nguồn, hệ thống SHALL xử lý từng target field theo thứ tự trong schema qua 4 bước:
 1. **Map**: lấy giá trị từ cột nguồn hoặc hằng số; field chưa map nhận `null`.
@@ -102,7 +105,9 @@ Hệ thống SHALL ghi kết quả vào `{storageRoot}/{sessionId}/result/`, g�
 - File dùng UTF-8 không BOM và xuống dòng bằng `\n`.
 - Số ghi dạng plain, không có ký hiệu `E`. Ngày ghi dạng chuỗi `yyyy-MM-dd`.
 
-Kết quả SHALL được ghi vào một thư mục tạm rồi mới thay cho `result/`. Hệ thống MUST NOT để lại thư mục tạm, dù chạy thành công hay thất bại.
+Kết quả SHALL được ghi vào một thư mục tạm rồi mới thay cho `result/`. Hệ thống MUST NOT để lại thư mục tạm, dù chạy thành công hay thất bại. Nếu hệ điều hành đang khoá một file bên trong nên chưa xoá được, lần process kế tiếp SHALL dọn nó.
+
+Việc thay `result/` thất bại giữa chừng SHALL trả lại kết quả cũ nguyên vẹn. Kết quả không ghi được (ví dụ đầy đĩa) SHALL trả `500` với `code = INTERNAL_ERROR`, và MUST NOT đổi trạng thái session hay kết quả cũ.
 
 #### Scenario: Nội dung file kết quả
 - **WHEN** pipeline chạy xong bộ dữ liệu mẫu
@@ -113,6 +118,11 @@ Kết quả SHALL được ghi vào một thư mục tạm rồi mới thay cho 
 #### Scenario: Chạy thất bại không để lại rác
 - **WHEN** việc đọc file nguồn thất bại giữa chừng
 - **THEN** thư mục `{sessionId}` không còn thư mục nào tên bắt đầu bằng `result.tmp-`
+
+#### Scenario: Ghi kết quả thất bại giữ kết quả cũ
+- **WHEN** session đã `PROCESSED`, và lần process sau không ghi được kết quả
+- **THEN** hệ thống trả `500` với `code = INTERNAL_ERROR`
+- **AND** session vẫn `PROCESSED`, và `result/` vẫn là kết quả cũ
 
 ### Requirement: Kết quả pipeline có tính xác định
 Với cùng file nguồn và cùng config, hệ thống SHALL tạo `valid.ndjson` và `invalid.ndjson` giống hệt nhau từng byte giữa các lần chạy. `summary.json` SHALL giống nhau ở mọi field, trừ `processedAt`.
@@ -157,7 +167,9 @@ Khi bị từ chối, hệ thống MUST NOT tạo hay thay đổi kết quả.
 Khi đọc file nguồn thất bại trong lúc process, hệ thống SHALL:
 - chuyển session sang `FAILED`;
 - xoá thư mục tạm và mọi kết quả cũ của session;
-- trả `422` với `code = FILE_PARSE_ERROR` nếu file sai cấu trúc, hoặc `500` với `code = INTERNAL_ERROR` nếu lỗi IO hay thiếu file.
+- trả lỗi của parser như chính nó (`422` với `code = FILE_PARSE_ERROR` nếu file sai cấu trúc), hoặc `500` với `code = INTERNAL_ERROR` nếu lỗi IO hay thiếu file.
+
+Chỉ lỗi của file nguồn mới làm session `FAILED`. Lỗi khi đóng file sau khi đã đọc hết mọi row MUST NOT làm hỏng lần chạy. Lỗi bất ngờ của chính hệ thống (bug) trả `500` và MUST NOT đổi trạng thái session.
 
 Session đã `FAILED` là trạng thái cuối (D2). Mọi lệnh ghi sau đó (`PUT /schema`, `/mapping`, `/transformations`, `/validations`, và `POST /process`) SHALL bị từ chối với `409` và `code = SESSION_STATE_INVALID`.
 
@@ -165,6 +177,10 @@ Session đã `FAILED` là trạng thái cuối (D2). Mọi lệnh ghi sau đó (
 - **WHEN** parser ném lỗi `FILE_PARSE_ERROR` ở row 4 trong lúc process
 - **THEN** hệ thống trả `422` với `code = FILE_PARSE_ERROR`, và session chuyển sang `FAILED`
 - **AND** không còn thư mục `result/` hay `result.tmp-*` nào của session
+
+#### Scenario: Đóng file lỗi sau khi đã đọc hết
+- **WHEN** mọi row đã được đọc, nhưng việc đóng file nguồn ném lỗi IO
+- **THEN** hệ thống trả `200` với `status = PROCESSED`, và `result/` là kết quả của lần chạy này
 
 #### Scenario: Thiếu file nguồn
 - **WHEN** file `source.bin` của session không còn trên đĩa, và client gọi `POST /process`
@@ -179,7 +195,7 @@ Session đã `FAILED` là trạng thái cuối (D2). Mọi lệnh ghi sau đó (
 - **THEN** cả hai request đều trả `409` với `code = SESSION_STATE_INVALID`, và `GET /api/import-sessions/{id}` vẫn trả `status = FAILED`
 
 ### Requirement: Đổi config thì kết quả cũ bị xoá
-Khi một lệnh PUT config làm `configHash` thay đổi trên session đang `PROCESSED`, hệ thống SHALL xoá thư mục `result/`, rồi chuyển session sang `READY` hoặc `CONFIGURING` tuỳ readiness. Khi lệnh PUT không làm `configHash` thay đổi, hệ thống SHALL giữ kết quả và giữ `PROCESSED`.
+Khi một lệnh PUT config làm `configHash` thay đổi, hệ thống SHALL xoá thư mục `result/` nếu có (dù session đang ở trạng thái nào), rồi chuyển session sang `READY` hoặc `CONFIGURING` tuỳ readiness. Việc xoá chạy sau khi thay đổi đã được lưu. Nếu xoá không được thì thay đổi vẫn giữ nguyên, vì kết quả có `configHash` cũ không bao giờ được trả cho client. Khi lệnh PUT không làm `configHash` thay đổi, hệ thống SHALL giữ kết quả và giữ `PROCESSED`.
 
 #### Scenario: Sửa transformation sau khi process
 - **WHEN** session đang `PROCESSED` và client gửi `PUT /transformations` với cấu hình khác cấu hình đã dùng khi process
@@ -196,3 +212,4 @@ Hệ thống SHALL giữ khoá của session (D11) trong suốt thời gian proc
 - **WHEN** hai request `POST /process` cho cùng một session tới gần như cùng lúc
 - **THEN** cả hai đều trả `200`
 - **AND** thư mục `result/` cuối cùng đầy đủ 3 file, và không còn thư mục `result.tmp-*` hay `result.old-*` nào
+

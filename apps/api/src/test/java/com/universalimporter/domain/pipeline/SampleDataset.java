@@ -1,0 +1,64 @@
+package com.universalimporter.domain.pipeline;
+
+import com.universalimporter.domain.mapping.MappingConfig;
+import com.universalimporter.domain.mapping.MappingSpec;
+import com.universalimporter.domain.schema.FieldSpec;
+import com.universalimporter.domain.schema.TargetSchema;
+import com.universalimporter.domain.source.ImportRow;
+import com.universalimporter.domain.source.SourceColumn;
+import com.universalimporter.domain.source.SourceSchema;
+import com.universalimporter.domain.transformation.TransformationConfig;
+import com.universalimporter.domain.transformation.TransformationStep;
+import com.universalimporter.domain.validation.ValidationConfig;
+import com.universalimporter.domain.validation.ValidationRuleConfig;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
+/** The sample data set of the import-pipeline spec, built in memory; empty cells are null. */
+public final class SampleDataset {
+
+    public static final SourceSchema SOURCE = new SourceSchema(List.of(new SourceColumn(0, "Họ tên"),
+            new SourceColumn(1, "Email"), new SourceColumn(2, "Tuổi"), new SourceColumn(3, "Ngày sinh")), 6, null);
+
+    public static final TargetSchema SCHEMA = TargetSchema.define(List.of(
+            new FieldSpec("name", "string", true, 0),
+            new FieldSpec("email", "email", true, 1),
+            new FieldSpec("age", "number", false, 2),
+            new FieldSpec("dob", "date", false, 3)));
+
+    public static final MappingConfig MAPPING = MappingConfig.define(List.of(
+            new MappingSpec("name", "SOURCE_COLUMN", "Họ tên", null),
+            new MappingSpec("email", "SOURCE_COLUMN", "Email", null),
+            new MappingSpec("age", "SOURCE_COLUMN", "Tuổi", null),
+            new MappingSpec("dob", "SOURCE_COLUMN", "Ngày sinh", null)), SCHEMA, SOURCE);
+
+    public static final TransformationConfig TRANSFORMATIONS = new TransformationConfig(List.of(
+            new TransformationStep("name", 0, "trim", null),
+            new TransformationStep("email", 0, "trim", null),
+            new TransformationStep("email", 1, "lowercase", null),
+            new TransformationStep("dob", 0, "dateFormat", Map.of("inputFormat", "dd/MM/yyyy"))));
+
+    public static final ValidationConfig VALIDATIONS =
+            new ValidationConfig(List.of(new ValidationRuleConfig("email", "unique", null)));
+
+    public static final PipelineConfig CONFIG = new PipelineConfig(SOURCE, SCHEMA, MAPPING, TRANSFORMATIONS, VALIDATIONS);
+
+    private SampleDataset() {
+    }
+
+    public static List<ImportRow> rows() {
+        return List.of(
+                row(2, "  An ", "AN@X.COM", "30", "25/12/1990"),
+                row(3, "Bình", "binh@x", "abc", "31/02/1990"),
+                row(4, null, "an@x.com", null, null),
+                row(5, "Cường", "cuong@x.com", null, null),
+                row(6, "Dũng", "dung@x.com", "abc", null),
+                row(7, "Dũng 2", "dung@x.com", "40", null));
+    }
+
+    private static ImportRow row(long number, String... values) {
+        return new ImportRow(number, Arrays.asList(values));
+    }
+}

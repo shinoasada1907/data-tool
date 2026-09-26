@@ -12,6 +12,12 @@
 
 Task 1 của tasks.md đối chiếu các giả định dưới đây với code đã merge.
 
+> **Đã đối chiếu (2026-09-26):** bảng kết quả ở task 1 của `tasks.md`.
+> - ~~`SessionConfiguration`~~ → `ImportConfiguration`.
+> - Mapping đi qua `RowMapper` của F05 (thêm `mapField`).
+> - `UniqueTracker` dùng `beginRow`/`commitRow()`/`discardRow()`.
+> - Controller đặt ở `api.process`.
+
 - **F02/F03** (nguồn):
   - `SourceParser` có `boolean supports(SourceFileType)` và `Stream<ImportRow> read(InputStream)`. Stream đã bỏ dòng trống (D9).
   - `ImportRow` có `rowNumber` và giá trị theo `index` cột.
@@ -110,6 +116,15 @@ public record ResultSummary(long total, long valid, long invalid, Map<String, Lo
   3. Xoá `result.old-*`.
 
   Giữa bước 1 và bước 2, người đọc có thể thấy thiếu `result/` và nhận 409 `RESULT_NOT_AVAILABLE`. Chấp nhận được: các lệnh ghi đã chạy lần lượt (D11), và người đọc không bao giờ thấy kết quả ghi dở.
+
+  *(Bổ sung sau review)*:
+  - Bước 2 lỗi thì đổi `result.old-*` về lại `result/`.
+  - Bước 3 làm best-effort, chỉ ghi log.
+  - Mỗi lần đổi tên được thử lại tối đa 5 lần khi gặp `AccessDeniedException`, vì trên Windows indexer hoặc antivirus có thể giữ file trong chốc lát.
+  - `begin()` gọi `recover()`: nếu thiếu `result/` mà còn `result.old-*` (tiến trình chết giữa bước 1 và bước 2) thì khôi phục; sau đó xoá `result.tmp-*`, `result.old-*`, `result.del-*` còn sót.
+  - `delete()` đổi tên `result/` thành `result.del-{uuid}` trước, để người đọc mất kết quả ngay, rồi mới xoá (best-effort).
+  - `ResultWriter.close()` không bao giờ ném lỗi.
+  - `summary.json` hỏng được coi như chưa có kết quả.
 - `FileResultStore` dùng chung thư mục gốc `StorageProperties.dir` với `LocalFileStorage` (F01).
 
 ### P6. ProcessService
@@ -130,6 +145,20 @@ Khi bước 4 gặp `DomainException(FILE_PARSE_ERROR)` hoặc `UncheckedIOExcep
 - `session.transitionTo(FAILED, now)` rồi lưu.
 - Ném lại lỗi: `FILE_PARSE_ERROR` → 422. `UncheckedIOException` được bọc thành `DomainException(INTERNAL_ERROR, "Source file could not be read.")` → 500.
 
+*(Sửa sau review — xem tasks 8.2b)*. Bước 4 thành ba pha:
+1. `begin` kết quả.
+2. `readThrough`: mở nguồn, chạy pipeline hết mọi row, rồi đóng nguồn.
+3. Chỉ khi nguồn đã đóng mới `commit`.
+
+Cách phân loại lỗi:
+- Lỗi xảy ra khi đóng nguồn sau khi đã đọc hết thì chỉ ghi log.
+- Mọi `DomainException`, `IOException` và `UncheckedIOException` của nguồn đều tính là lỗi nguồn và làm session `FAILED`. `DomainException` giữ nguyên mã của nó.
+- Bug khác (`RuntimeException` còn lại) được ném nguyên, session không đổi trạng thái.
+
+Các thay đổi khác:
+- `fail()` lưu `FAILED` trước, rồi mới xoá kết quả (best-effort), để lỗi xoá không che mất lỗi gốc.
+- Session `CONFIGURING` được chuyển sang `READY` ngay trước khi chạy, vì `CONFIGURING → FAILED` không phải chuyển trạng thái hợp lệ.
+
 `now = Instant.now(clock).truncatedTo(MICROS)`.
 
 Thiếu file (`storage.open` ném `UncheckedIOException`) và lỗi IO giữa chừng được xử lý như nhau: 500 `INTERNAL_ERROR`, session chuyển sang `FAILED`.
@@ -145,6 +174,7 @@ Không bọc cả hàm trong `@Transactional`, vì chạy lâu. Session chỉ đ
   - Hash khác và session đang `PROCESSED` → `resultStore.delete(id)`, rồi status chuyển về `READY` hoặc `CONFIGURING` theo readiness (D2).
   - Hash như cũ → giữ nguyên kết quả và giữ `PROCESSED`.
 - Cài đặt: thêm một bước trong hàm dùng chung của F04. Tên thật được xác định ở task 1.
+- *(Sửa sau review)*: xoá khi hash khác, dù session đang ở trạng thái nào, vì kết quả có thể còn trong khi status không phải `PROCESSED`, ví dụ khi lưu session sau commit bị lỗi. Việc xoá là best-effort: thay đổi đã commit thì không trả 500 nữa; kết quả sót lại không bao giờ được trả cho client nhờ F09 kiểm `configHash`.
 
 ### P8. HTTP
 - `POST /api/import-sessions/{id}/process` không có body, trả `200 PipelineSummaryDto { sessionId, status, total, valid, invalid, errorCountsByCode, errorCountsByField, processedAt }`.
@@ -167,6 +197,6 @@ Không bọc cả hàm trong `@Transactional`, vì chạy lâu. Session chỉ đ
 
 ## Open Questions
 
-- **OQ1**: Bảng contract của be-f01 (dòng #8) chưa liệt kê 422 `FILE_PARSE_ERROR` và 500 `INTERNAL_ERROR` cho `/process`, dù D2 đã nói lỗi đọc file thì chuyển session sang `FAILED`. Đề xuất bổ sung hai mã này vào bảng contract khi archive, và báo phiên FE.
+- **OQ1** *(đã xong: dòng #8 trong bảng contract ở design be-f01 đã archive có đủ 422/500)*: Bảng contract của be-f01 (dòng #8) chưa liệt kê 422 `FILE_PARSE_ERROR` và 500 `INTERNAL_ERROR` cho `/process`, dù D2 đã nói lỗi đọc file thì chuyển session sang `FAILED`. Đề xuất bổ sung hai mã này vào bảng contract khi archive, và báo phiên FE.
 - **OQ2**: Test tính xác định so **từng byte** của `valid.ndjson` và `invalid.ndjson`. Còn `summary.json` được so từng field, trừ `processedAt`, vì thời điểm chạy luôn khác nhau.
 - **OQ3**: Lỗi bất ngờ trong `MappingStrategy` được ghi thành `TRANSFORMATION_FAILED` với `rule="mapping"` (P2). Chưa có row error code riêng cho mapping, và bảng mã lỗi ở D4 đã chốt 5 mã. Đề xuất giữ như vậy, vì mapping lỗi ở runtime chỉ có thể do bug.

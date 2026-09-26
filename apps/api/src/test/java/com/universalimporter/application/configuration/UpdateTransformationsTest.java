@@ -48,6 +48,7 @@ class UpdateTransformationsTest {
             configuration -> configuration.toString(), new SessionLocks(), new TransactionTemplate(new NoDatabase()),
             new TransformationConfigValidator(TransformationRegistry.standard()),
             new com.universalimporter.domain.validation.ValidationConfigValidator(),
+            new com.universalimporter.support.InMemoryResultStore(),
             Clock.fixed(Instant.parse("2026-09-26T10:00:00Z"), ZoneOffset.UTC));
 
     @Test

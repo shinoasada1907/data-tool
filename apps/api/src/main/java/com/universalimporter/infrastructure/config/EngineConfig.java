@@ -1,5 +1,8 @@
 package com.universalimporter.infrastructure.config;
 
+import com.universalimporter.domain.mapping.MappingStrategies;
+import com.universalimporter.domain.pipeline.DefaultImportPipeline;
+import com.universalimporter.domain.pipeline.ImportPipeline;
 import com.universalimporter.domain.transformation.TransformationConfigValidator;
 import com.universalimporter.domain.transformation.TransformationEngine;
 import com.universalimporter.domain.transformation.TransformationRegistry;
@@ -41,5 +44,10 @@ public class EngineConfig {
     @Bean
     ValidationConfigValidator validationConfigValidator() {
         return new ValidationConfigValidator();
+    }
+
+    @Bean
+    ImportPipeline importPipeline(TransformationEngine transformationEngine, FieldValidator fieldValidator) {
+        return new DefaultImportPipeline(MappingStrategies.standard(), transformationEngine, fieldValidator);
     }
 }

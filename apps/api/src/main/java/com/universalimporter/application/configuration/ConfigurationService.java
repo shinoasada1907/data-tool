@@ -15,6 +15,7 @@ import com.universalimporter.domain.importsession.ImportSessionRepository;
 import com.universalimporter.domain.importsession.SessionStatus;
 import com.universalimporter.domain.mapping.MappingConfig;
 import com.universalimporter.domain.mapping.MappingSpec;
+import com.universalimporter.domain.pipeline.ResultStore;
 import com.universalimporter.domain.schema.FieldSpec;
 import com.universalimporter.domain.schema.TargetSchema;
 import com.universalimporter.domain.transformation.TransformationConfig;
@@ -22,6 +23,8 @@ import com.universalimporter.domain.transformation.TransformationConfigValidator
 import com.universalimporter.domain.validation.ValidationConfig;
 import com.universalimporter.domain.validation.ValidationConfigCheck;
 import com.universalimporter.domain.validation.ValidationConfigValidator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -36,6 +39,8 @@ import java.util.function.BiFunction;
 @Service
 public class ConfigurationService {
 
+    private static final Logger log = LoggerFactory.getLogger(ConfigurationService.class);
+
     private final ImportSessionRepository sessions;
     private final ImportConfigurationRepository configurations;
     private final ConfigHasher hasher;
@@ -43,13 +48,14 @@ public class ConfigurationService {
     private final TransactionTemplate transactions;
     private final TransformationConfigValidator transformationValidator;
     private final ValidationConfigValidator validationValidator;
+    private final ResultStore results;
     private final Clock clock;
     private final ReadinessEvaluator readiness = ReadinessEvaluator.standard();
 
     public ConfigurationService(ImportSessionRepository sessions, ImportConfigurationRepository configurations,
                                 ConfigHasher hasher, SessionLocks locks, TransactionTemplate transactions,
                                 TransformationConfigValidator transformationValidator,
-                                ValidationConfigValidator validationValidator, Clock clock) {
+                                ValidationConfigValidator validationValidator, ResultStore results, Clock clock) {
         this.sessions = sessions;
         this.configurations = configurations;
         this.hasher = hasher;
@@ -57,6 +63,7 @@ public class ConfigurationService {
         this.transactions = transactions;
         this.transformationValidator = transformationValidator;
         this.validationValidator = validationValidator;
+        this.results = results;
         this.clock = clock;
     }
 
@@ -104,28 +111,51 @@ public class ConfigurationService {
      * Applies {@code mutation} to the stored configuration and moves the session to READY or CONFIGURING.
      * The lock wraps the transaction, so the next write on this session sees this one committed. A rejected
      * change rolls back, leaving both the session and its configuration as they were.
+     * <p>
+     * A real change makes any stored result stale: it is deleted once the change has committed, still inside the
+     * lock (BE-F08 P7). Deleting before the commit could lose a result that stays valid if the commit then fails.
+     * Whatever the status: a result may outlive the PROCESSED status, a run that could not save its session say.
+     * The deletion is best effort, as the change is already committed: a result that stays behind is never served,
+     * since its configuration hash no longer matches (BE-F09).
      */
     private ConfigUpdateResult update(UUID sessionId,
                                       BiFunction<ImportSession, ImportConfiguration, ConfigChange> mutation) {
-        return locks.withLock(sessionId, () -> transactions.execute(status -> {
-            ImportSession session = sessions.findById(sessionId)
-                    .orElseThrow(() -> new DomainException(ErrorCode.SESSION_NOT_FOUND, "Import session not found."));
-            requireConfigurable(session);
-            ImportConfiguration current = configurations.findBySessionId(sessionId)
-                    .orElseGet(() -> ImportConfiguration.empty(sessionId));
-            // Past the state check, the file has been inspected, so the session has its source schema.
-            ConfigChange change = mutation.apply(session, current);
-            boolean changed = !hasher.hash(current).equals(hasher.hash(change.configuration()));
-            Readiness newReadiness = readiness.evaluate(change.configuration());
-            Instant now = now();
-            // Re-sending the configuration a processed session already has keeps its result valid.
-            if (session.status() != SessionStatus.PROCESSED || changed) {
-                session.transitionTo(newReadiness.ready() ? SessionStatus.READY : SessionStatus.CONFIGURING, now);
-                // F08: when a PROCESSED session changes, its result/ is deleted here.
+        return locks.withLock(sessionId, () -> {
+            Outcome outcome = transactions.execute(status -> applyAndSave(sessionId, mutation));
+            if (outcome.staleResult()) {
+                try {
+                    results.delete(sessionId);
+                } catch (RuntimeException e) {
+                    log.warn("Stale result of session {} could not be deleted: {}", sessionId, e.getClass().getName());
+                }
             }
-            ImportConfiguration saved = configurations.save(change.configuration(), now);
-            return new ConfigUpdateResult(sessions.save(session), saved, newReadiness, change.warnings());
-        }));
+            return outcome.result();
+        });
+    }
+
+    /** The transactional part of {@link #update}. */
+    private Outcome applyAndSave(UUID sessionId, BiFunction<ImportSession, ImportConfiguration, ConfigChange> mutation) {
+        ImportSession session = sessions.findById(sessionId)
+                .orElseThrow(() -> new DomainException(ErrorCode.SESSION_NOT_FOUND, "Import session not found."));
+        requireConfigurable(session);
+        ImportConfiguration current = configurations.findBySessionId(sessionId)
+                .orElseGet(() -> ImportConfiguration.empty(sessionId));
+        // Past the state check, the file has been inspected, so the session has its source schema.
+        ConfigChange change = mutation.apply(session, current);
+        boolean changed = !hasher.hash(current).equals(hasher.hash(change.configuration()));
+        Readiness newReadiness = readiness.evaluate(change.configuration());
+        Instant now = now();
+        // Re-sending the configuration a processed session already has keeps its result valid.
+        boolean staleResult = changed;
+        if (session.status() != SessionStatus.PROCESSED || changed) {
+            session.transitionTo(newReadiness.ready() ? SessionStatus.READY : SessionStatus.CONFIGURING, now);
+        }
+        ImportConfiguration saved = configurations.save(change.configuration(), now);
+        return new Outcome(new ConfigUpdateResult(sessions.save(session), saved, newReadiness, change.warnings()),
+                staleResult);
+    }
+
+    private record Outcome(ConfigUpdateResult result, boolean staleResult) {
     }
 
     private static void requireConfigurable(ImportSession session) {
