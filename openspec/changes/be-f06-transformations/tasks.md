@@ -164,7 +164,7 @@
   // DateFormatTransformation.type() = "dateFormat"; params: inputFormat (bắt buộc), outputFormat (không bắt buộc, mặc định ISO)
   ```
 
-- [ ] 4.1 Viết `DatePatternsTest`:
+- [x] 4.1 Viết `DatePatternsTest`:
   | Hàm | Input | Mong đợi |
   |---|---|---|
   | `toStrict` | `dd/MM/yyyy` | `dd/MM/uuuu` |
@@ -183,7 +183,7 @@
   Cách kiểm:
   - `checkInput` là round-trip: `LocalDate.parse(f.format(LocalDateTime.of(2001,2,3,4,5,6)), f)` phải bằng `2001-02-03`.
   - `checkOutput` gọi `f.format(LocalDate.of(2001,2,3))`, không được ném exception.
-- [ ] 4.2 Viết `DateFormatTransformationTest`:
+- [x] 4.2 Viết `DateFormatTransformationTest`:
   | inputFormat | outputFormat | Input | Mong đợi |
   |---|---|---|---|
   | `dd/MM/yyyy` | — | `25/12/1990` | `1990-12-25` |
@@ -209,10 +209,10 @@
   | date | `{inputFormat: dd/MM/yyyy, outputFormat: yyyy-MM-dd}` | `[]` (FE luôn gửi dạng này) |
   | date | `{inputFormat: dd/MM/yyyy, outputFormat: uuuu-MM-dd}` | `[]` |
   | string | `{inputFormat: dd/MM/yyyy, foo: 1}` | `["Unknown parameter 'foo' for 'dateFormat'."]` |
-- [ ] 4.3 Chạy `./mvnw -q test -Dtest=DatePatternsTest,DateFormatTransformationTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 4.4 Tạo `DatePatterns` và `DateFormatTransformation`. Message lỗi lúc parse chỉ chứa pattern gốc người dùng nhập, không chứa giá trị ô.
-- [ ] 4.5 Chạy lại lệnh ở 4.3. Mong đợi: PASS.
-- [ ] 4.6 Commit: `feat(domain): strict dateFormat transformation`
+- [x] 4.3 Chạy `./mvnw -q test -Dtest=DatePatternsTest,DateFormatTransformationTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 4.4 Tạo `DatePatterns` và `DateFormatTransformation`. Message lỗi lúc parse chỉ chứa pattern gốc người dùng nhập, không chứa giá trị ô.
+- [x] 4.5 Chạy lại lệnh ở 4.3. Mong đợi: PASS.
+- [x] 4.6 Commit: `feat(domain): strict dateFormat transformation`
 
 ## 5. Registry và engine
 
