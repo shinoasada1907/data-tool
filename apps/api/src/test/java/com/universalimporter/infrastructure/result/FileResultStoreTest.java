@@ -217,6 +217,23 @@ class FileResultStoreTest {
     }
 
     @Test
+    @org.junit.jupiter.api.condition.EnabledOnOs(org.junit.jupiter.api.condition.OS.WINDOWS)
+    void deleting_a_result_never_follows_a_junction_out_of_it() throws Exception {
+        FileResultStore store = store();
+        commit(store, "h");
+        Path outside = Files.createDirectories(root.getParent().resolve(root.getFileName() + "-outside"));
+        Files.writeString(outside.resolve("keep.txt"), "not ours");
+        com.universalimporter.support.Junctions.create(
+                root.resolve(ID + "/result/peek"), outside);
+
+        store.delete(ID);
+
+        assertThat(leftovers()).isEmpty();
+        assertThat(root.resolve(ID + "/result")).doesNotExist();
+        assertThat(outside.resolve("keep.txt")).hasContent("not ours");
+    }
+
+    @Test
     void a_result_being_deleted_is_not_found() throws IOException {
         commit(store(), "h");
         Path sessionDir = root.resolve(ID.toString());

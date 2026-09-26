@@ -1,6 +1,8 @@
 package com.universalimporter.domain.importsession;
 
 import java.io.InputStream;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -17,4 +19,16 @@ public interface FileStorage {
 
     /** Removes everything stored for the session; does nothing when there is nothing to remove. */
     void delete(UUID sessionId);
+
+    /**
+     * Every session that has something stored; anything not named after a session, and any link, is left out and
+     * never touched.
+     */
+    List<StoredEntry> listEntries();
+
+    /** The installation that claimed this storage, if any. */
+    Optional<UUID> owner();
+
+    /** Marks this storage as belonging to {@code installation}. */
+    void claim(UUID installation);
 }

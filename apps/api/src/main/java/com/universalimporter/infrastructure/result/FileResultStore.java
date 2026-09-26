@@ -8,6 +8,7 @@ import com.universalimporter.domain.pipeline.ResultSummary;
 import com.universalimporter.domain.pipeline.ResultView;
 import com.universalimporter.domain.pipeline.ResultWriter;
 import com.universalimporter.domain.pipeline.RowResult;
+import com.universalimporter.infrastructure.storage.FileTrees;
 import com.universalimporter.infrastructure.storage.StorageProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -473,15 +474,8 @@ public class FileResultStore implements ResultStore {
         }
     }
 
+    /** Never follows a link or junction out of the result (BE-F11 review). */
     private static void deleteTree(Path path) throws IOException {
-        if (Files.notExists(path)) {
-            return;
-        }
-        try (Stream<Path> walk = Files.walk(path)) {
-            List<Path> deepestFirst = walk.sorted(Comparator.reverseOrder()).toList();
-            for (Path entry : deepestFirst) {
-                Files.deleteIfExists(entry);
-            }
-        }
+        FileTrees.deleteTree(path);
     }
 }

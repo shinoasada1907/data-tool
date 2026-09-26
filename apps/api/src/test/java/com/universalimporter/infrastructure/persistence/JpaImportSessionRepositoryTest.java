@@ -1,6 +1,9 @@
 package com.universalimporter.infrastructure.persistence;
 
+import com.universalimporter.domain.config.ImportConfiguration;
 import com.universalimporter.domain.importsession.ImportSession;
+import com.universalimporter.domain.schema.FieldSpec;
+import com.universalimporter.domain.schema.TargetSchema;
 import com.universalimporter.domain.importsession.SessionStatus;
 import com.universalimporter.domain.importsession.SourceFile;
 import com.universalimporter.domain.importsession.SourceFileType;
@@ -14,6 +17,7 @@ import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabas
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -22,7 +26,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({TestcontainersConfiguration.class, JpaImportSessionRepository.class})
+@Import({TestcontainersConfiguration.class, JpaImportSessionRepository.class, JpaImportConfigurationRepository.class,
+        JpaInstallationRepository.class})
 class JpaImportSessionRepositoryTest {
 
     // Micro-second precision: that is what PostgreSQL keeps.
@@ -36,7 +41,97 @@ class JpaImportSessionRepositoryTest {
     JpaImportSessionRepository repository;
 
     @Autowired
+    JpaImportConfigurationRepository configurations;
+
+    @Autowired
+    JpaInstallationRepository installation;
+
+    @Autowired
     TestEntityManager entityManager;
+
+    private static final UUID A = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
+    private static final UUID B = UUID.fromString("bbbbbbbb-0000-0000-0000-000000000002");
+    private static final UUID C = UUID.fromString("cccccccc-0000-0000-0000-000000000003");
+
+    @Test
+    void sessions_last_changed_before_a_cutoff_come_oldest_first_up_to_the_limit() {
+        givenSessionsA25hB23hC48hOld();
+        Instant cutoff = T0.minus(Duration.ofHours(24));
+
+        assertThat(repository.findIdsUpdatedBefore(cutoff, 10)).containsExactly(C, A);
+        assertThat(repository.findIdsUpdatedBefore(cutoff, 1)).containsExactly(C);
+    }
+
+    @Test
+    void existence_is_checked_by_id() {
+        givenSessionsA25hB23hC48hOld();
+
+        assertThat(repository.existsById(A)).isTrue();
+        assertThat(repository.existsById(UUID.randomUUID())).isFalse();
+    }
+
+    @Test
+    void a_session_unchanged_since_the_cutoff_is_deleted_and_an_unknown_one_is_harmless() {
+        givenSessionsA25hB23hC48hOld();
+        Instant cutoff = T0.minus(Duration.ofHours(24));
+
+        assertThat(repository.deleteIfNotUpdatedSince(A, cutoff)).isTrue();
+        assertThat(repository.deleteIfNotUpdatedSince(UUID.randomUUID(), cutoff)).isFalse();
+        flushAndClear();
+
+        assertThat(repository.findById(A)).isEmpty();
+    }
+
+    @Test
+    void a_session_changed_after_the_cutoff_is_kept() {
+        givenSessionsA25hB23hC48hOld();
+
+        assertThat(repository.deleteIfNotUpdatedSince(B, T0.minus(Duration.ofHours(24)))).isFalse();
+        flushAndClear();
+
+        assertThat(repository.findById(B)).isPresent();
+    }
+
+    @Test
+    void the_installation_has_one_lasting_id() {
+        UUID id = installation.installationId();
+
+        assertThat(id).isNotNull();
+        assertThat(installation.installationId()).isEqualTo(id);
+    }
+
+    @Test
+    void deleting_a_session_deletes_its_configuration() {
+        repository.save(ImportSession.create(A, FILE, T0));
+        configurations.save(ImportConfiguration.empty(A).withSchema(TargetSchema.define(List.of(
+                new FieldSpec("name", "string", true, 0)))).configuration(), T0);
+        flushAndClear();
+
+        assertThat(repository.deleteIfNotUpdatedSince(A, T0.plusSeconds(1))).isTrue();
+        flushAndClear();
+
+        assertThat(configurations.findBySessionId(A)).isEmpty();
+        assertThat(((Number) entityManager.getEntityManager()
+                .createNativeQuery("select count(*) from import_configuration where session_id = :id")
+                .setParameter("id", A).getSingleResult()).longValue()).isZero();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void the_cleanup_query_has_an_index() {
+        List<Object> indexes = (List<Object>) entityManager.getEntityManager()
+                .createNativeQuery("select indexname from pg_indexes where tablename = 'import_session'")
+                .getResultList();
+
+        assertThat(indexes).contains("idx_import_session_updated_at");
+    }
+
+    private void givenSessionsA25hB23hC48hOld() {
+        repository.save(ImportSession.create(A, FILE, T0.minus(Duration.ofHours(25))));
+        repository.save(ImportSession.create(B, FILE, T0.minus(Duration.ofHours(23))));
+        repository.save(ImportSession.create(C, FILE, T0.minus(Duration.ofHours(48))));
+        flushAndClear();
+    }
 
     @Test
     void reads_back_exactly_what_was_saved() {

@@ -9,6 +9,7 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.Random;
 import java.util.function.Consumer;
 import java.util.zip.ZipEntry;
@@ -22,6 +23,51 @@ import java.util.zip.ZipOutputStream;
 public final class XlsxFixtures {
 
     private XlsxFixtures() {
+    }
+
+    /**
+     * The BE-F11 end-to-end data (task 7) with real cell types: sheet "Customers", header
+     * {@code Name, Email, Birth Date, Active, Score}.
+     * <ul>
+     *   <li>row 2: text "  An Nguyen ", text "AN@EXAMPLE.COM", date 1990-12-25, boolean TRUE, number 10</li>
+     *   <li>row 3: text "Binh", "binh@example.com", then text "31/02/1991", "yes", "x"</li>
+     *   <li>row 4: text "Chi", "an@example.com", date 1992-01-01, number 0, number 7.5</li>
+     *   <li>row 5: empty, text "dung@example.com", date 1993-02-02, number 1, number 8</li>
+     * </ul>
+     */
+    public static Path e2eCustomers(Path dir) {
+        return write(dir.resolve("customers.xlsx"), workbook -> {
+            Worksheet sheet = workbook.newWorksheet("Customers");
+            String[] header = {"Name", "Email", "Birth Date", "Active", "Score"};
+            for (int col = 0; col < header.length; col++) {
+                sheet.value(0, col, header[col]);
+            }
+            sheet.value(1, 0, "  An Nguyen ");
+            sheet.value(1, 1, "AN@EXAMPLE.COM");
+            date(sheet, 1, 2, LocalDate.of(1990, 12, 25));
+            sheet.value(1, 3, Boolean.TRUE);
+            sheet.value(1, 4, 10);
+            sheet.value(2, 0, "Binh");
+            sheet.value(2, 1, "binh@example.com");
+            sheet.value(2, 2, "31/02/1991");
+            sheet.value(2, 3, "yes");
+            sheet.value(2, 4, "x");
+            sheet.value(3, 0, "Chi");
+            sheet.value(3, 1, "an@example.com");
+            date(sheet, 3, 2, LocalDate.of(1992, 1, 1));
+            sheet.value(3, 3, 0);
+            sheet.value(3, 4, 7.5);
+            sheet.value(4, 1, "dung@example.com");
+            date(sheet, 4, 2, LocalDate.of(1993, 2, 2));
+            sheet.value(4, 3, 1);
+            sheet.value(4, 4, 8);
+        });
+    }
+
+    /** A real date cell: a serial number with a date format, as Excel stores it. */
+    private static void date(Worksheet sheet, int row, int col, LocalDate date) {
+        sheet.value(row, col, date);
+        sheet.style(row, col).format("yyyy-mm-dd").set();
     }
 
     /** Sheet 1 "Hidden" (hidden) holds [x]/[1]; sheet 2 "Visible" holds [name]/[An]. */
