@@ -11,6 +11,14 @@
 
 ### Giả định về các change viết song song (phải đối chiếu ở task 1 trước khi code)
 
+> **Đã đối chiếu (task 1.1)**: tên thật của F08 khác giả định dưới đây.
+> - `readSummary` → `findSummary`.
+> - `readRows` do F09 thêm vào `ResultStore`, cùng enum `domain.pipeline.ResultView`.
+> - `ImportError.stage` / `code` là enum `ErrorStage` / `RowErrorCode`.
+> - `currentConfigHash` → `ConfigHasher.hash(ImportConfiguration)` trên config đã lưu.
+>
+> Khối code dưới đây giữ nguyên làm lịch sử.
+
 be-f08 được giả định cung cấp các thành phần sau. Tên có thể khác; khi khác thì dùng tên thật của F08, sửa file này và ghi LÝ DO.
 
 ```java
@@ -76,6 +84,7 @@ public record PipelineSummaryDto(UUID sessionId, SessionStatus status, long tota
   - Có bộ lọc: đếm trong cùng lượt quét toàn bộ view.
 - `totalPages = ceil(totalElements / size)`, bằng 0 khi `totalElements = 0`. `page` vượt trang cuối thì trả `rows: []` với status 200, không báo lỗi.
 - Stream luôn được đóng bằng try-with-resources.
+- *(Khác D11, xem tasks — Global Constraints)*: đọc giữ khoá session. Trên Windows không đổi tên được thư mục khi có file bên trong đang mở, nên một lần đọc chạy chen có thể làm commit của `/process` hoặc lệnh xoá khi đổi config thất bại. `requireCurrentSummary` cũng giữ khoá; khoá là reentrant nên `query` gọi nó bên trong khoá được.
 
 ### F09-D4. Điều kiện có kết quả
 Kiểm theo thứ tự sau, dừng ở điều kiện đầu tiên không đạt:
@@ -110,4 +119,6 @@ Phần kiểm này nằm trong một method public `ResultQueryService.requireCu
 ## Open Questions
 
 - Việc bật `WRITE_BIGDECIMAL_AS_PLAIN` cho mapper toàn cục là mối quan tâm chung của F08 (ghi ndjson), F09 (response) và F10 (export). Đề xuất F08 làm vì F08 là nơi đầu tiên ghi số. Nếu F08 chưa làm thì F09 làm ở task 1.
-- Trên Windows, xoá `result/` khi còn request đang đọc có thể lỗi (file đang mở). Cần F08 quyết định cách xoá, ví dụ đổi tên sang thư mục rác rồi xoá sau. F09 không đổi gì vì chuyện này.
+- ~~Trên Windows, xoá `result/` khi còn request đang đọc có thể lỗi (file đang mở). Cần F08 quyết định cách xoá, ví dụ đổi tên sang thư mục rác rồi xoá sau. F09 không đổi gì vì chuyện này.~~ Đã giải quyết:
+  - F08 xoá bằng cách đổi tên sang `result.del-*`, thử lại khi bị từ chối, và làm best-effort.
+  - F09 đọc trong khoá session, nên không còn đọc chen lúc đang đổi tên.
