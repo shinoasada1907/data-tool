@@ -66,9 +66,16 @@ interface WizardState {
   mapping: Section<Record<FieldKey, FieldMapping>>
   transformations: Section<Record<FieldKey, Transformation[]>>
   validations: Section<Record<FieldKey, UserRule[]>>
-  result: { summary: PipelineSummary; stale: boolean } | null
+  result: {
+    summary: PipelineSummary
+    columns: string[]      // tên field lúc chạy, theo thứ tự schema: cột của bảng kết quả
+    query: ResultQuery     // tab, trang, bộ lọc của trang đang xem
+    page: ResultPage       // trang đang xem
+    stale: boolean
+  } | null
 }
 ```
+- Kết quả (FE-F08/F09): `processCompleted` thay kết quả cũ và sang bước Kết quả; `resultPageLoaded` thay trang đang xem; `resultUnavailable` đánh dấu cũ (D18). Mọi action sửa cấu hình đánh dấu cũ khi state thật sự đổi. Bước Kết quả vào được khi điều kiện của bước Biến đổi & kiểm tra còn đúng và đã có kết quả, kể cả kết quả cũ.
 - Bảng chuyển về chưa lưu / đánh dấu cũ: xem spec `import-wizard`. Reducer là nơi duy nhất áp các quy tắc đó.
 - Sửa schema đi qua một action `schemaEdited { edit }` với `edit` là `add` / `update` / `remove` / `move` (FE-F04). Reducer sinh key cho field mới, nên component không phải đoán key.
 - Trong lúc PUT cấu hình đang chạy, phần sửa của bước đó bị khoá (`<fieldset disabled>`), cùng lúc với stepper và nút điều hướng.
@@ -115,12 +122,12 @@ interface WizardState {
   - `isRetryable(error)` (lỗi mạng hoặc 5xx) và `isSessionUnusable(error)` (theo `code`, D12) nằm cạnh `ApiError` trong `api/apiError.ts`, để mọi bước chọn nút hành động ("Thử lại" / "Upload lại") theo cùng một luật.
   - **Timeout 30 giây** cho mọi lệnh `request()` (`DEFAULT_TIMEOUT_MS`, chỉnh được qua `timeoutMs`). Hết giờ là lỗi riêng `kind: 'timeout'` ("Máy chủ không phản hồi"), không lẫn với huỷ; GET có nút "Thử lại" như lỗi mạng.
     - ~~Không đặt timeout (FE-F02): timeout chung áp lên PUT, mà PUT hết giờ trong khi BE đã ghi thì FE báo lỗi sai.~~ **LÝ DO đổi (review FE-F04):** các PUT cấu hình ghi đè toàn bộ, nên gửi lại sau khi hết giờ là vô hại. Còn không có timeout thì PUT treo làm wizard kẹt hẳn, vì stepper và nút điều hướng đang khoá; user chỉ còn cách tải lại trang và mất cấu hình (D12).
-    - `POST /process` (FE-F08) sẽ tự đặt `timeoutMs` riêng, vì pipeline chạy đồng bộ và có thể lâu hơn 30 giây.
+    - `POST /process` đặt `timeoutMs` riêng là 5 phút (`PROCESS_TIMEOUT_MS`, FE-F08), vì pipeline chạy đồng bộ và có thể lâu hơn 30 giây.
   - Lỗi không phải `ApiError` (lỗi lập trình trong mapper, reducer…) hiện câu chung "Đã xảy ra lỗi không mong đợi" và được `console.error`, để còn stack mà tìm.
 - `api/upload.ts`: dùng XHR, vì `fetch` không báo được tiến độ upload. Có `onProgress`, huỷ qua `AbortSignal`. Multipart part tên `file`.
 - `api/download.ts`: kiểm `response.ok` trước; nếu lỗi thì parse ProblemDetail và ném `ApiError`, không trả blob. Nếu thành công thì trả `{ blob, filename }`, với tên file lấy từ `api/contentDisposition.ts`. `saveBlob()` tạo object URL, click một thẻ `<a download>`, rồi revoke URL.
 - Body của PUT (`{ session, warnings }`) được bỏ qua. Warning của BE (`CONFIG_PRUNED`, `TARGET_FIELD_UNMAPPED`, `RULE_IMPLIED_BY_SCHEMA`) đều đã được FE tự tính hoặc tự tránh.
-- Không tự động retry. Nút "Thử lại" chỉ có ở request đọc (GET). Ngoại lệ duy nhất là upload: user được bấm "Upload lại" để gửi lại đúng file đó, vì upload lỗi không tạo session nào. Nút này chỉ hiện khi lỗi mạng hoặc lỗi 5xx; với lỗi 4xx, gửi lại đúng file đó vẫn lỗi y hệt. Không đặt timeout cho `process`, vì pipeline chạy đồng bộ.
+- Không tự động retry. Nút "Thử lại" chỉ có ở request đọc (GET). Ngoại lệ duy nhất là upload: user được bấm "Upload lại" để gửi lại đúng file đó, vì upload lỗi không tạo session nào. Nút này chỉ hiện khi lỗi mạng hoặc lỗi 5xx; với lỗi 4xx, gửi lại đúng file đó vẫn lỗi y hệt. ~~Không đặt timeout cho `process`, vì pipeline chạy đồng bộ.~~ **LÝ DO đổi (FE-F08):** từ FE-F04 mọi request đều có timeout (xem trên); `process` chỉ cần thời gian chờ dài hơn, không cần bỏ hẳn.
 - Response 2xx của upload được kiểm tối thiểu (`id`, `originalFileName`, `fileType`, `sizeBytes`). Thiếu field thì báo `INVALID_RESPONSE`, một mã chỉ FE sinh ra, thay vì chạy tiếp với `id` rỗng.
 
 ### D7. Rule `required` và `type` suy ra từ schema (BE đã xác nhận, Q1)
@@ -182,6 +189,8 @@ FE chỉ kiểm **cấu hình**: tên field, field required chưa map, hằng r�
   - Bước Mapping (FE-F05): lưu lỗi → control đang mang lỗi của field đầu tiên. Dòng dùng giá trị cố định thì là ô nhập giá trị, dòng khác là ô chọn nguồn; đánh dấu bằng `data-issue-target`, cùng chỗ gắn `aria-describedby`. Chọn "Giá trị cố định…" không tự đưa focus sang ô nhập (xem tasks 8.2).
   - Ô chọn nguồn ở bước Mapping được mô tả (`aria-describedby`) bằng kiểu, bắt buộc và giá trị mẫu của cột đang chọn, để user screen reader biết field cần gì trước khi chọn.
   - Bước Biến đổi & kiểm tra (FE-F06/F07): thêm bước có tham số → ô tham số đầu; thêm bước không tham số → focus ở lại nút "Thêm biến đổi"; Lên/Xuống tới biên → nút chiều ngược lại; Xoá → control đầu tiên bấm được của bước kề bên, hết bước thì ô chọn loại biến đổi. Dòng tóm tắt chuỗi biến đổi là vùng live, nên mọi thay đổi danh sách bước đều được đọc.
+  - "Chạy xử lý" và "Chạy lại" (FE-F08): thành công thì sang (hoặc ở lại) bước Kết quả và focus tiêu đề bước; lỗi `CONFIG_INVALID` thì focus dòng lỗi dưới đầu thẻ field đầu tiên có lỗi (`data-issue-target`, `tabIndex={-1}`); lỗi khác thì focus tiêu đề bước.
+  - Bước Kết quả (FE-F09): tab theo mẫu kích hoạt thủ công (mũi tên dời focus, Enter/Space mới tải); nút đổi trang giữ focus trong lúc tải, tới biên thì sang nút chiều ngược lại; "Xoá lọc" → ô lọc field; BE báo kết quả không còn (`409 RESULT_NOT_AVAILABLE`) → nút "Chạy lại". Vùng status của bước báo "Đang tải kết quả…" và trang vừa tải; cảnh báo kết quả cũ cũng nằm trong vùng status có sẵn, nên xuất hiện sau 409 vẫn được đọc.
   - Tiêu đề bước (`wizard/StepHeader.tsx`) và các helper focus danh sách (`shared/ui/listFocus.ts`) dùng chung giữa các bước, để luật focus không lệch nhau khi chép tay.
   - Tiêu đề bước có `align-self: flex-start`, để viền focus ôm theo chữ thay vì kéo hết chiều ngang.
 - **Vùng nội dung căn giữa, rộng tối đa 1280px** (người dùng yêu cầu ngày 2026-09-26). Trước đó là 1120px và dồn trái, nên trên màn khoảng 2000px bên phải trống gần 600px. Màn laptop khoảng 1440px không đổi, vì vùng nội dung vẫn dùng hết bề ngang. Thay cho con số 1120px ở design D5 của change `fe-app-shell` (đã archive).
@@ -276,6 +285,7 @@ src/
   - khoá đổi trang, đổi tab, bộ lọc và export;
   - chỉ còn nút "Chạy lại".
 - Nếu vẫn nhận `409 RESULT_NOT_AVAILABLE` (ví dụ do nguyên nhân phía BE), FE cũng đánh dấu kết quả là cũ và hiện cảnh báo.
+- FE đánh dấu cũ cả khi user sửa rồi sửa ngược lại về đúng cấu hình cũ, dù BE vẫn giữ kết quả (BE so `configHash`, PUT không đổi gì thì giữ `PROCESSED`). Chấp nhận: sớm hơn BE thì chỉ tốn một lần chạy lại, còn muộn hơn thì user xem kết quả không khớp cấu hình.
 
 ### D19. `dateFormat` trên field kiểu `date` luôn xuất ISO
 - Kiểu `date` chỉ nhận `yyyy-MM-dd` sau transformation, và BE trả `422 CONFIG_INVALID` nếu `outputFormat` khác ISO. Vì vậy, với field kiểu `date`, ô `outputFormat` bị khoá ở `yyyy-MM-dd`.

@@ -277,10 +277,11 @@
     - "Xuống" ở giữa danh sách: nút của chính field vừa di chuyển giữ focus;
     - đổi thứ tự sau khi đã lưu cũng đưa schema về chưa lưu (test reducer).
   - ~~**Chưa kiểm với BE thật:** BE-F04 chưa có.~~ Đã kiểm với BE thật sau khi BE-F04 vào `dev` (`4803fd0`); kết quả ghi ở 13.4.
-- [ ] 7.4 Test tích hợp UI cho cascade:
+- [x] 7.4 Test tích hợp UI cho cascade:
   - Chưa làm ở FE-F04. **LÝ DO:** state của mapping, transformations và validations chưa tồn tại; mỗi ca cascade làm cùng feature đưa state đó vào (F05, F06, F07). Key cố định của field (D3) đã có sẵn cho việc này.
   - FE-F05 đã xong hai ca đầu cho mapping, có test tích hợp UI: đổi tên field thì mapping giữ nguyên và lần PUT mapping kế tiếp gửi tên mới; xoá field thì mapping của nó không còn trong PUT. Hai ca về rule làm ở F06/F07.
   - FE-F06/F07 đã xong hai ca về rule ở mức reducer (đổi kiểu khỏi `string` bỏ `email`; đổi kiểu sang `date` đặt `outputFormat` về ISO). Kiểm payload PUT transformations/validations sau khi đổi tên làm ở FE-F08, khi có trình tự "Chạy xử lý".
+  - FE-F08 xong ca cuối: đổi tên field sau khi đã cấu hình rules thì PUT transformations và PUT validations trong trình tự "Chạy xử lý" gửi tên mới (`features/run/runPipeline.test.tsx`).
   - đổi tên vẫn giữ mapping/rules, và các lần PUT mapping/transformations/validations sau đó gửi tên mới (BE đã xoá cấu hình của tên cũ khi PUT schema);
   - xoá field thì xoá cấu hình của field đó;
   - đổi kiểu khỏi `string` thì xoá rule `email`;
@@ -376,8 +377,9 @@
 
 ## 10. FE-F08 Chạy pipeline (spec pipeline-run)
 
-- [ ] 10.1 Nút "Chạy xử lý" khoá kèm lý do khi còn lỗi cấu hình, còn phần chưa lưu, hoặc đang chạy. Có test.
-- [ ] 10.2 Trình tự, dừng ở bước lỗi đầu tiên:
+- [x] 10.1 Nút "Chạy xử lý" khoá kèm lý do khi còn lỗi cấu hình, còn phần chưa lưu, hoặc đang chạy. Có test.
+  - Lý do khoá lấy từ `runBlockedReason(state)` (`features/run/useRunPipeline.ts`): điều kiện vào bước Biến đổi & kiểm tra (schema, mapping đã lưu), rồi tham số transformation còn thiếu. Nút "Chạy lại" ở bước Kết quả dùng đúng lý do này.
+- [x] 10.2 Trình tự, dừng ở bước lỗi đầu tiên:
   1. PUT transformations (nếu chưa lưu)
   2. PUT validations (nếu chưa lưu)
   3. POST process
@@ -392,13 +394,23 @@
   - process trả `409 SESSION_STATE_INVALID` (đi theo 4.6);
   - process trả `422 FILE_PARSE_ERROR` → hiện nút "Upload lại" ngay (session đã `FAILED`, design D12);
   - process trả `500 INTERNAL_ERROR` → lỗi chung, "Chạy xử lý" bấm lại được.
-- [ ] 10.3 Trạng thái "Đang xử lý…" và khoá điều hướng; test bấm đúp chỉ gửi một lượt request.
-- [ ] 10.4 Chạy lại sau khi sửa cấu hình: kết quả mới thay kết quả cũ và bỏ đánh dấu cũ. Có test.
+
+  Đã làm trong hook `useRunPipeline`, dùng chung cho "Chạy xử lý" và "Chạy lại". Thêm so với danh sách trên:
+  - `SESSION_NOT_READY`: readiness issue hiện trong khối lỗi dạng `field: thông điệp FE theo mã` (ví dụ "Email: Field bắt buộc chưa được map"), không gắn vào thẻ field, vì đó là việc cần làm chứ không phải lỗi của ô nào.
+  - `CONFIG_INVALID` của PUT: ở bước Biến đổi & kiểm tra, lỗi nằm ngay dưới đầu thẻ field (là mô tả của nhóm) và nhận focus; ở bước Kết quả không có thẻ field nên lỗi nằm trong danh sách của khối lỗi. Sửa bất kỳ rule nào thì lỗi của bản đã gửi biến mất.
+  - Có dòng lỗi thì trang đầu là `view=invalid`, không thì `view=valid`; có test cho cả hai.
+  - `POST /process` có timeout riêng 5 phút (`PROCESS_TIMEOUT_MS`), vì BE chạy pipeline đồng bộ (design D6).
+- [x] 10.3 Trạng thái "Đang xử lý…" và khoá điều hướng; test bấm đúp chỉ gửi một lượt request.
+  - "Đang xử lý…" nằm trong vùng status cạnh nút chạy (`StepActions`, prop `progressLabel`); vùng này chỉ có ở bước có việc chạy dài, và có sẵn trong DOM trước khi đổi nội dung.
+  - ~~Chặn bấm đúp bằng một ref trong hook.~~ **Bỏ — LÝ DO:** `runBusy` tăng bộ đếm bận ngay trong sự kiện click, trước lần `await` đầu tiên, nên nút đã khoá trước cú bấm thứ hai. Mutation check cho thấy ref không đổi kết quả của test nào, tức là code không kiểm được. Bỏ ref thì test bấm đúp vẫn xanh; bỏ việc khoá nút khi bận thì test đỏ.
+- [x] 10.4 Chạy lại sau khi sửa cấu hình: kết quả mới thay kết quả cũ và bỏ đánh dấu cũ. Có test.
+  - Reducer đánh dấu cũ ở mọi action sửa cấu hình (`schemaEdited`, `mappingEdited`, `transformationsEdited`, `validationToggled`) khi state thật sự đổi; thao tác không đổi gì (bật rule đã bật) thì không. Lưu, điều hướng và bộ đếm bận không đụng tới kết quả.
+  - Chạy lại chỉ gửi phần chưa lưu: sửa một rule thì chỉ PUT validations, rồi process và GET result (test ở cả hai bước).
 
 ## 11. FE-F09 Kết quả (spec result-review)
 
-- [ ] 11.1 `ResultStep`: 3 thẻ tóm tắt. Khi kết quả đã cũ: cảnh báo kèm nút "Chạy lại" (dùng lại trình tự của 10.2), và khoá đổi trang, đổi tab, bộ lọc.
-- [ ] 11.2 Tab Hợp lệ/Lỗi, tab mặc định chọn theo `invalid`.
+- [x] 11.1 `ResultStep`: 3 thẻ tóm tắt. Khi kết quả đã cũ: cảnh báo kèm nút "Chạy lại" (dùng lại trình tự của 10.2), và khoá đổi trang, đổi tab, bộ lọc.
+- [x] 11.2 Tab Hợp lệ/Lỗi, tab mặc định chọn theo `invalid`.
   - Bảng: cột "Dòng", rồi các field theo thứ tự schema.
   - Dòng lỗi: làm nổi ô lỗi và liệt kê từng lỗi gồm field, nhãn mã lỗi, rule, bước (`step + 1`, khi `stage=TRANSFORMATION`), message và giá trị nguồn.
 
@@ -407,10 +419,23 @@
   - lỗi validation;
   - lỗi transformation, trong đó ô có giá trị `null` hiện placeholder;
   - ~~lỗi không gắn với field~~ **Bỏ — LÝ DO:** trong contract V0.1, `ImportErrorDto.fieldName` luôn có giá trị.
-- [ ] 11.3 Phân trang 50 dòng/trang; đổi trang hoặc đổi tab thì gọi lại GET result. Có test.
-- [ ] 11.4 Lọc tab Lỗi theo field và mã lỗi qua query (BE đã xác nhận ở Q3); lựa chọn kèm số lỗi từ `errorCountsByField` / `errorCountsByCode`; nút "Xoá lọc"; đổi bộ lọc thì về trang 0. Có test.
-- [ ] 11.5 Trạng thái rỗng "Không có dòng lỗi" / "Không có dòng hợp lệ". Có test.
-- [ ] 11.6 `GET result` trả `409 RESULT_NOT_AVAILABLE` → dispatch `resultUnavailable`: đánh dấu kết quả là cũ, giữ trang đang xem, hiện cảnh báo và nút "Chạy lại" (design D18). Có test.
+
+  Đã làm:
+  - Cột của bảng là tên field lúc chạy (`result.columns`), không lấy từ key của `values` hay từ schema hiện tại: sau khi đổi tên field, kết quả cũ vẫn đọc đúng cột.
+  - Ô có lỗi có nền đỏ và chữ ẩn "(có lỗi)"; dưới dòng là danh sách lỗi (`aria-label` "Lỗi của dòng n"), mỗi lỗi một câu: field, nhãn mã lỗi, mã, rule hoặc "biến đổi `rule` ở bước `step + 1`", giá trị nguồn trong ngoặc kép, message của BE (`lang="en"`). `DataTable` có thêm `flagged` theo cột và `detail` theo dòng.
+  - Tab theo mẫu kích hoạt thủ công của WAI-ARIA: mũi tên, Home, End chỉ dời focus; Enter hoặc Space mới tải tab, vì mỗi lần đổi tab là một request.
+- [x] 11.3 Phân trang 50 dòng/trang; đổi trang hoặc đổi tab thì gọi lại GET result. Có test.
+  - `shared/ui/Pagination.tsx`. Nút đổi trang không bị khoá trong lúc tải, để giữ focus; cú bấm thứ hai khi trang kế còn đang tải bị bỏ qua (có test). Tới trang đầu hoặc cuối thì nút vừa bấm bị khoá, focus sang nút chiều ngược lại.
+  - Trong lúc tải, tab và bộ lọc hiện ngay lựa chọn mới, bảng cũ mờ đi (`aria-busy`); vùng status báo "Đang tải kết quả…" rồi "Dòng lỗi: trang x / y".
+- [x] 11.4 Lọc tab Lỗi theo field và mã lỗi qua query (BE đã xác nhận ở Q3); lựa chọn kèm số lỗi từ `errorCountsByField` / `errorCountsByCode`; nút "Xoá lọc"; đổi bộ lọc thì về trang 0. Có test.
+  - Lựa chọn field theo thứ tự schema lúc chạy, không theo key của `errorCountsByField`: JS đưa key dạng số ("1", "2024") lên đầu object, dù BE gửi theo thứ tự schema. Mã lỗi hiện nhãn tiếng Việt kèm số lỗi.
+  - "Xoá lọc" bị khoá ngay khi hết bộ lọc, nên focus chuyển sang ô lọc field.
+  - Không có dòng lỗi nào thì không hiện bộ lọc.
+- [x] 11.5 Trạng thái rỗng "Không có dòng lỗi" / "Không có dòng hợp lệ". Có test.
+  - Thêm "Không có dòng lỗi khớp bộ lọc" khi đang lọc mà không còn dòng nào (lọc cả field lẫn mã lỗi có thể ra rỗng).
+- [x] 11.6 `GET result` trả `409 RESULT_NOT_AVAILABLE` → dispatch `resultUnavailable`: đánh dấu kết quả là cũ, giữ trang đang xem, hiện cảnh báo và nút "Chạy lại" (design D18). Có test.
+  - Focus chuyển tới nút "Chạy lại", vì mọi nút đổi trang, tab, bộ lọc vừa bị khoá. Lỗi tải trang khác hiện khối lỗi có "Thử lại" (gửi lại đúng truy vấn đó) hoặc "Upload lại" (session hỏng).
+  - Chạy lại thành công: nút "Chạy lại" biến mất cùng cảnh báo, focus về tiêu đề bước.
 
 ## 12. FE-F10 Export (spec result-export)
 
