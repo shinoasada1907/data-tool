@@ -35,11 +35,11 @@
 **Interfaces:**
 - Produces: như design S1.
 
-- [ ] 1.1 Viết `FieldTypeTest`:
+- [x] 1.1 Viết `FieldTypeTest`:
   - `fromCode` với `string`, `number`, `boolean`, `date`, `email` → đúng enum tương ứng.
   - `fromCode` với `String`, `text`, `""`, `null` → `Optional.empty()`.
   - `code()` trả mã chữ thường.
-- [ ] 1.2 Viết `TargetSchemaTest`. Đặt `f(name, type, required, order) = new FieldSpec(...)`:
+- [x] 1.2 Viết `TargetSchemaTest`. Đặt `f(name, type, required, order) = new FieldSpec(...)`:
   | Input `define` | Mong đợi |
   |---|---|
   | `[f(" email ","email",true,5), f("name","string",false,1)]` | fields `[("name",STRING,false,0), ("email",EMAIL,true,1)]` |
@@ -55,10 +55,10 @@
   | `[f("","string",false,0), f("age","int",false,1), f("AGE","number",false,2)]` | 3 item theo đúng thứ tự: blank, unknown type, duplicate name |
 
   Mọi item có `code` = `SCHEMA_INVALID`. Exception có message `Target schema is invalid.`. Thêm các case: `fieldNames()` trả đúng tập tên; `field("email")` tìm thấy; `field("Email")` không thấy (so khớp chính xác); `empty().isEmpty()` là true.
-- [ ] 1.3 Chạy `./mvnw -q test -Dtest=FieldTypeTest,TargetSchemaTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 1.4 Cài 4 class theo design S1.
-- [ ] 1.5 Chạy lại lệnh ở 1.3. Mong đợi: PASS.
-- [ ] 1.6 Commit: `feat(domain): target schema with field name, type and order rules`
+- [x] 1.3 Chạy `./mvnw -q test -Dtest=FieldTypeTest,TargetSchemaTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 1.4 Cài 4 class theo design S1.
+- [x] 1.5 Chạy lại lệnh ở 1.3. Mong đợi: PASS.
+- [x] 1.6 Commit: `feat(domain): target schema with field name, type and order rules`
 
 ## 2. Khung cấu hình: prune và readiness
 
