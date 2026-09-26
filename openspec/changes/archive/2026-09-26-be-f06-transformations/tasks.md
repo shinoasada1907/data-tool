@@ -32,15 +32,32 @@
 **Files:**
 - Modify (nếu cần): `openspec/changes/be-f06-transformations/{design.md,tasks.md}`
 
-- [ ] 1.1 Đọc code F04/F05 đã merge và ghi lại tên thật của các thứ sau:
+- [x] 1.1 Đọc code F04/F05 đã merge và ghi lại tên thật của các thứ sau:
   - `TargetSchema`, `TargetField`, `FieldType`;
   - aggregate config (`SessionConfiguration`);
   - service cấu hình session (`ConfigurationService`), hàm cập nhật dùng chung, cách trả `ConfigUpdateResult`;
   - khung prune (cách PUT `/schema` gọi prune từng phần và gom warning);
   - khoá session;
   - lớp serialize JSON của config.
-- [ ] 1.2 Nếu tên khác giả định trong `design.md` (mục "Giả định về F02–F05"): sửa `design.md` và các task dưới đây cho khớp, gạch ngang tên cũ và ghi LÝ DO. Nếu F04 chưa có khung prune: dừng lại, hỏi người dùng. Không tự dựng một khung prune song song.
-- [ ] 1.3 Commit (nếu có sửa): `docs(openspec): align be-f06 plan with merged F04/F05 names`
+- [x] 1.2 Nếu tên khác giả định trong `design.md` (mục "Giả định về F02–F05"): sửa `design.md` và các task dưới đây cho khớp, gạch ngang tên cũ và ghi LÝ DO. Nếu F04 chưa có khung prune: dừng lại, hỏi người dùng. Không tự dựng một khung prune song song.
+- [x] 1.3 Commit (nếu có sửa): `docs(openspec): align be-f06 plan with merged F04/F05 names`
+
+**Kết quả đối chiếu (2026-09-26, code `dev` @ b8ff03c):**
+
+| Giả định trong plan | Tên thật / cách làm | Ảnh hưởng tới F06 |
+|---|---|---|
+| `TargetSchema`, `TargetField`, `FieldType` | Đúng như giả định (`domain.schema`); `FieldType.code()` là chữ thường | Không |
+| ~~`SessionConfiguration`~~ | `domain.config.ImportConfiguration(sessionId, schema, mapping, version)` | Thêm thành phần `transformations` và `withTransformations(...)` |
+| `ConfigurationService`, hàm cập nhật chung | `application.configuration.ConfigurationService`, hàm private `update(UUID, BiFunction<ImportSession, ImportConfiguration, ConfigChange>)`, trả `ConfigUpdateResult(session, configuration, readiness, warnings)` | `updateTransformations` validate bên trong `update` (cần schema hiện tại, nằm trong khoá và transaction) |
+| Khung prune | `FieldScopedSection<S>` và `ConfigPruner.prune(section, fieldNames, warnings)`, gọi trong `ImportConfiguration.withSchema`. Message cố định `"<label> for this field was removed because the field no longer exists."` | Spec F06 dùng message khác (`Transformations removed because field 'x' no longer exists.`). ~~Tự dựng khung prune~~ → mở rộng khung F04 bằng hàm `default String prunedMessage(String field)` trong `FieldScopedSection` (mặc định giữ message cũ); `TransformationConfig` override. Bước `dateFormat` hết hợp lệ do đổi kiểu thì tự xử lý trong `prunedFor`, như F04 S3 đã chừa cho F07 |
+| `Pruned<T>` | F04 không có kiểu tương đương | Tạo `domain.config.Pruned<T>(T section, List<ProblemItem> warnings)`, F07 dùng lại |
+| Khoá session | `application.common.SessionLocks` (bảng khoá cố định), đã bọc sẵn trong `update` | Không phải làm gì |
+| Serialize JSON config | Mỗi phần có một document riêng trong `infrastructure.persistence` (`TargetSchemaDocument`, `MappingDocument`), `JpaImportConfigurationRepository` đọc/ghi từng cột, `JsonConfigHasher` hash các document | **Plan thiếu task lưu và hash transformations** → thêm task 7b |
+| Thứ tự chuẩn hoá (T5) | Sau review F05: thứ tự chuẩn là bất biến của `ImportConfiguration` (constructor gọi `mapping.inSchemaOrder(schema)`) | `TransformationConfig.normalized(schema)` cũng được gọi trong constructor, để schema đổi thứ tự không làm hash đổi |
+| ~~`MAIN/api/importsession/TransformationConfigController`~~ | F04/F05 đặt controller theo phần cấu hình: `api.schema`, `api.mapping` | Đặt ở `api.transformation` |
+| ~~`TEST/application/importsession/UpdateTransformationsTest`~~ | Test service cấu hình nằm ở `application.configuration` | Đặt ở `TEST/application/configuration/UpdateTransformationsTest` |
+| `EngineConfig` tạo registry bằng list | `MappingStrategies.standard()` của F05 | Thêm `TransformationRegistry.standard()`; `EngineConfig` và test dùng chung |
+| Log WARN trong engine (domain) | Domain chỉ được dùng `java.*` (ArchUnit) | Dùng `java.lang.System.Logger`; Spring Boot chuyển JUL → SLF4J |
 
 ## 2. Mã lỗi theo row và tiện ích giá trị rỗng
 
@@ -58,7 +75,7 @@
   }
   ```
 
-- [ ] 2.1 Viết `TextValuesTest` (parameterized):
+- [x] 2.1 Viết `TextValuesTest` (parameterized):
   | Input | `isEmpty` | `strip` |
   |---|---|---|
   | `null` | true | `null` |
@@ -68,10 +85,10 @@
   | `" a b "` | false | `"a b"` |
   | `"\u00A0An\u00A0"` | false | `"An"` |
   | `"\tx\n"` | false | `"x"` |
-- [ ] 2.2 Chạy `./mvnw -q test -Dtest=TextValuesTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 2.3 Tạo `RowErrorCode` và `TextValues`.
-- [ ] 2.4 Chạy lại lệnh ở 2.2. Mong đợi: PASS (7 case).
-- [ ] 2.5 Commit: `feat(domain): row error codes and blank-aware text helpers`
+- [x] 2.2 Chạy `./mvnw -q test -Dtest=TextValuesTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 2.3 Tạo `RowErrorCode` và `TextValues`.
+- [x] 2.4 Chạy lại lệnh ở 2.2. Mong đợi: PASS (7 case).
+- [x] 2.5 Commit: `feat(domain): row error codes and blank-aware text helpers`
 
 ## 3. Contract Transformation và 4 transformation văn bản
 
@@ -93,7 +110,7 @@
   // type(): "trim" | "uppercase" | "lowercase" | "defaultValue"
   ```
 
-- [ ] 3.1 Viết `TextTransformationsTest`. Test nào đổi locale thì `@AfterEach` phải khôi phục `Locale.getDefault()`.
+- [x] 3.1 Viết `TextTransformationsTest`. Test nào đổi locale thì `@AfterEach` phải khôi phục `Locale.getDefault()`.
   | Transformation | Input | Output |
   |---|---|---|
   | trim | `"  An  "` | `"An"` |
@@ -108,7 +125,7 @@
   | uppercase | `"   "` | `"   "` |
 
   Ngoài ra: `validate(ctx với params {})` trả `[]`; `validate(ctx với params {"foo":"1"})` trả `["Unknown parameter 'foo' for 'trim'."]`.
-- [ ] 3.2 Viết `DefaultValueTransformationTest`, với `params = {"value":"VN"}`:
+- [x] 3.2 Viết `DefaultValueTransformationTest`, với `params = {"value":"VN"}`:
   | Input | Output |
   |---|---|
   | `null` | `"VN"` |
@@ -122,10 +139,10 @@
   | `{}` | `["Parameter 'value' is required."]` |
   | `{"value":"  "}` | `["Parameter 'value' must not be blank."]` |
   | `{"value":"VN","x":"1"}` | `["Unknown parameter 'x' for 'defaultValue'."]` |
-- [ ] 3.3 Chạy `./mvnw -q test -Dtest=TextTransformationsTest,DefaultValueTransformationTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 3.4 Tạo các class ở phần Files. Mỗi transformation kiểm `TextValues.isEmpty` trước và trả nguyên giá trị nếu rỗng; riêng `defaultValue` làm ngược lại.
-- [ ] 3.5 Chạy lại lệnh ở 3.3. Mong đợi: PASS.
-- [ ] 3.6 Commit: `feat(domain): trim, uppercase, lowercase and defaultValue transformations`
+- [x] 3.3 Chạy `./mvnw -q test -Dtest=TextTransformationsTest,DefaultValueTransformationTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 3.4 Tạo các class ở phần Files. Mỗi transformation kiểm `TextValues.isEmpty` trước và trả nguyên giá trị nếu rỗng; riêng `defaultValue` làm ngược lại.
+- [x] 3.5 Chạy lại lệnh ở 3.3. Mong đợi: PASS.
+- [x] 3.6 Commit: `feat(domain): trim, uppercase, lowercase and defaultValue transformations`
 
 ## 4. dateFormat và kiểm pattern ngày
 
@@ -147,7 +164,7 @@
   // DateFormatTransformation.type() = "dateFormat"; params: inputFormat (bắt buộc), outputFormat (không bắt buộc, mặc định ISO)
   ```
 
-- [ ] 4.1 Viết `DatePatternsTest`:
+- [x] 4.1 Viết `DatePatternsTest`:
   | Hàm | Input | Mong đợi |
   |---|---|---|
   | `toStrict` | `dd/MM/yyyy` | `dd/MM/uuuu` |
@@ -166,7 +183,7 @@
   Cách kiểm:
   - `checkInput` là round-trip: `LocalDate.parse(f.format(LocalDateTime.of(2001,2,3,4,5,6)), f)` phải bằng `2001-02-03`.
   - `checkOutput` gọi `f.format(LocalDate.of(2001,2,3))`, không được ném exception.
-- [ ] 4.2 Viết `DateFormatTransformationTest`:
+- [x] 4.2 Viết `DateFormatTransformationTest`:
   | inputFormat | outputFormat | Input | Mong đợi |
   |---|---|---|---|
   | `dd/MM/yyyy` | — | `25/12/1990` | `1990-12-25` |
@@ -192,10 +209,10 @@
   | date | `{inputFormat: dd/MM/yyyy, outputFormat: yyyy-MM-dd}` | `[]` (FE luôn gửi dạng này) |
   | date | `{inputFormat: dd/MM/yyyy, outputFormat: uuuu-MM-dd}` | `[]` |
   | string | `{inputFormat: dd/MM/yyyy, foo: 1}` | `["Unknown parameter 'foo' for 'dateFormat'."]` |
-- [ ] 4.3 Chạy `./mvnw -q test -Dtest=DatePatternsTest,DateFormatTransformationTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 4.4 Tạo `DatePatterns` và `DateFormatTransformation`. Message lỗi lúc parse chỉ chứa pattern gốc người dùng nhập, không chứa giá trị ô.
-- [ ] 4.5 Chạy lại lệnh ở 4.3. Mong đợi: PASS.
-- [ ] 4.6 Commit: `feat(domain): strict dateFormat transformation`
+- [x] 4.3 Chạy `./mvnw -q test -Dtest=DatePatternsTest,DateFormatTransformationTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 4.4 Tạo `DatePatterns` và `DateFormatTransformation`. Message lỗi lúc parse chỉ chứa pattern gốc người dùng nhập, không chứa giá trị ô.
+- [x] 4.5 Chạy lại lệnh ở 4.3. Mong đợi: PASS.
+- [x] 4.6 Commit: `feat(domain): strict dateFormat transformation`
 
 ## 5. Registry và engine
 
@@ -224,7 +241,7 @@
   }
   ```
 
-- [ ] 5.1 Viết `TransformationRegistryTest`:
+- [x] 5.1 Viết `TransformationRegistryTest`:
   | Case | Mong đợi |
   |---|---|
   | `find("trim")` | có `TrimTransformation` |
@@ -232,7 +249,7 @@
   | `find("replace")` | empty |
   | `types()` | `[dateFormat, defaultValue, lowercase, trim, uppercase]` |
   | tạo registry với 2 transformation cùng `type` | `IllegalArgumentException` |
-- [ ] 5.2 Viết `TransformationEngineTest`, dùng registry thật cùng một `ExplodingTransformation` (type `explode`, luôn ném `IllegalStateException("boom")`) chỉ có trong test:
+- [x] 5.2 Viết `TransformationEngineTest`, dùng registry thật cùng một `ExplodingTransformation` (type `explode`, luôn ném `IllegalStateException("boom")`) chỉ có trong test:
   | Steps | Input | Mong đợi |
   |---|---|---|
   | `[trim(0), uppercase(1)]` | `"  an "` | ok `"AN"` |
@@ -242,10 +259,13 @@
   | `[dateFormat(0){dd/MM/yyyy}, uppercase(1)]` | `"31/02/2024"` | failed `("dateFormat", 0, "Value does not match pattern dd/MM/yyyy")` |
   | `[]` | `"x"` | ok `"x"` |
   | `[explode(0)]` | `"x"` | failed `("explode", 0, "Unexpected error while applying transformation.")`; message không chứa `boom` |
-- [ ] 5.3 Chạy `./mvnw -q test -Dtest=TransformationRegistryTest,TransformationEngineTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 5.4 Tạo các class ở phần Files. Engine sắp theo `order`, bắt `TransformationFailure` và `RuntimeException` theo design T2. `RuntimeException` được log WARN kèm `fieldName` và `type`, không kèm giá trị.
-- [ ] 5.5 Chạy lại lệnh ở 5.3. Mong đợi: PASS.
-- [ ] 5.6 Commit: `feat(domain): transformation registry and ordered engine`
+- [x] 5.3 Chạy `./mvnw -q test -Dtest=TransformationRegistryTest,TransformationEngineTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 5.4 Tạo các class ở phần Files. Engine sắp theo `order`, bắt `TransformationFailure` và `RuntimeException` theo design T2. `RuntimeException` được log WARN kèm `fieldName` và `type`, không kèm giá trị.
+  - Log WARN chỉ ghi tên class exception và frame đầu của stack, ~~không ghi cả exception~~. **LÝ DO:** message của exception có thể trích nguyên giá trị ô (ví dụ `NumberFormatException: For input string: "..."`), trái D13.
+  - `TransformationStep` bỏ các param có giá trị `null`, để `"params": {"outputFormat": null}` được coi như không gửi; nếu không, `Map.copyOf` sẽ ném NPE và trả 500.
+  - Thêm `TransformationRegistry.standard()` (xem bảng ở task 1).
+- [x] 5.5 Chạy lại lệnh ở 5.3. Mong đợi: PASS.
+- [x] 5.6 Commit: `feat(domain): transformation registry and ordered engine`
 
 ## 6. Kiểm cấu hình transformation
 
@@ -268,7 +288,7 @@
   }
   ```
 
-- [ ] 6.1 Viết `TransformationConfigValidatorTest`. Schema gồm `name` (string), `dob` (date), `email` (email).
+- [x] 6.1 Viết `TransformationConfigValidatorTest`. Schema gồm `name` (string), `dob` (date), `email` (email).
   | Config | Mong đợi `(field, message)` |
   |---|---|
   | `[{name,0,trim}]` (không có `params`, tức `params = null`) | `[]` |
@@ -291,10 +311,10 @@
   Mọi phần tử đều có `code = "CONFIG_INVALID"`.
 
   Test thêm cho `normalized`: `[{dob,0,dateFormat…},{name,1,uppercase},{name,0,trim}]` cho ra `[{name,0,trim},{name,1,uppercase},{dob,0,dateFormat…}]`.
-- [ ] 6.2 Chạy `./mvnw -q test -Dtest=TransformationConfigValidatorTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 6.3 Tạo `TransformationConfig` và `TransformationConfigValidator` theo thứ tự kiểm ở design T4.
-- [ ] 6.4 Chạy lại lệnh ở 6.2. Mong đợi: PASS.
-- [ ] 6.5 Commit: `feat(domain): validate transformation configuration`
+- [x] 6.2 Chạy `./mvnw -q test -Dtest=TransformationConfigValidatorTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 6.3 Tạo `TransformationConfig` và `TransformationConfigValidator` theo thứ tự kiểm ở design T4.
+- [x] 6.4 Chạy lại lệnh ở 6.2. Mong đợi: PASS.
+- [x] 6.5 Commit: `feat(domain): validate transformation configuration`
 
 ## 7. Prune khi schema đổi
 
@@ -306,7 +326,7 @@
 **Interfaces:**
 - Produces: `public Pruned<TransformationConfig> prunedFor(TargetSchema newSchema)`. `Pruned` lấy của F04 nếu F04 đã có kiểu tương đương, nếu không thì là `record Pruned<T>(T config, List<ProblemItem> warnings)`. Warning có `code = "CONFIG_PRUNED"`.
 
-- [ ] 7.1 Viết `TransformationConfigPruneTest`:
+- [x] 7.1 Viết `TransformationConfigPruneTest`:
   | Config cũ | Schema mới | Config mới | Warnings |
   |---|---|---|---|
   | `[{phone,0,trim},{name,0,trim}]` | `name:string` | `[{name,0,trim}]` | `[(phone, "Transformations removed because field 'phone' no longer exists.")]` |
@@ -314,10 +334,23 @@
   | `[{dob,0,dateFormat,{in:dd/MM/yyyy}}]` | `dob:date` | giữ nguyên | `[]` |
   | `[{dob,0,dateFormat,{in:dd/MM/yyyy,out:yyyy-MM-dd}}]` | `dob:date` | giữ nguyên | `[]` |
   | `[{name,0,trim}]` | `name:string` | giữ nguyên | `[]` |
-- [ ] 7.2 Chạy `./mvnw -q test -Dtest=TransformationConfigPruneTest`. Mong đợi: FAIL.
-- [ ] 7.3 Viết `prunedFor`, rồi đăng ký vào khung prune của F04, để PUT `/schema` gom warning của phần transformations.
-- [ ] 7.4 Chạy lại lệnh ở 7.2, và cả test PUT `/schema` của F04. Mong đợi: PASS.
-- [ ] 7.5 Commit: `feat(domain): prune transformations when the target schema changes`
+- [x] 7.2 Chạy `./mvnw -q test -Dtest=TransformationConfigPruneTest`. Mong đợi: FAIL.
+- [x] 7.3 Viết `prunedFor`, rồi đăng ký vào khung prune của F04, để PUT `/schema` gom warning của phần transformations.
+- [x] 7.4 Chạy lại lệnh ở 7.2, và cả test PUT `/schema` của F04. Mong đợi: PASS.
+- [x] 7.5 Commit: `feat(domain): prune transformations when the target schema changes`
+
+### 7b. (thêm) Lưu, hash và giữ thứ tự chuẩn của transformations
+
+**LÝ DO:** plan giả định có sẵn "lớp serialize config" dùng chung. Thực tế mỗi phần cấu hình tự có document riêng và adapter đọc/ghi từng cột (xem bảng ở task 1), nên phải thêm phần này. Làm gộp vào commit của task 7, vì `ImportConfiguration` đổi constructor thì mọi chỗ phải đổi cùng lúc.
+
+- [x] 7b.1 `ImportConfiguration` có thêm `TransformationConfig transformations`:
+  - `withTransformations(...)`;
+  - `withSchema` gọi `transformations.prunedFor(schema)`, sau phần prune mapping;
+  - constructor gọi `transformations.normalized(schema)` (bài học review F05).
+  - Test trong `ImportConfigurationTest`: prune qua `withSchema`, thứ tự warning mapping rồi đến transformations, và bất biến thứ tự.
+- [x] 7b.2 `TransformationsDocument`, cột `transformations_json` trong entity và adapter. Test: đọc lại đúng bản đã lưu; row của F05 (cột mặc định) đọc ra `TransformationConfig.empty()`.
+- [x] 7b.3 `JsonConfigHasher` hash thêm `TransformationsDocument`. Test: transformation đổi thì hash đổi; params gửi theo thứ tự khác vẫn cùng hash (`ORDER_MAP_ENTRIES_BY_KEYS`).
+- [x] 7b.4 Khung prune của F04: `FieldScopedSection` có thêm `default String prunedMessage(String field)`, và `ConfigPruner` dùng hàm này. Mapping giữ message cũ; `TransformationConfig` override theo message của spec F06. Thêm `domain.config.Pruned<T>`.
 
 ## 8. Use case: cập nhật transformations
 
@@ -330,7 +363,7 @@
 - Consumes: hàm cập nhật dùng chung của F04 (khoá D11, kiểm `FAILED`, lưu, readiness/status D2, trả `ConfigUpdateResult`).
 - Produces: `public ConfigUpdateResult updateTransformations(UUID sessionId, TransformationConfig config)`.
 
-- [ ] 8.1 Viết `UpdateTransformationsTest`:
+- [x] 8.1 Viết `UpdateTransformationsTest`:
   | Case | Mong đợi |
   |---|---|
   | Session `CONFIGURING` có schema `name`, config `[{name,0,trim}]` | trả response với `warnings = []`; config được lưu đã chuẩn hoá |
@@ -338,10 +371,12 @@
   | Session `FAILED` | `DomainException(SESSION_STATE_INVALID)`; không lưu gì |
   | Id không tồn tại | `DomainException(SESSION_NOT_FOUND)` |
   | Session `READY`, config hợp lệ | status sau lệnh là `READY` (transformation không ảnh hưởng readiness) |
-- [ ] 8.2 Chạy `./mvnw -q test -Dtest=UpdateTransformationsTest`. Mong đợi: FAIL.
-- [ ] 8.3 Viết `updateTransformations`: validate, nếu có lỗi thì ném `DomainException(CONFIG_INVALID, "Transformation configuration is invalid.", items)`, sau đó `normalized(schema)` rồi gọi hàm cập nhật dùng chung. Tạo `EngineConfig`.
-- [ ] 8.4 Chạy lại lệnh ở 8.2. Mong đợi: PASS.
-- [ ] 8.5 Commit: `feat(app): update transformation configuration`
+- [x] 8.2 Chạy `./mvnw -q test -Dtest=UpdateTransformationsTest`. Mong đợi: FAIL.
+- [x] 8.3 Viết `updateTransformations`: validate, nếu có lỗi thì ném `DomainException(CONFIG_INVALID, "Transformation configuration is invalid.", items)`, sau đó `normalized(schema)` rồi gọi hàm cập nhật dùng chung. Tạo `EngineConfig`.
+  - Validate nằm **bên trong** hàm `update` dùng chung (tức trong khoá và transaction), vì cần schema đang lưu. `normalized(schema)` không gọi ở đây nữa: constructor của `ImportConfiguration` đã tự chuẩn hoá (task 7b).
+  - `ConfigurationService` nhận thêm `TransformationConfigValidator` qua constructor.
+- [x] 8.4 Chạy lại lệnh ở 8.2. Mong đợi: PASS.
+- [x] 8.5 Commit: `feat(app): update transformation configuration`
 
 ## 9. API: PUT /transformations
 
@@ -361,7 +396,7 @@
   // PUT /api/import-sessions/{id}/transformations, @Valid @RequestBody → 200 ConfigUpdateResponseDto
   ```
 
-- [ ] 9.1 Viết `TransformationConfigControllerTest` với `@WebMvcTest(TransformationConfigController.class)` và `@MockitoBean` cho service:
+- [x] 9.1 Viết `TransformationConfigControllerTest` với `@WebMvcTest(TransformationConfigController.class)` và `@MockitoBean` cho service:
   | Body | Stub | Mong đợi |
   |---|---|---|
   | `{"transformations":[{"targetField":"name","order":0,"type":"trim"}]}` | trả response session `CONFIGURING`, `warnings=[]` | 200; `$.session.id`; `$.warnings.length()` = 0 |
@@ -373,17 +408,21 @@
   | body hợp lệ | ném `DomainException(CONFIG_INVALID, …, [ProblemItem("phone","CONFIG_INVALID","Target field does not exist.")])` | 422; `$.code` = `CONFIG_INVALID`; `$.errors[0].field` = `phone` |
   | body hợp lệ | ném `DomainException(SESSION_NOT_FOUND, …)` | 404 |
   | body hợp lệ | ném `DomainException(SESSION_STATE_INVALID, …)` | 409 |
-- [ ] 9.2 Chạy `./mvnw -q test -Dtest=TransformationConfigControllerTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 9.3 Tạo controller và DTO, và thêm `transformations` vào `config` trong DTO của session.
-- [ ] 9.4 Chạy lại lệnh ở 9.2. Mong đợi: PASS.
-- [ ] 9.5 Commit: `feat(api): PUT transformations endpoint`
+- [x] 9.2 Chạy `./mvnw -q test -Dtest=TransformationConfigControllerTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 9.3 Tạo controller và DTO, và thêm `transformations` vào `config` trong DTO của session.
+  - Đặt ở `api.transformation` (xem task 1). Làm thêm:
+    - test `"params": null` → 200, và param không phải chuỗi (`"inputFormat": 5`) → 400 nhờ `StrictJsonConfig`;
+    - `ImportSessionControllerTest` kiểm `$.config.transformations.transformations`;
+    - `ApiDocsIntegrationTest` kiểm path `/transformations`.
+- [x] 9.4 Chạy lại lệnh ở 9.2. Mong đợi: PASS.
+- [x] 9.5 Commit: `feat(api): PUT transformations endpoint`
 
 ## 10. Integration test qua HTTP thật
 
 **Files:**
 - Test: `TEST/api/importsession/TransformationConfigApiIntegrationTest.java` (`@SpringBootTest(webEnvironment = RANDOM_PORT)`, `@Import(TestcontainersConfiguration.class)`, `RestClient`, storage dir là `@TempDir`)
 
-- [ ] 10.1 Viết test. Mỗi case bắt đầu bằng upload `customers.csv` (`"name,dob\nAn,25/12/1990\n"`), rồi PUT `/schema` với `name` (string) và `dob` (date):
+- [x] 10.1 Viết test. Mỗi case bắt đầu bằng upload `customers.csv` (`"name,dob\nAn,25/12/1990\n"`), rồi PUT `/schema` với `name` (string) và `dob` (date):
   | Case | Mong đợi |
   |---|---|
   | PUT `/transformations` gửi `[{dob,0,dateFormat,{inputFormat:"dd/MM/yyyy"}},{name,0,trim}]` | 200; GET `/{id}` trả `config.transformations.transformations` theo thứ tự `name/trim`, rồi `dob/dateFormat` |
@@ -391,12 +430,38 @@
   | PUT hợp lệ, rồi PUT `/schema` chỉ còn `name` | response của `/schema` có warning `CONFIG_PRUNED` với `field` = `dob`; GET chỉ còn bước của `name` |
   | Gửi đúng payload FE: `[{name,0,trim},{name,1,uppercase},{dob,0,dateFormat,{inputFormat:"dd/MM/yyyy",outputFormat:"yyyy-MM-dd"}}]`, bước trim/uppercase không có `params` | 200; `warnings = []` |
   | PUT `/api/import-sessions/{uuid-chưa-tạo}/transformations` | 404; `code` = `SESSION_NOT_FOUND` |
-- [ ] 10.2 Chạy `./mvnw -q test -Dtest=TransformationConfigApiIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, không nới lỏng test.
-- [ ] 10.3 Commit: `test(api): transformation configuration end-to-end`
+- [x] 10.2 Chạy `./mvnw -q test -Dtest=TransformationConfigApiIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, không nới lỏng test.
+  - File đặt ở `TEST/api/transformation/` (xem task 1). Thêm case "field chuyển sang kiểu date thì bỏ bước `dateFormat` có output không phải ISO", để phủ scenario đó của spec qua HTTP thật.
+- [x] 10.3 Commit: `test(api): transformation configuration end-to-end`
 
 ## 11. Kiểm tra toàn bộ và hoàn tất
 
-- [ ] 11.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, kể cả ArchitectureTest.
-- [ ] 11.2 Chạy app thật và gọi `curl -X PUT` tới `/transformations` với một body hợp lệ và một body lỗi. Kiểm tra 200/422 và log không chứa giá trị ô.
-- [ ] 11.3 Tick đủ checkbox; chỗ nào làm khác kế hoạch thì gạch ngang và ghi LÝ DO. Commit: `docs(openspec): complete be-f06 tasks`
-- [ ] 11.4 Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f06-transformations -y`.
+- [x] 11.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, kể cả ArchitectureTest.
+  - Kết quả 2026-09-26: 55 suite, 486 test, 0 failure, 0 error.
+- [x] 11.2 Chạy app thật và gọi `curl -X PUT` tới `/transformations` với một body hợp lệ và một body lỗi. Kiểm tra 200/422 và log không chứa giá trị ô.
+  - Chạy ở cổng 8081 từ worktree BE; body gửi bằng `--data-binary @file` (UTF-8). Kết quả:
+    - hợp lệ → 200, các bước trả về theo thứ tự `name/trim`, `name/uppercase`, `dob/dateFormat`, và `params` của trim là `{}`;
+    - 3 bước lỗi → 422 `CONFIG_INVALID` với 4 item (type lạ, field không có, pattern thiếu ngày, field date mà output không phải ISO);
+    - `"order":"abc"` → 400 `REQUEST_INVALID`.
+  - Log app không chứa giá trị ô.
+- [x] 11.2b (thêm) Review bằng agent `senior-reviewer`: không có blocker. Đã sửa:
+  - **Pattern ghi ra ngày sai mà không báo lỗi (major):** `yy`, `YYYY`, `DD`, `w`, `W`, `F` từng qua được bước kiểm (chỉ round-trip một mẫu 2001-02-03). Giờ các chữ này bị từ chối theo tên, input bắt năm 4 chữ số, và round-trip dùng thêm mẫu 1968-11-29. Chi tiết ở design T3, và đã thêm vào spec.
+  - **Năm ngoài 1–9999** không còn parse được (đổi `y` → `u` từng nhận `-1990`, `0000`, `+19900`).
+  - **Tên tháng** đọc không phân biệt hoa thường.
+  - **Validator:**
+    - vẫn kiểm params khi field không tồn tại, để mọi lỗi về cùng lúc;
+    - step thiếu `targetField` không còn bị báo "Duplicate order … for field 'null'".
+  - **Test hash:**
+    - test cũ vẫn xanh khi bỏ `ORDER_MAP_ENTRIES_BY_KEYS` (đã kiểm ngược): `Map.copyOf` duyệt theo thứ tự đổi theo từng lần chạy JVM, và khoảng 1/8 số lần tình cờ ra đúng thứ tự;
+    - thêm test mapper deterministic (đã kiểm ngược: bỏ feature thì đỏ);
+    - `TransformationsDocument` ghi `params` bằng `TreeMap`, nên JSON lưu cũng ổn định.
+  - **Test log (D13):** bắt log JUL của engine, kiểm rằng log không chứa message exception hay giá trị ô.
+  - **Không làm, kèm lý do:**
+    - OQ2 (giữ bước `dateFormat` nhưng bỏ `outputFormat`): spec đã chốt là bỏ cả bước; ghi ở design OQ2 để người dùng quyết.
+    - Kiểm `defaultValue.value` theo kiểu field: D10 và F05 design đã chốt là hằng đi qua validation như mọi giá trị khác.
+  - **Để lại cho F08** (đường chạy nóng):
+    - dùng lại `DateTimeFormatter` (hiện compile 2 lần mỗi ô);
+    - gom các bước theo field một lần mỗi job, thay vì `stepsFor` quét lại danh sách;
+    - không log WARN mỗi ô cho cùng một lỗi (log lần đầu theo cặp field/type, còn lại chỉ đếm).
+- [x] 11.3 Tick đủ checkbox; chỗ nào làm khác kế hoạch thì gạch ngang và ghi LÝ DO. Commit: `docs(openspec): complete be-f06 tasks`
+- [x] 11.4 ~~Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f06-transformations -y`.~~ → archive trên nhánh feature, tự merge vào `dev`, xoá nhánh. **LÝ DO:** luật nhánh người dùng chốt 2026-09-26, và người dùng dặn tự làm hết các phase.

@@ -11,6 +11,12 @@
 
 F06 dựa vào các thứ dưới đây. Tên trong ngoặc là tên giả định. Task 1 của tasks.md đối chiếu với code F04/F05 đã merge và sửa tên trong file này nếu khác.
 
+> **Đã đối chiếu (2026-09-26):** bảng kết quả nằm ở task 1 của `tasks.md`. Tóm tắt:
+> - ~~`SessionConfiguration`~~ → `ImportConfiguration`.
+> - Khung prune là `FieldScopedSection` / `ConfigPruner`; thêm hàm `prunedMessage` để giữ message của spec F06.
+> - Plan thiếu phần lưu và hash `transformations_json`, nên đã thêm vào.
+> - Controller đặt ở `api.transformation`.
+
 - **F04**: `TargetSchema` / `TargetField(name, type, required, order)` / `FieldType { STRING, NUMBER, BOOLEAN, DATE, EMAIL }`, JSON viết thường.
   - `SessionConfiguration` gom 4 phần config, lưu trong `import_configuration` (V3), mỗi phần là một cột jsonb do app tự serialize.
   - Service cấu hình session (`ConfigurationService`) lo phần chung cho mọi PUT: khoá session (D11); kiểm session không `FAILED`; lưu config; tính lại readiness và status (D2); trả `ConfigUpdateResult` (F04).
@@ -72,6 +78,12 @@ public record TransformationError(String rule, int step, String message) {}
   - Parse bằng `LocalDate.parse(value, input)`; không khớp thì ném `TransformationFailure("Value does not match pattern <inputFormat>")`.
   - Không tự trim trước khi parse. Người dùng đặt bước `trim` trước; đây là cách giữ hành vi deterministic và tường minh.
   - Giá trị rỗng giữ nguyên.
+- **Chữ bị cấm và năm 2 chữ số** (review 2026-09-26, sau khi review chạy thử thấy dữ liệu bị ghi sai mà không báo lỗi):
+  - Từ chối `Y`, `w`, `W`, `D`, `F` ở ngoài nháy đơn trong cả input lẫn output: `YYYY-MM-dd` biến `30/12/2024` thành `2025-12-30`, còn `yyyy-MM-DD` ghi ra `2001-02-34`.
+  - Input có năm 2 chữ số bị từ chối: `dd/MM/yy` đọc `25/12/90` thành `2090-12-25`.
+  - Round-trip dùng hai mẫu (2001-02-03 04:05:06 và 1968-11-29 13:14:15), ~~một mẫu~~.
+  - Sau khi parse, năm phải trong 1–9999, vì đổi `y` → `u` làm `-1990`, `0000`, `+19900` parse được.
+  - Tên tháng đọc không phân biệt hoa thường (`JAN`, `jan`).
 - **Kiểm pattern lúc lưu cấu hình**, bằng round-trip với giá trị mẫu:
   - `inputFormat` phải parse ngược được `input.format(LocalDateTime.of(2001, 2, 3, 4, 5, 6))` thành `2001-02-03`. Pattern thiếu năm, tháng hoặc ngày bị từ chối. Pattern có thêm giờ phút vẫn hợp lệ, để đọc được ISO datetime từ XLSX (D9).
   - `outputFormat` phải format được `LocalDate.of(2001, 2, 3)`. Pattern có giờ phút bị từ chối.
@@ -116,5 +128,6 @@ public record TransformationError(String rule, int step, String message) {}
 
 - **OQ1**: Locale cho `dateFormat` là `Locale.ENGLISH`. D10 chỉ chốt `Locale.ROOT` cho `uppercase`/`lowercase`. Đề xuất giữ `ENGLISH`, vì `Locale.ROOT` theo CLDR không đọc được `Jan`.
 - **OQ2**: Khi đổi kiểu field sang `date`, bước `dateFormat` có output khác ISO bị prune kèm `CONFIG_PRUNED` (T6), thay vì để config ở trạng thái lỗi. Cần xác nhận khi review, vì D10 chỉ nêu ví dụ với `email`.
+  - Review 2026-09-26 đề xuất cách khác: giữ bước, chỉ bỏ `outputFormat` để nó mặc định về ISO. Cách này giữ được `inputFormat` người dùng đã nhập, và vẫn kèm `CONFIG_PRUNED`. **Chưa đổi**, vì spec (đã chốt) ghi rõ "bước `dateFormat` đó bị bỏ". Nếu người dùng muốn đổi thì sửa `TransformationConfig.prunedFor` và scenario "Field chuyển sang kiểu date".
 - **OQ3**: `defaultValue.value` rỗng bị từ chối (422). Pack không nói gì; đề xuất từ chối, vì một bước như vậy không có tác dụng.
 - **OQ4**: params có key lạ bị từ chối (422), để bắt lỗi gõ nhầm như `outputformat`. FE hiện gửi `params: {}` cho `trim`, `uppercase`, `lowercase`, nên không bị ảnh hưởng.

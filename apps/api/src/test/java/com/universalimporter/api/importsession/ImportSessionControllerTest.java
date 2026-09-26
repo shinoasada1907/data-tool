@@ -100,6 +100,8 @@ class ImportSessionControllerTest {
                 .andExpect(jsonPath("$.config.schema.fields").isArray())
                 .andExpect(jsonPath("$.config.mapping.mappings").isArray())
                 .andExpect(jsonPath("$.config.mapping.mappings").isEmpty())
+                .andExpect(jsonPath("$.config.transformations.transformations").isArray())
+                .andExpect(jsonPath("$.config.transformations.transformations").isEmpty())
                 .andExpect(jsonPath("$.readiness.ready").value(false))
                 .andExpect(jsonPath("$.readiness.issues[0].code").value("SCHEMA_EMPTY"));
     }

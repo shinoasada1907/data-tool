@@ -18,6 +18,7 @@ import com.universalimporter.domain.mapping.MappingSpec;
 import com.universalimporter.domain.mapping.MappingType;
 import com.universalimporter.domain.schema.FieldSpec;
 import com.universalimporter.domain.schema.TargetSchema;
+import com.universalimporter.domain.transformation.TransformationConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -153,7 +154,7 @@ class MappingControllerTest {
                 new FieldSpec("name", "string", true, 0), new FieldSpec("note", "string", false, 1)));
         MappingConfig mapping = new MappingConfig(List.of(
                 new FieldMapping("name", MappingType.SOURCE_COLUMN, "Họ tên", null)));
-        return new ConfigUpdateResult(session, new ImportConfiguration(ID, schema, mapping, 1L),
+        return new ConfigUpdateResult(session, new ImportConfiguration(ID, schema, mapping, TransformationConfig.empty(), 1L),
                 new Readiness(true, List.of()),
                 List.of(new ProblemItem("note", "TARGET_FIELD_UNMAPPED", "Field is not mapped.")));
     }

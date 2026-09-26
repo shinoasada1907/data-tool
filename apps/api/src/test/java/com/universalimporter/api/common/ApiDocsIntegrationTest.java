@@ -41,7 +41,8 @@ class ApiDocsIntegrationTest {
                 "/api/import-sessions/{id}",
                 "/api/import-sessions/{id}/preview",
                 "/api/import-sessions/{id}/schema",
-                "/api/import-sessions/{id}/mapping");
+                "/api/import-sessions/{id}/mapping",
+                "/api/import-sessions/{id}/transformations");
     }
 
     @Test

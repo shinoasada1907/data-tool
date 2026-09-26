@@ -24,8 +24,8 @@ public final class ConfigPruner {
         if (removed.isEmpty()) {
             return section;
         }
-        String message = section.sectionLabel() + " for this field was removed because the field no longer exists.";
-        removed.forEach(field -> warnings.add(new ProblemItem(field, WarningCode.CONFIG_PRUNED.name(), message)));
+        removed.forEach(field -> warnings.add(
+                new ProblemItem(field, WarningCode.CONFIG_PRUNED.name(), section.prunedMessage(field))));
         return section.retainFields(fieldNames);
     }
 }

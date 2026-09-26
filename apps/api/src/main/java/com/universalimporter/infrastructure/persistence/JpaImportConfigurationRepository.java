@@ -30,8 +30,10 @@ public class JpaImportConfigurationRepository implements ImportConfigurationRepo
     public ImportConfiguration save(ImportConfiguration configuration, Instant now) {
         String schemaJson = JSON.writeValueAsString(TargetSchemaDocument.from(configuration.schema()));
         String mappingJson = JSON.writeValueAsString(MappingDocument.from(configuration.mapping()));
-        ImportConfigurationEntity entity = new ImportConfigurationEntity(
-                configuration.sessionId(), schemaJson, mappingJson, configuration.version(), now);
+        String transformationsJson =
+                JSON.writeValueAsString(TransformationsDocument.from(configuration.transformations()));
+        ImportConfigurationEntity entity = new ImportConfigurationEntity(configuration.sessionId(), schemaJson,
+                mappingJson, transformationsJson, configuration.version(), now);
         // Flush now so the returned configuration carries the version the database really holds.
         return toDomain(jpa.saveAndFlush(entity));
     }
@@ -39,7 +41,9 @@ public class JpaImportConfigurationRepository implements ImportConfigurationRepo
     private static ImportConfiguration toDomain(ImportConfigurationEntity entity) {
         TargetSchemaDocument schema = JSON.readValue(entity.getTargetSchemaJson(), TargetSchemaDocument.class);
         MappingDocument mapping = JSON.readValue(entity.getMappingJson(), MappingDocument.class);
+        TransformationsDocument transformations =
+                JSON.readValue(entity.getTransformationsJson(), TransformationsDocument.class);
         return new ImportConfiguration(entity.getSessionId(), schema.toDomain(), mapping.toDomain(),
-                entity.getVersion());
+                transformations.toDomain(), entity.getVersion());
     }
 }

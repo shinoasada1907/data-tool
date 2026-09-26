@@ -10,6 +10,8 @@ import com.universalimporter.domain.schema.FieldSpec;
 import com.universalimporter.domain.schema.TargetSchema;
 import com.universalimporter.domain.source.SourceColumn;
 import com.universalimporter.domain.source.SourceSchema;
+import com.universalimporter.domain.transformation.TransformationConfig;
+import com.universalimporter.domain.transformation.TransformationStep;
 import com.universalimporter.support.TestcontainersConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -94,6 +96,20 @@ class JpaImportConfigurationRepositoryTest {
     }
 
     @Test
+    void reads_back_the_saved_transformations() {
+        TransformationConfig transformations = new TransformationConfig(List.of(
+                new TransformationStep("name", 0, "trim", null),
+                new TransformationStep("email", 0, "dateFormat", java.util.Map.of("inputFormat", "dd/MM/yyyy"))));
+        ImportConfiguration configuration = ImportConfiguration.empty(ID).withSchema(SCHEMA).configuration()
+                .withTransformations(transformations).configuration();
+
+        repository.save(configuration, T0);
+        flushAndClear();
+
+        assertThat(repository.findBySessionId(ID).orElseThrow().transformations()).isEqualTo(transformations);
+    }
+
+    @Test
     void a_row_stored_before_mappings_existed_has_the_empty_mapping() {
         // What an F04 row looks like: mapping_json left at its column default.
         entityManager.getEntityManager().createNativeQuery("INSERT INTO import_configuration "
@@ -102,6 +118,7 @@ class JpaImportConfigurationRepositoryTest {
                 .executeUpdate();
 
         assertThat(repository.findBySessionId(ID).orElseThrow().mapping()).isEqualTo(MappingConfig.empty());
+        assertThat(repository.findBySessionId(ID).orElseThrow().transformations()).isEqualTo(TransformationConfig.empty());
     }
 
     @Test

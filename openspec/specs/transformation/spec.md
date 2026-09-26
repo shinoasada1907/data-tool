@@ -1,5 +1,8 @@
-## ADDED Requirements
+# transformation Specification
 
+## Purpose
+Làm sạch và chuẩn hoá giá trị đã map trước khi validate (FR-06): 5 transformation `trim`, `uppercase`, `lowercase`, `defaultValue`, `dateFormat` cấu hình theo từng target field, chạy theo `order`. Lỗi được trả về có cấu trúc, không làm dừng job. Nội dung gồm cả cấu hình qua `PUT /transformations` và prune khi schema đổi. Tạo bởi change `be-f06-transformations` (2026-09-26).
+## Requirements
 ### Requirement: Transformation trim
 Transformation `trim` SHALL bỏ ở hai đầu giá trị mọi ký tự khoảng trắng (`Character.isWhitespace` hoặc `Character.isSpaceChar`), gồm cả NBSP `U+00A0`. Khoảng trắng ở giữa giá trị MUST được giữ nguyên.
 
@@ -50,9 +53,9 @@ Transformation `dateFormat` SHALL parse giá trị theo `params.inputFormat` và
 
 Hệ thống SHALL:
 - đổi mọi chữ `y` nằm ngoài phần trong nháy đơn của pattern thành `u`;
-- parse với `ResolverStyle.STRICT` và `Locale.ENGLISH`.
+- parse với `ResolverStyle.STRICT` và `Locale.ENGLISH`, tên tháng không phân biệt hoa thường.
 
-Ngày không tồn tại MUST bị coi là không khớp pattern. Hệ thống MUST NOT tự trim giá trị trước khi parse.
+Ngày không tồn tại MUST bị coi là không khớp pattern, và năm ngoài khoảng 1–9999 (ví dụ `-1990`, `0000`, `19900`) cũng vậy. Hệ thống MUST NOT tự trim giá trị trước khi parse.
 
 #### Scenario: Đổi dd/MM/yyyy sang ISO mặc định
 - **WHEN** `dateFormat` với `inputFormat = "dd/MM/yyyy"`, không có `outputFormat`, nhận `"25/12/1990"`
@@ -71,8 +74,12 @@ Ngày không tồn tại MUST bị coi là không khớp pattern. Hệ thống M
 - **THEN** giá trị thứ nhất cho `"2024-02-29"`, giá trị thứ hai thất bại
 
 #### Scenario: Tên tháng tiếng Anh
-- **WHEN** `dateFormat` với `inputFormat = "dd MMM yyyy"` nhận `"05 Jan 2024"`
-- **THEN** kết quả là `"2024-01-05"`
+- **WHEN** `dateFormat` với `inputFormat = "dd MMM yyyy"` nhận `"05 Jan 2024"`, `"05 JAN 2024"` và `"05 jan 2024"`
+- **THEN** cả ba cho kết quả `"2024-01-05"`
+
+#### Scenario: Năm ngoài 1–9999
+- **WHEN** `dateFormat` với `inputFormat = "dd/MM/yyyy"` nhận `"25/12/-1990"`
+- **THEN** transformation thất bại với message `Value does not match pattern dd/MM/yyyy`
 
 #### Scenario: Không tự trim
 - **WHEN** `dateFormat` với `inputFormat = "dd/MM/yyyy"` nhận `" 25/12/1990"`
@@ -157,6 +164,8 @@ Các trường hợp lỗi:
 - `defaultValue` thiếu `value`, hoặc `value` rỗng;
 - `dateFormat` thiếu `inputFormat`;
 - pattern sai cú pháp, hoặc `inputFormat` không đủ năm, tháng, ngày;
+- `inputFormat` có năm 2 chữ số (`yy`), vì `90` sẽ bị đọc thành `2090`;
+- pattern (input hay output) dùng chữ `Y`, `w`, `W`, `D` hoặc `F` ở ngoài nháy đơn (năm theo tuần, tuần, ngày trong năm): các chữ này ghi ra ngày sai mà không báo lỗi;
 - `outputFormat` chứa giờ;
 - field kiểu `date` có `outputFormat` khác `yyyy-MM-dd`.
 
@@ -179,6 +188,14 @@ Các trường hợp lỗi:
 #### Scenario: Pattern thiếu ngày
 - **WHEN** client gửi `dateFormat` với `inputFormat = "MM/yyyy"`
 - **THEN** hệ thống trả `422` với message `Date pattern 'MM/yyyy' must contain year, month and day.`
+
+#### Scenario: Năm 2 chữ số
+- **WHEN** client gửi `dateFormat` với `inputFormat = "dd/MM/yy"`
+- **THEN** hệ thống trả `422` với message `Date pattern 'dd/MM/yy' must use a 4-digit year.`
+
+#### Scenario: Năm theo tuần
+- **WHEN** client gửi `dateFormat` cho field kiểu `string` với `inputFormat = "dd/MM/yyyy"` và `outputFormat = "YYYY-MM-dd"`
+- **THEN** hệ thống trả `422` với message `Date pattern 'YYYY-MM-dd' uses unsupported letter 'Y'.`
 
 #### Scenario: Order trùng trong một field
 - **WHEN** client gửi `[{"targetField": "name", "order": 0, "type": "trim"}, {"targetField": "name", "order": 0, "type": "uppercase"}]`
@@ -246,3 +263,4 @@ Hệ thống SHALL trả `404` với `code = SESSION_NOT_FOUND` khi session khô
 #### Scenario: Session không tồn tại
 - **WHEN** client gửi `PUT /api/import-sessions/{uuid-chưa-tạo}/transformations`
 - **THEN** hệ thống trả `404` với `code = SESSION_NOT_FOUND` (FE nhận biết session đã mất nhờ `code`, không nhờ status)
+
