@@ -1,0 +1,89 @@
+import type { ReactNode } from 'react'
+
+// Icon SVG dạng nét, màu theo `currentColor`. Luôn aria-hidden: icon chỉ để minh hoạ, chữ bên cạnh mới mang nghĩa.
+
+function Icon({ size = 20, strokeWidth = 1.75, children }: { size?: number; strokeWidth?: number; children: ReactNode }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {children}
+    </svg>
+  )
+}
+
+export function UploadIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M12 16V4" />
+      <path d="m7 9 5-5 5 5" />
+      <path d="M20 16v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3" />
+    </Icon>
+  )
+}
+
+/** Mũi tên đi vào khay: công cụ nhập dữ liệu. */
+export function ImportIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M12 4v12" />
+      <path d="m7 11 5 5 5-5" />
+      <path d="M20 16v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3" />
+    </Icon>
+  )
+}
+
+export function ArrowRightIcon({ size = 18 }: { size?: number }) {
+  return (
+    <Icon size={size} strokeWidth={2.25}>
+      <path d="M5 12h14" />
+      <path d="m13 6 6 6-6 6" />
+    </Icon>
+  )
+}
+
+export function FileIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M14 3v5h5" />
+    </Icon>
+  )
+}
+
+export function CheckIcon({ size, strokeWidth = 2.25 }: { size?: number; strokeWidth?: number }) {
+  return (
+    <Icon size={size} strokeWidth={strokeWidth}>
+      <path d="m5 12.5 4.5 4.5L19 7.5" />
+    </Icon>
+  )
+}
+
+export function AlertCircleIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size} strokeWidth={1.9}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.5v5.5" />
+      <path d="M12 16.5v.01" />
+    </Icon>
+  )
+}
+
+export function AlertTriangleIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size} strokeWidth={1.9}>
+      <path d="M10.3 4.2 2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z" />
+      <path d="M12 9.5v4" />
+      <path d="M12 17v.01" />
+    </Icon>
+  )
+}

@@ -1,0 +1,68 @@
+/* Báo lỗi theo hướng C: nền đỏ nhạt, viền mực, bóng đổ cứng. */
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px var(--space-5);
+  border: var(--border);
+  background: var(--color-danger-bg);
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.icon {
+  display: flex;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--color-danger-icon);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.headline {
+  color: var(--color-danger);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.detail {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+
+.code {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.codeChip {
+  padding: 2px 6px;
+  border: 1.5px solid var(--color-ink);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.action {
+  align-self: flex-start;
+  height: 40px;
+  margin-top: var(--space-2);
+  padding: 0 18px;
+  border: var(--border);
+  background: var(--color-surface);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.action:active {
+  box-shadow: none;
+  transform: translate(4px, 4px);
+}

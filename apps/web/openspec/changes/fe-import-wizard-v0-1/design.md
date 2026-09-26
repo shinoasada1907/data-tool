@@ -4,7 +4,12 @@
 - **Hiện trạng `apps/web`**: template Vite, gồm React 19, TypeScript 6, Vite 8, oxlint, pnpm. Chưa có test tooling. `App.tsx` là trang demo, và `tsconfig.app.json` chưa khai báo `strict`.
 - **Backend**: Java 21 + Spring Boot 4.1.1, phát triển riêng; mỗi feature BE làm trong worktree và nhánh `feature/be-fxx-*` riêng.
   - Ngày 2026-09-25, BE đã chốt **API contract V0.1** và trả lời Q1–Q10 của FE. Sau khi BE-F01 được archive, file nằm ở `openspec/changes/archive/2026-09-25-be-f01-import-session/design.md` ở gốc repo (xem mục "API contract V0.1 (chính thức)" và "Trả lời Open Questions của FE"). Spec BE đang chạy nằm ở `openspec/specs/` ở gốc repo.
-  - **BE-F01 đã có trên `main`** (commit `18e0a5d`): `POST /api/import-sessions` và `GET /api/import-sessions/{id}` gọi thật được. Session sau upload hiện ở `UPLOADED`; từ BE-F02, upload sẽ đọc file và chuyển sang `CONFIGURING`. Các endpoint từ `/preview` trở đi chưa có, gọi sẽ nhận `404 REQUEST_INVALID`.
+  - **BE-F01, BE-F02 và BE-F03 đã có trên `main`** (commit `e7f6f21`):
+    - `POST /api/import-sessions`: với CSV, BE đọc toàn bộ file ngay trong request; thành công trả `201` và session ở `CONFIGURING`.
+    - `GET /api/import-sessions/{id}`.
+    - `GET /api/import-sessions/{id}/preview?limit=` (1–200; ngoài khoảng trả `400 REQUEST_INVALID`).
+    - XLSX (BE-F03): upload trả `201` ở `CONFIGURING`, preview cùng shape với CSV. `sheetName` là sheet hiển thị đầu tiên. Ô ngày trả `yyyy-MM-dd`, ô chỉ có giờ trả `HH:mm:ss`, số trả dạng chuỗi plain (làm tròn 15 chữ số như Excel), boolean trả `TRUE`/`FALSE`. Không có sheet hiển thị hoặc dòng 1 trống thì trả `422 FILE_EMPTY`; file hỏng hoặc zip bomb thì trả `422 FILE_PARSE_ERROR`.
+    - Các endpoint từ `/schema` trở đi chưa có, gọi sẽ nhận `404 REQUEST_INVALID`.
   - Contract giữ phần lớn shape mà FE đề xuất. Mục **API contract V0.1** dưới đây là bản chép lại cho FE, kèm cách FE dùng. **Nếu hai file lệch nhau, file của BE là chuẩn.**
 - **Ràng buộc từ Notion**:
   - Logic import (mapping, transformation, validation) nằm hoàn toàn ở BE; FE chỉ cấu hình, thao tác và hiển thị.
@@ -53,7 +58,7 @@ interface Section<T> { draft: T; saved: boolean }   // saved = draft đã PUT th
 
 interface WizardState {
   step: StepId
-  busy: boolean                                       // có request làm đổi state đang chạy
+  pendingRequests: number                             // số request làm đổi state đang chạy; > 0 là đang bận
   nextFieldSeq: number                                // sinh key field có tính xác định: f1, f2, …
   session: SessionInfo | null
   preview: SourcePreview | null
@@ -65,6 +70,10 @@ interface WizardState {
 }
 ```
 - Bảng chuyển về chưa lưu / đánh dấu cũ: xem spec `import-wizard`. Reducer là nơi duy nhất áp các quy tắc đó.
+- **Trạng thái "đang bận" là một bộ đếm, không phải boolean.**
+  - Mọi request làm đổi state đều chạy qua hook `useBusyRequest()`: hook dispatch `requestStarted` trước khi chạy và `requestSettled` trong `finally`. `isBusy(state)` là `pendingRequests > 0`.
+  - `sessionCreated` và `reset` giữ nguyên bộ đếm, vì các request đang chạy vẫn sẽ báo kết thúc sau đó.
+  - *Vì sao* (review FE-F01): với boolean, mỗi component phải tự ghép cặp bật/tắt. Quên `finally` ở một chỗ là điều hướng bị khoá vĩnh viễn; hai request chồng nhau thì request xong trước nhả khoá trong khi request kia còn chạy. F02–F10 sẽ lặp lại pattern này ở hàng chục chỗ.
 - `canEnter(step, state) → { allowed: boolean; reason?: string }` là hàm thuần, test được mà không cần render.
 - *Vì sao*: Notion dặn chưa dùng global state library. Reducer thuần dễ test các quy tắc stale và cascade.
 - *Phương án khác*: `useState` rải theo từng bước. Loại, vì quy tắc cascade (sửa schema kéo theo mapping và rules) sẽ nằm rải rác ở nhiều nơi.
@@ -93,7 +102,8 @@ interface WizardState {
 - `api/upload.ts`: dùng XHR, vì `fetch` không báo được tiến độ upload. Có `onProgress`, huỷ qua `AbortSignal`. Multipart part tên `file`.
 - `api/download.ts`: kiểm `response.ok` trước; nếu lỗi thì parse ProblemDetail và ném `ApiError`, không trả blob. Nếu thành công thì trả `{ blob, filename }`, với tên file lấy từ `api/contentDisposition.ts`. `saveBlob()` tạo object URL, click một thẻ `<a download>`, rồi revoke URL.
 - Body của PUT (`{ session, warnings }`) được bỏ qua. Warning của BE (`CONFIG_PRUNED`, `TARGET_FIELD_UNMAPPED`, `RULE_IMPLIED_BY_SCHEMA`) đều đã được FE tự tính hoặc tự tránh.
-- Không tự động retry. Nút "Thử lại" chỉ có ở request đọc (GET). Ngoại lệ duy nhất là upload: user được bấm gửi lại cùng file, vì upload lỗi không tạo session nào. Không đặt timeout cho `process`, vì pipeline chạy đồng bộ.
+- Không tự động retry. Nút "Thử lại" chỉ có ở request đọc (GET). Ngoại lệ duy nhất là upload: user được bấm "Upload lại" để gửi lại đúng file đó, vì upload lỗi không tạo session nào. Nút này chỉ hiện khi lỗi mạng hoặc lỗi 5xx; với lỗi 4xx, gửi lại đúng file đó vẫn lỗi y hệt. Không đặt timeout cho `process`, vì pipeline chạy đồng bộ.
+- Response 2xx của upload được kiểm tối thiểu (`id`, `originalFileName`, `fileType`, `sizeBytes`). Thiếu field thì báo `INVALID_RESPONSE`, một mã chỉ FE sinh ra, thay vì chạy tiếp với `id` rỗng.
 
 ### D7. Rule `required` và `type` suy ra từ schema (BE đã xác nhận, Q1)
 - Payload validations chỉ chứa `email` và `unique`; BE tự áp `required` (khi `field.required`) và `type` (theo `field.type`).
@@ -130,24 +140,43 @@ FE chỉ kiểm **cấu hình**: tên field, field required chưa map, hằng r�
 - Riêng `POST /process` trả `422 FILE_PARSE_ERROR` cũng có nghĩa session đã `FAILED`, nên FE hiện nút "Upload lại" ngay, không để user bấm chạy lại vô ích. `500 INTERNAL_ERROR` thì vẫn là lỗi chung, vì có thể không làm hỏng session. Nếu session đã hỏng thật, lệnh ghi kế tiếp sẽ nhận `409 SESSION_STATE_INVALID` và rơi về luật ở trên.
 - Nhận biết theo `code`, không theo status. Lý do: BE trả `404` kèm `REQUEST_INVALID` khi gọi sai đường dẫn endpoint; đó chỉ là một lỗi thường, và tự xoá state của user trong trường hợp này là phá hoại.
 
-### D13. Upload file mới thì xoá toàn bộ cấu hình
-Có session mới nghĩa là cột nguồn có thể khác. Để đơn giản và có tính xác định, FE xoá toàn bộ state sau khi user xác nhận, không cố giữ lại một phần.
+### D13. Upload file mới thì xoá toàn bộ cấu hình, nhưng chỉ khi đã có session mới
+- Có session mới nghĩa là cột nguồn có thể khác. Để đơn giản và có tính xác định, FE không cố giữ lại một phần cấu hình cũ.
+- Việc thay state xảy ra đúng lúc session mới được tạo: action `sessionCreated` thay state nguyên khối.
+- User xác nhận **không** `reset` trước. Nếu upload thay thế lỗi hoặc bị huỷ, session và cấu hình hiện tại vẫn còn nguyên.
+- *Vì sao* (review FE-F01): bản đầu `reset` ngay khi xác nhận. Upload thay thế bị lỗi, hoặc user bấm "Huỷ" vì chọn nhầm file, là mất sạch cấu hình, không lấy lại được. Session cũ vẫn sống trên BE, nhưng FE đã mất `id` của nó.
 
 ### D14. UI: CSS Modules + CSS variables; không UI kit; truy cập được bằng bàn phím
 - Token màu, khoảng cách, font nằm trong `src/index.css`. Mỗi component có một file `*.module.css`.
-- Mọi input có label. Nút chỉ có icon (Lên, Xuống, Xoá) có `aria-label`. Lỗi và tiến độ đặt trong vùng `aria-live`. Bảng dùng `<th scope>`.
+- Mọi input có label. Nút chỉ có icon (Lên, Xuống, Xoá) có `aria-label`. Bảng dùng `<th scope>`.
+- **Vùng live (`role="status"`)**:
+  - Luôn nằm sẵn trong DOM, chỉ đổi nội dung, để screen reader bắt được thay đổi.
+  - Không bọc cả khối đang đổi liên tục: tiến độ upload chỉ báo lúc bắt đầu và lúc gửi xong, còn `<progress>` tự mang giá trị. Như vậy screen reader không đọc lại cả khối ở mỗi phần trăm.
+  - Class `sr-only` (trong `index.css`) dùng cho chữ chỉ dành cho screen reader, ví dụ "(đã xong)" trên stepper.
+- **Focus**: khi một control biến mất hoặc bị khoá lúc đang giữ focus, focus được chuyển có chủ đích.
+  - Hộp xác nhận hiện ra: focus nút xác nhận.
+  - Bắt đầu upload: focus nút "Huỷ".
+  - Huỷ hoặc lỗi: focus về ô chọn file.
+- Thả file ra ngoài vùng upload: chặn ở `window` (`dragover`/`drop`, đặt `dropEffect = 'none'`), để trình duyệt không mở file và rời khỏi app. Input bị khoá có `pointer-events: none`, để sự kiện thả rơi vào vùng upload.
 - Sắp xếp bằng nút Lên/Xuống thay vì kéo-thả, vì dùng được bằng bàn phím và không cần thêm thư viện.
 - Chuỗi giao diện bằng tiếng Việt, gom vào `shared/messages.ts`, gồm cả bảng `code → thông điệp`. BE cam kết không đổi `code`, còn `message` và `detail` của BE viết bằng tiếng Anh.
+- **Giao diện theo hướng C "Khối Thuỵ Sĩ" trên Claude Design**: https://claude.ai/artifact/MCkwHpanZPv1TUiW6trSbP (artboard "C · Khối Thuỵ Sĩ"; 5 màn ở hàng đầu là bản sạch/tối giản đầu tiên, đã được thay).
+  - Token (màu, bo góc, bóng đổ), font (Be Vietnam Pro, JetBrains Mono) và khung dashboard có sidebar được ghi ở change `fe-app-shell` (design D3–D5).
+  - Các bước sau (Preview, Schema, …) theo cùng ngôn ngữ hình ảnh: khung viền mực 2 px, không bo góc, bóng cứng, vàng làm điểm nhấn; bảng bên trong dùng đường kẻ 1 px cho khỏi rối.
 - `ErrorBanner` có hai dòng:
   - **Dòng chính** chọn theo thứ tự ưu tiên: thông điệp FE theo `code` → `detail` → `title` → thông điệp chung theo HTTP status.
   - **Dòng phụ**: khi dòng chính lấy từ bảng của FE và BE có `detail`, hiện `detail` ở đây. Ví dụ `FILE_PARSE_ERROR` có kèm số dòng bị lỗi.
 
 ### D15. Test: Vitest + Testing Library + user-event + MSW; chế độ `dev:mock`
-- **Unit**: reducer, guards, mappers, `schemaRules`, `configRules`, `client`, `contentDisposition`, `download`, `upload`, `validateFile`.
-- **Component**: từng bước, render với MSW handler theo từng tình huống (`server.use(...)`).
+- **Unit**: reducer, guards, mappers, `schemaRules`, `configRules`, `apiError`, `client`, `contentDisposition`, `download`, `upload`, `checkFiles`, `describeError`.
+- **Component**: từng bước, render `<App/>` với MSW handler theo từng tình huống (`server.use(...)`). Setup đặt `onUnhandledRequest: 'error'`, nên request nào không có handler đều làm test fail.
 - **Tích hợp**: render `<App/>` và chạy hết 6 bước với MSW, một lần cho CSV và một lần cho XLSX.
 - **Mock**: `.env.mock` bật `VITE_USE_MOCK=true`; script `pnpm dev:mock` chạy `vite --mode mock`, chạy được trên Windows mà không cần `cross-env`. `main.tsx` chỉ import và khởi động MSW worker khi cờ này bật. Mock là fixture theo contract V0.1, **không** mô phỏng pipeline.
-- Vitest phải chọn bản có peerDependency khớp Vite 8.
+- Vitest phải chọn bản có peerDependency khớp Vite 8 (đang dùng 5.0.1).
+- **jsdom ghim ở `^29.1.1`.** Vitest 5.0.1 bọc `Request` để đổi `FormData`/`Blob` của jsdom sang bản của Node, dựa vào một symbol ẩn mà jsdom 30 không còn để lộ. Kết quả: gửi `FormData` có file thì crash. Nâng jsdom thì chạy lại test upload trước (tasks 1.3).
+- **Upload dùng XHR giả khi test tiến độ và huỷ.** Interceptor XHR của MSW bỏ qua `abort()` khi handler còn treo: request vẫn hoàn tất với 201, khác trình duyệt. Các test này thay `XMLHttpRequest` bằng `src/test/fakeXhr.ts` qua `vi.stubGlobal`; mọi test upload khác vẫn đi qua MSW. XHR giả cũng theo đúng trình duyệt ở điểm này: gọi `abort()` sau khi request đã xong thì không phát sự kiện nào.
+- **Test focus sau khi chọn file dùng kéo-thả, không dùng `user.upload`.** Sau sự kiện `change`, user-event giả lập "hộp chọn file đóng thì trả focus về ô input". Lúc đó input đã bị khoá, nên user-event `blur` luôn nút vừa nhận focus. Trình duyệt thật trả focus về input trước khi phát `change`, nên `autoFocus` vẫn thắng.
+- **Mutation check**: test nào không được thấy fail trước khi có code (vì code đã có sẵn) thì phải được kiểm bằng cách tạm làm hỏng code, rồi khôi phục.
 
 ### D16. Cấu hình môi trường
 | Biến | Đọc ở | Mặc định | Ý nghĩa |
@@ -162,11 +191,14 @@ Có session mới nghĩa là cột nguồn có thể khác. Để đơn giản v
 ```
 src/
   main.tsx                 # bootstrap; khởi động MSW khi VITE_USE_MOCK
-  App.tsx                  # <WizardProvider><WizardShell/></WizardProvider>
+  App.tsx                  # <AppShell tools={tools} /> (change fe-app-shell)
+  app/                     # khung dashboard: AppShell, danh sách công cụ, ImportTool = <WizardProvider><WizardShell/></WizardProvider>
   config.ts                # đọc import.meta.env, có giá trị mặc định
+  env.d.ts                 # kiểu của ImportMetaEnv
   api/
     dto.ts                 # contract V0.1 (mục API contract V0.1)
-    client.ts              # request(), ApiError, parse ProblemDetail
+    apiError.ts            # ApiError, parse ProblemDetail; dùng chung cho XHR và fetch
+    client.ts              # request() bằng fetch
     upload.ts              # XHR có tiến độ và huỷ
     download.ts            # fetch blob, saveBlob()
     contentDisposition.ts
@@ -177,16 +209,25 @@ src/
     schemaRules.ts         # kiểm tên field
     configRules.ts         # lỗi/cảnh báo của mapping và rules; rule suy ra
   wizard/
-    state.ts  reducer.ts  guards.ts  WizardContext.tsx  WizardShell.tsx
+    state.ts  reducer.ts  guards.ts
+    context.ts             # WizardContext và hook useWizard
+    WizardProvider.tsx     # tách khỏi context.ts theo luật react/only-export-components
+    WizardShell.tsx        # header, Stepper, bước hiện tại; tính trạng thái bước bằng canEnter
+    useBeforeUnload.ts
+    useBusyRequest.ts      # bọc request làm bận wizard (bộ đếm trong reducer, D2)
+    usePreventFileDrop.ts  # chặn trình duyệt mở file khi thả ra ngoài vùng upload (D14)
   features/
-    upload/  preview/  schema/  mapping/  rules/  run/  result/  export/
+    upload/                # UploadStep.tsx, checkFiles.ts
+    preview/  schema/  mapping/  rules/  run/  result/  export/
   shared/
-    ui/                    # Stepper, DataTable, ErrorBanner, EmptyState, Spinner, Pagination, ConfirmPanel
+    ui/                    # Stepper (generic), ErrorBanner, ConfirmPanel, DataTable, EmptyState, Spinner, Pagination
     messages.ts  format.ts
+    describeError.ts       # ApiError → { headline, detail, code } cho ErrorBanner
   mocks/
     fixtures.ts  handlers.ts  node.ts  browser.ts
   test/
     setup.ts               # jest-dom, vòng đời MSW server
+    http.ts  files.ts  fakeXhr.ts   # helper chỉ dùng trong test
 ```
 
 ### D18. Kết quả cũ khớp với `RESULT_NOT_AVAILABLE` của BE
@@ -365,6 +406,7 @@ class ApiError extends Error {
 - [Số rất lớn (trên khoảng 15 chữ số) hiển thị sai trên bảng kết quả, vì `JSON.parse` dùng số thực double] → Chỉ ảnh hưởng phần hiển thị; file export do BE ghi nên vẫn đúng. Gợi ý user dùng kiểu `string` cho mã số dài.
 - [File export nằm trọn trong RAM trình duyệt] → Bị chặn trên bởi giới hạn upload 20 MB (D10). Về sau đổi sang tải qua link trực tiếp.
 - [Mất state khi tải lại trang hoặc bấm Back của trình duyệt] → cảnh báo `beforeunload` (D12). Về sau có thể khôi phục qua `GET /api/import-sessions/{id}`.
+- [User bấm "Huỷ" sau khi đã gửi 100% file, lúc BE đang đọc file] → BE có thể vẫn tạo session, và FE bỏ qua nó. Session mồ côi này bị BE xoá sau 24 giờ không hoạt động. FE giữ nút Huỷ ở pha này, vì bắt user chờ một máy chủ chậm còn tệ hơn, và hiển thị "Đang đọc file trên máy chủ…" để user biết việc gì đang diễn ra.
 - [Process đồng bộ chạy lâu và không huỷ được] → có chỉ báo "Đang xử lý…" và khoá điều hướng; thời gian bị chặn trên bởi giới hạn upload. Chạy nền là non-goal của V0.1.
 - [Mock trôi dần khỏi BE thật] → mock chỉ là fixture của contract V0.1. Việc kiểm với BE thật ở task 13.4 là bắt buộc trước khi coi V0.1 là xong.
 

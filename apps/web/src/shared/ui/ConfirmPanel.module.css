@@ -1,0 +1,53 @@
+/* Hộp xác nhận theo hướng C: nền vàng nhạt, viền mực, bóng đổ cứng. */
+.panel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border);
+  background: var(--color-warning-bg);
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.icon {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--color-ink);
+}
+
+.message {
+  flex-grow: 1;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--space-3);
+}
+
+.confirm,
+.cancel {
+  height: 44px;
+  padding: 0 var(--space-5);
+  border: var(--border);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
+.confirm {
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+  box-shadow: var(--shadow-accent-sm);
+}
+
+.cancel {
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.confirm:active {
+  box-shadow: none;
+  transform: translate(4px, 4px);
+}

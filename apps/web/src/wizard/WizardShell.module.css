@@ -1,0 +1,37 @@
+.wizard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* Thẻ nội dung của bước: viền mực, bóng đổ cứng (hướng C). */
+.card {
+  padding: var(--space-8) var(--space-9);
+  border: var(--border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-hard);
+}
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.placeholder h2 {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.placeholderBox {
+  display: grid;
+  place-items: center;
+  height: 200px;
+  border: var(--border-dashed);
+  background: var(--color-surface-subtle);
+  color: var(--color-muted);
+  font-weight: 600;
+}

@@ -9,11 +9,15 @@ FE SHALL tổ chức luồng import thành 6 bước theo thứ tự:
 5. Transform & Validate
 6. Result & Export
 
-Stepper SHALL hiển thị trạng thái của từng bước: đã xong, đang ở, hoặc bị khoá.
+Stepper SHALL hiển thị trạng thái của từng bước: đã xong, đang ở, hoặc bị khoá. Trạng thái "đã xong" MUST được đọc ra cho screen reader, không chỉ thể hiện bằng màu.
 
 #### Scenario: Mở ứng dụng lần đầu
 - **WHEN** user mở ứng dụng
 - **THEN** bước hiện tại là Upload; các bước 2 → 6 bị khoá
+
+#### Scenario: Bước đã xong
+- **WHEN** upload thành công và wizard sang bước Source Preview
+- **THEN** bước Upload được đánh dấu đã xong, và screen reader đọc tên nút là "1 Upload file (đã xong)"
 
 ### Requirement: Chặn tiến tới bước khi thiếu phụ thuộc
 FE MUST chỉ cho vào một bước khi các điều kiện sau thoả:
@@ -31,6 +35,10 @@ Quay lại bước trước MUST luôn được phép và giữ nguyên dữ li�
 #### Scenario: Bấm vào bước bị khoá
 - **WHEN** schema chưa lưu và user bấm "Mapping" trên stepper
 - **THEN** wizard không chuyển bước và hiển thị lý do bị khoá
+
+#### Scenario: Lý do khoá không hiện lại sau khi đã đổi bước
+- **WHEN** ở bước Upload, user bấm một bước bị khoá (lý do hiện ra), sau đó wizard sang bước khác rồi user quay lại bước Upload
+- **THEN** lý do khoá cũ không còn hiển thị
 
 #### Scenario: Quay lại giữ dữ liệu đang nhập
 - **WHEN** user đang sửa mapping (chưa lưu), bấm "Quay lại" sang bước Schema, rồi trở lại bước Mapping
@@ -57,11 +65,15 @@ Sửa schema kéo theo mapping và rules phải lưu lại vì chúng gửi kèm
 - **THEN** chỉ mapping chuyển về chưa lưu, và kết quả bị đánh dấu cũ
 
 ### Requirement: Khoá điều hướng khi đang gọi API
-Trong lúc có request làm thay đổi state (upload, PUT, process, tải kết quả), FE MUST khoá stepper và các nút "Quay lại"/"Tiếp".
+Trong lúc có request làm thay đổi state (upload, PUT, process, tải kết quả), FE MUST khoá stepper và các nút "Quay lại"/"Tiếp". Khoá MUST giữ tới khi **mọi** request đang chạy đều kết thúc, dù thành công, lỗi hay bị huỷ.
 
 #### Scenario: Đang lưu schema
 - **WHEN** PUT schema đang chạy
 - **THEN** stepper và các nút điều hướng bị khoá cho đến khi request kết thúc
+
+#### Scenario: Request lỗi hoặc bị huỷ
+- **WHEN** upload bị BE từ chối, hoặc user bấm "Huỷ" giữa chừng
+- **THEN** stepper mở khoá trở lại
 
 ### Requirement: Hiển thị lỗi API nhất quán
 Mọi lỗi từ API MUST hiển thị qua cùng một thành phần báo lỗi. **Dòng chính** được chọn theo thứ tự ưu tiên:
@@ -113,6 +125,10 @@ Khi đã có session, FE SHALL đăng ký cảnh báo `beforeunload`, vì V0.1 k
 #### Scenario: Chưa có session
 - **WHEN** chưa upload file nào và user bấm F5
 - **THEN** trang tải lại ngay, không có hộp xác nhận
+
+#### Scenario: Đang upload thay thế
+- **WHEN** đã có session, user xác nhận upload file khác, và upload đó đang chạy
+- **THEN** F5 vẫn hiện hộp xác nhận, vì session cũ vẫn còn cho tới khi có session mới
 
 ### Requirement: Bố cục cho desktop và laptop
 FE SHALL dùng được ở độ rộng màn hình từ 1024px trở lên. Bảng rộng MUST cuộn ngang bên trong khung bảng; toàn trang MUST NOT cuộn ngang.
