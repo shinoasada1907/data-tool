@@ -326,7 +326,7 @@
 **Files:**
 - Test: `TEST/api/importsession/ValidationConfigApiIntegrationTest.java` (`@SpringBootTest(webEnvironment = RANDOM_PORT)`, `@Import(TestcontainersConfiguration.class)`, `RestClient`, storage đặt ở `@TempDir`)
 
-- [ ] 9.1 Viết test. Mỗi case bắt đầu bằng: upload `customers.csv` (`"name,email,age,note\nAn,an@x.com,30,hi\n"`), rồi PUT `/schema` với `name` (string, required), `email` (email), `age` (number), `note` (string).
+- [x] 9.1 Viết test. Mỗi case bắt đầu bằng: upload `customers.csv` (`"name,email,age,note\nAn,an@x.com,30,hi\n"`), rồi PUT `/schema` với `name` (string, required), `email` (email), `age` (number), `note` (string).
   | Case | Mong đợi |
   |---|---|
   | PUT `/validations` gửi `[{email,unique},{name,required}]` | 200; `warnings[0].code`=`RULE_IMPLIED_BY_SCHEMA`; GET `/{id}` trả `config.validations.validations` = `[{targetField:"email",type:"unique"}]` |
@@ -334,8 +334,8 @@
   | PUT gửi `[{note,email},{note,unique}]`, rồi PUT `/schema` đổi `note` sang `number` | response của `/schema` có warning `CONFIG_PRUNED` cho `note`; GET chỉ còn `note/unique` |
   | Gửi đúng payload FE: `{"validations":[{"targetField":"email","type":"unique"},{"targetField":"note","type":"email"}]}`, không có `params` | 200; `warnings = []`; lưu cả 2 rule |
   | PUT `/api/import-sessions/{uuid-chưa-tạo}/validations` | 404; `code` = `SESSION_NOT_FOUND` |
-- [ ] 9.2 Chạy `./mvnw -q test -Dtest=ValidationConfigApiIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, không nới lỏng test.
-- [ ] 9.3 Commit: `test(api): validation configuration end-to-end`
+- [x] 9.2 Chạy `./mvnw -q test -Dtest=ValidationConfigApiIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, không nới lỏng test.
+- [x] 9.3 Commit: `test(api): validation configuration end-to-end`
 
 ## 10. Kiểm tra toàn bộ và hoàn tất
 
