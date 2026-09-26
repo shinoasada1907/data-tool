@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import type { SessionInfo, SourcePreview, TargetField } from '../domain/types'
 import { wizardReducer } from './reducer'
-import { initialWizardState, isBusy, type SchemaEdit, type WizardState } from './state'
+import { initialWizardState, isBusy, type SchemaEdit, type TransformationEdit, type WizardState } from './state'
 
 const session: SessionInfo = { id: 's-1', fileName: 'khach-hang.csv', fileType: 'CSV', sizeBytes: 1024 }
 const atPreview: WizardState = { ...initialWizardState, step: 'preview', session }
@@ -335,5 +335,175 @@ describe('mapping', () => {
       saved: false,
     })
     expect(wizardReducer(state, { type: 'reset' }).mapping).toEqual({ draft: {}, saved: false })
+  })
+})
+
+describe('transformations và validations', () => {
+  const columns: SourcePreview = {
+    sheetName: null,
+    columns: ['name', 'dob'],
+    rows: [{ rowNumber: 2, values: ['An', '1990-02-28'] }],
+    totalRows: 1,
+  }
+  // f1 = name (string), f2 = dob (date)
+  const loaded = wizardReducer(atPreview, { type: 'previewLoaded', sessionId: 's-1', preview: columns })
+
+  function editRules(state: WizardState, key: string, edit: TransformationEdit) {
+    return wizardReducer(state, { type: 'transformationsEdited', key, edit })
+  }
+
+  function toggle(state: WizardState, key: string, rule: 'email' | 'unique', enabled: boolean) {
+    return wizardReducer(state, { type: 'validationToggled', key, rule, enabled })
+  }
+
+  function editSchema(state: WizardState, schemaEdit: SchemaEdit) {
+    return wizardReducer(state, { type: 'schemaEdited', edit: schemaEdit })
+  }
+
+  function saveBoth(state: WizardState) {
+    const withT = wizardReducer(state, {
+      type: 'sectionSaved',
+      section: 'transformations',
+      draft: state.transformations.draft,
+    })
+    return wizardReducer(withT, { type: 'sectionSaved', section: 'validations', draft: withT.validations.draft })
+  }
+
+  test('thêm bước: id tăng dần; defaultValue và dateFormat có tham số mặc định; transformations về chưa lưu', () => {
+    let state = editRules(loaded, 'f1', { kind: 'add', type: 'trim' })
+    state = editRules(state, 'f1', { kind: 'add', type: 'defaultValue' })
+    state = editRules(state, 'f1', { kind: 'add', type: 'dateFormat' })
+
+    expect(state.transformations).toEqual({
+      draft: {
+        f1: [
+          { id: 't1', type: 'trim' },
+          { id: 't2', type: 'defaultValue', value: '' },
+          { id: 't3', type: 'dateFormat', inputFormat: '', outputFormat: 'yyyy-MM-dd' },
+        ],
+      },
+      saved: false,
+    })
+  })
+
+  test('sửa tham số, đổi thứ tự (ở biên thì không đổi gì), xoá bước', () => {
+    let state = editRules(loaded, 'f1', { kind: 'add', type: 'trim' })
+    state = editRules(state, 'f1', { kind: 'add', type: 'defaultValue' })
+    state = editRules(state, 'f1', { kind: 'update', id: 't2', patch: { value: 'N/A' } })
+    expect(state.transformations.draft.f1[1]).toEqual({ id: 't2', type: 'defaultValue', value: 'N/A' })
+
+    const moved = editRules(state, 'f1', { kind: 'move', id: 't2', offset: -1 })
+    expect(moved.transformations.draft.f1.map((step) => step.id)).toEqual(['t2', 't1'])
+    expect(editRules(moved, 'f1', { kind: 'move', id: 't2', offset: -1 })).toBe(moved)
+
+    const removed = editRules(moved, 'f1', { kind: 'remove', id: 't2' })
+    expect(removed.transformations.draft.f1).toEqual([{ id: 't1', type: 'trim' }])
+  })
+
+  test('field kiểu date: outputFormat của dateFormat luôn là yyyy-MM-dd, sửa cũng không đổi', () => {
+    let state = editRules(loaded, 'f2', { kind: 'add', type: 'dateFormat' })
+    state = editRules(state, 'f2', { kind: 'update', id: 't1', patch: { outputFormat: 'dd/MM/yyyy', inputFormat: 'dd/MM/yyyy' } })
+
+    expect(state.transformations.draft.f2[0]).toEqual({
+      id: 't1',
+      type: 'dateFormat',
+      inputFormat: 'dd/MM/yyyy',
+      outputFormat: 'yyyy-MM-dd',
+    })
+  })
+
+  test('bật/tắt rule; mỗi rule tối đa một lần; validations về chưa lưu', () => {
+    let state = toggle(loaded, 'f1', 'unique', true)
+    state = toggle(state, 'f1', 'unique', true)
+    state = toggle(state, 'f1', 'email', true)
+    expect(state.validations).toEqual({ draft: { f1: ['unique', 'email'] }, saved: false })
+
+    state = toggle(state, 'f1', 'unique', false)
+    expect(state.validations.draft.f1).toEqual(['email'])
+  })
+
+  test('rule email không bật được ở field không phải string', () => {
+    expect(toggle(loaded, 'f2', 'email', true)).toBe(loaded)
+  })
+
+  describe('cascade từ schema', () => {
+    function configured() {
+      let state = editRules(loaded, 'f1', { kind: 'add', type: 'trim' })
+      state = editRules(state, 'f1', { kind: 'add', type: 'dateFormat' })
+      state = editRules(state, 'f1', { kind: 'update', id: 't2', patch: { inputFormat: 'dd/MM/yyyy', outputFormat: 'dd.MM.yyyy' } })
+      state = toggle(state, 'f1', 'email', true)
+      state = toggle(state, 'f1', 'unique', true)
+      return saveBoth(state)
+    }
+
+    test('mọi sửa schema đưa transformations và validations về chưa lưu (BE xoá cấu hình của tên cũ)', () => {
+      const renamed = editSchema(configured(), { kind: 'update', key: 'f1', patch: { name: 'full_name' } })
+
+      expect(renamed.transformations.saved).toBe(false)
+      expect(renamed.validations.saved).toBe(false)
+      expect(renamed.transformations.draft).toEqual(configured().transformations.draft)
+    })
+
+    test('bản đã gửi trước lần sửa schema không đánh dấu bản hiện tại là đã lưu', () => {
+      const state = configured()
+      const sentT = state.transformations.draft
+      const sentV = state.validations.draft
+      let renamed = editSchema(state, { kind: 'update', key: 'f1', patch: { name: 'full_name' } })
+
+      renamed = wizardReducer(renamed, { type: 'sectionSaved', section: 'transformations', draft: sentT })
+      renamed = wizardReducer(renamed, { type: 'sectionSaved', section: 'validations', draft: sentV })
+
+      expect(renamed.transformations.saved).toBe(false)
+      expect(renamed.validations.saved).toBe(false)
+    })
+
+    test('xoá field thì xoá transformations và validations của field đó, field khác giữ nguyên', () => {
+      const withOther = toggle(editRules(configured(), 'f2', { kind: 'add', type: 'trim' }), 'f2', 'unique', true)
+
+      const next = editSchema(withOther, { kind: 'remove', key: 'f1' })
+
+      expect(next.transformations.draft).not.toHaveProperty('f1')
+      expect(next.validations.draft).not.toHaveProperty('f1')
+      expect(next.transformations.draft.f2).toEqual(withOther.transformations.draft.f2)
+      expect(next.validations.draft.f2).toEqual(['unique'])
+    })
+
+    test('đổi kiểu khỏi string thì bỏ rule email, giữ unique và transformation', () => {
+      const next = editSchema(configured(), { kind: 'update', key: 'f1', patch: { type: 'number' } })
+
+      expect(next.validations.draft.f1).toEqual(['unique'])
+      expect(next.transformations.draft.f1).toHaveLength(2)
+    })
+
+    test('đổi kiểu sang date thì outputFormat của dateFormat về yyyy-MM-dd', () => {
+      const next = editSchema(configured(), { kind: 'update', key: 'f1', patch: { type: 'date' } })
+
+      expect(next.transformations.draft.f1[1]).toEqual({
+        id: 't2',
+        type: 'dateFormat',
+        inputFormat: 'dd/MM/yyyy',
+        outputFormat: 'yyyy-MM-dd',
+      })
+    })
+
+    test('"Tạo lại từ file" xoá transformations và validations cùng field cũ', () => {
+      const next = editSchema(configured(), { kind: 'regenerate' })
+
+      expect(next.transformations).toEqual({ draft: {}, saved: false })
+      expect(next.validations).toEqual({ draft: {}, saved: false })
+    })
+  })
+
+  test('sessionCreated và reset xoá transformations, validations và đếm lại id từ t1', () => {
+    const state = toggle(editRules(loaded, 'f1', { kind: 'add', type: 'trim' }), 'f1', 'unique', true)
+
+    for (const next of [
+      wizardReducer(state, { type: 'sessionCreated', session: { ...session, id: 's-2' } }),
+      wizardReducer(state, { type: 'reset' }),
+    ]) {
+      expect(next.transformations).toEqual({ draft: {}, saved: false })
+      expect(next.validations).toEqual({ draft: {}, saved: false })
+      expect(next.nextTransformationSeq).toBe(1)
+    }
   })
 })

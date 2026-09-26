@@ -8,10 +8,12 @@ import { messages, stepLabels } from '../../shared/messages'
 import { ConfirmPanel } from '../../shared/ui/ConfirmPanel'
 import { EmptyState } from '../../shared/ui/EmptyState'
 import { ArrowDownIcon, ArrowUpIcon, PlusIcon, TrashIcon } from '../../shared/ui/icons'
+import { focusMoveButton } from '../../shared/ui/listFocus'
 import { useWizard } from '../../wizard/context'
 import { SaveFailureBanner } from '../../wizard/SaveFailureBanner'
 import { isBusy, type SchemaEdit } from '../../wizard/state'
 import { StepActions } from '../../wizard/StepActions'
+import { StepHeader } from '../../wizard/StepHeader'
 import { useBusyRequest } from '../../wizard/useBusyRequest'
 import { useSaveFeedback } from '../../wizard/useSaveFeedback'
 import styles from './SchemaStep.module.css'
@@ -104,12 +106,7 @@ export function SchemaStep() {
 
   return (
     <section aria-labelledby={titleId} className={styles.step}>
-      <div className={styles.header}>
-        <h2 id={titleId} ref={titleRef} className={styles.title} tabIndex={-1}>
-          {stepLabels.schema}
-        </h2>
-        <p className={styles.intro}>{messages.schema.intro}</p>
-      </div>
+      <StepHeader id={titleId} title={stepLabels.schema} intro={messages.schema.intro} headingRef={titleRef} />
 
       {failure && <SaveFailureBanner failure={failure} />}
 
@@ -325,10 +322,7 @@ function focusPending(
   const row = key === undefined ? undefined : rows.get(key)
   if (!row) return
   if (target.kind === 'move') {
-    // Tới biên thì nút vừa bấm bị khoá; chuyển sang nút chiều ngược lại của cùng field.
-    const same = row.querySelector<HTMLButtonElement>(`[data-action="${target.direction}"]`)
-    const other = row.querySelector<HTMLButtonElement>(`[data-action="${target.direction === 'up' ? 'down' : 'up'}"]`)
-    ;(same && !same.disabled ? same : other)?.focus()
+    focusMoveButton(row, target.direction)
   } else {
     row.querySelector<HTMLInputElement>('[data-action="name"]')?.focus()
   }

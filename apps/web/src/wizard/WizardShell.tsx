@@ -1,6 +1,7 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import { MappingStep } from '../features/mapping/MappingStep'
 import { PreviewStep } from '../features/preview/PreviewStep'
+import { RulesStep } from '../features/rules/RulesStep'
 import { SchemaStep } from '../features/schema/SchemaStep'
 import { UploadStep } from '../features/upload/UploadStep'
 import { messages, stepLabels } from '../shared/messages'
@@ -72,6 +73,8 @@ function renderStep(step: StepId) {
       return <SchemaStep />
     case 'mapping':
       return <MappingStep />
+    case 'rules':
+      return <RulesStep />
     default:
       return <StepPlaceholder step={step} />
   }

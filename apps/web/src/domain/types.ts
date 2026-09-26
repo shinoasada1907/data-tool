@@ -47,3 +47,26 @@ export type FieldMapping = { kind: 'column'; column: string } | { kind: 'constan
 
 /** Mapping theo key của field (design D3), nên đổi tên field không làm mất mapping. */
 export type MappingDraft = Readonly<Record<FieldKey, FieldMapping>>
+
+export const TRANSFORMATION_TYPES = ['trim', 'uppercase', 'lowercase', 'defaultValue', 'dateFormat'] as const
+export type TransformationType = (typeof TRANSFORMATION_TYPES)[number]
+
+/** Id cố định của một bước biến đổi (`t1`, `t2`, …): đổi thứ tự hay sửa tham số không làm đổi id. */
+export type TransformationId = string
+
+export type Transformation =
+  | { id: TransformationId; type: 'trim' | 'uppercase' | 'lowercase' }
+  | { id: TransformationId; type: 'defaultValue'; value: string }
+  | { id: TransformationId; type: 'dateFormat'; inputFormat: string; outputFormat: string }
+
+/** Các bước biến đổi theo key của field, đúng thứ tự chạy. */
+export type TransformationsDraft = Readonly<Record<FieldKey, readonly Transformation[]>>
+
+/** Rule do user bật; `required` và `type` do BE suy ra từ schema nên không nằm ở đây (design D7). */
+export const USER_RULES = ['email', 'unique'] as const
+export type UserRule = (typeof USER_RULES)[number]
+
+export type ValidationsDraft = Readonly<Record<FieldKey, readonly UserRule[]>>
+
+/** Kiểu `date` chỉ nhận ISO sau transformation (design D19). */
+export const ISO_DATE_FORMAT = 'yyyy-MM-dd'

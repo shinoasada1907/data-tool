@@ -116,7 +116,7 @@ describe('bước Schema', () => {
 
       await user.click(screen.getByRole('button', { name: 'Tạo lại từ file' }))
       const confirm = screen.getByRole('group', {
-        name: 'Thay toàn bộ 4 field hiện có bằng 4 field sinh từ các cột của file? Mapping cũng được đặt lại theo tên cột.',
+        name: 'Thay toàn bộ 4 field hiện có bằng 4 field sinh từ các cột của file? Mapping được đặt lại theo tên cột; các bước biến đổi và rule kiểm tra bị xoá.',
       })
       await user.click(within(confirm).getByRole('button', { name: 'Huỷ' }))
 

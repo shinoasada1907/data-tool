@@ -9,6 +9,7 @@ import { useWizard } from '../../wizard/context'
 import { SaveFailureBanner } from '../../wizard/SaveFailureBanner'
 import { isBusy } from '../../wizard/state'
 import { StepActions } from '../../wizard/StepActions'
+import { StepHeader } from '../../wizard/StepHeader'
 import { useBusyRequest } from '../../wizard/useBusyRequest'
 import { useSaveFeedback } from '../../wizard/useSaveFeedback'
 import styles from './MappingStep.module.css'
@@ -97,12 +98,7 @@ export function MappingStep() {
 
   return (
     <section aria-labelledby={titleId} className={styles.step}>
-      <div className={styles.header}>
-        <h2 id={titleId} ref={titleRef} className={styles.title} tabIndex={-1}>
-          {stepLabels.mapping}
-        </h2>
-        <p className={styles.intro}>{messages.mapping.intro}</p>
-      </div>
+      <StepHeader id={titleId} title={stepLabels.mapping} intro={messages.mapping.intro} headingRef={titleRef} />
 
       {failure && <SaveFailureBanner failure={failure} />}
 

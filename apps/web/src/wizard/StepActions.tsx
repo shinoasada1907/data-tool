@@ -8,12 +8,14 @@ import styles from './StepActions.module.css'
 interface StepActionsProps {
   onBack?: () => void
   onNext?: () => void
-  /** Lý do nút "Tiếp" bị khoá. Luôn hiện cạnh nút và là mô tả của nút cho screen reader. */
+  /** Nhãn nút chính; mặc định "Tiếp" (bước Biến đổi & kiểm tra dùng "Chạy xử lý"). */
+  nextLabel?: string
+  /** Lý do nút chính bị khoá. Luôn hiện cạnh nút và là mô tả của nút cho screen reader. */
   nextBlockedReason?: string
 }
 
 /** Nút "Quay lại" và "Tiếp" ở chân mỗi bước; bị khoá khi wizard đang bận (spec import-wizard). */
-export function StepActions({ onBack, onNext, nextBlockedReason }: StepActionsProps) {
+export function StepActions({ onBack, onNext, nextLabel = messages.nav.next, nextBlockedReason }: StepActionsProps) {
   const { state } = useWizard()
   const busy = isBusy(state)
   const reasonId = useId()
@@ -39,7 +41,7 @@ export function StepActions({ onBack, onNext, nextBlockedReason }: StepActionsPr
             aria-describedby={nextBlockedReason ? reasonId : undefined}
             onClick={onNext}
           >
-            {messages.nav.next}
+            {nextLabel}
             <ArrowRightIcon size={16} />
           </button>
         </div>

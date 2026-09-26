@@ -1,5 +1,11 @@
 import { request } from './client'
-import type { MappingConfigDto, SourcePreviewDto, TargetSchemaDto } from './dto'
+import type {
+  MappingConfigDto,
+  SourcePreviewDto,
+  TargetSchemaDto,
+  TransformationConfigDto,
+  ValidationConfigDto,
+} from './dto'
 
 // Các endpoint FE dùng (design → API contract V0.1). Upload nằm riêng ở upload.ts vì cần XHR.
 
@@ -29,6 +35,24 @@ export async function putMapping(sessionId: string, mapping: MappingConfigDto): 
   await request(`${SESSIONS}/${encodeURIComponent(sessionId)}/mapping`, {
     method: 'PUT',
     body: mapping,
+    validate: isConfigUpdateResponse,
+  })
+}
+
+/** Ghi đè toàn bộ transformations (gửi trong trình tự "Chạy xử lý", design D4). Body 200 được bỏ qua. */
+export async function putTransformations(sessionId: string, body: TransformationConfigDto): Promise<void> {
+  await request(`${SESSIONS}/${encodeURIComponent(sessionId)}/transformations`, {
+    method: 'PUT',
+    body,
+    validate: isConfigUpdateResponse,
+  })
+}
+
+/** Ghi đè toàn bộ validations do user bật (gửi trong trình tự "Chạy xử lý", design D4). Body 200 được bỏ qua. */
+export async function putValidations(sessionId: string, body: ValidationConfigDto): Promise<void> {
+  await request(`${SESSIONS}/${encodeURIComponent(sessionId)}/validations`, {
+    method: 'PUT',
+    body,
     validate: isConfigUpdateResponse,
   })
 }

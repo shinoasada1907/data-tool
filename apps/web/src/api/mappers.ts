@@ -1,6 +1,23 @@
 import { normalizeFieldName } from '../domain/schemaRules'
-import type { MappingDraft, SessionInfo, SourcePreview, TargetField } from '../domain/types'
-import type { ImportSessionDto, MappingConfigDto, SourcePreviewDto, TargetSchemaDto } from './dto'
+import {
+  ISO_DATE_FORMAT,
+  USER_RULES,
+  type MappingDraft,
+  type SessionInfo,
+  type SourcePreview,
+  type TargetField,
+  type Transformation,
+  type TransformationsDraft,
+  type ValidationsDraft,
+} from '../domain/types'
+import type {
+  ImportSessionDto,
+  MappingConfigDto,
+  SourcePreviewDto,
+  TargetSchemaDto,
+  TransformationConfigDto,
+  ValidationConfigDto,
+} from './dto'
 
 // Chuyển DTO ↔ model nội bộ (design D5). Mỗi feature thêm phần của mình.
 
@@ -48,6 +65,61 @@ export function toMappingConfigDto(fields: readonly TargetField[], mapping: Mapp
       return current.kind === 'column'
         ? [{ targetField, mappingType: 'SOURCE_COLUMN', sourceColumn: current.column, constantValue: null }]
         : [{ targetField, mappingType: 'CONSTANT', sourceColumn: null, constantValue: current.value }]
+    }),
+  }
+}
+
+/**
+ * Theo thứ tự schema rồi thứ tự bước; `order` bắt đầu từ 0 trong từng field. Chỉ `defaultValue` và `dateFormat` có
+ * `params` (spec rule-config). Field kiểu `date` luôn xuất `yyyy-MM-dd` (design D19).
+ */
+export function toTransformationConfigDto(
+  fields: readonly TargetField[],
+  transformations: TransformationsDraft,
+): TransformationConfigDto {
+  return {
+    transformations: fields.flatMap((field) =>
+      (transformations[field.key] ?? []).map((step, order) => ({
+        targetField: normalizeFieldName(field.name),
+        order,
+        type: step.type,
+        ...paramsOf(step, field),
+      })),
+    ),
+  }
+}
+
+function paramsOf(step: Transformation, field: TargetField): { params?: Record<string, string> } {
+  switch (step.type) {
+    case 'defaultValue':
+      return { params: { value: step.value } }
+    case 'dateFormat':
+      return {
+        params: {
+          inputFormat: step.inputFormat,
+          outputFormat: field.type === 'date' ? ISO_DATE_FORMAT : step.outputFormat,
+        },
+      }
+    default:
+      return {}
+  }
+}
+
+/**
+ * Chỉ rule do user bật, theo thứ tự schema rồi `email` trước `unique`, không có `params`. `required` và `type` không
+ * bao giờ nằm ở đây vì BE suy ra từ schema (design D7). `email` ở field không phải `string` bị bỏ: với kiểu
+ * `number`/`boolean`/`date` BE trả 422, với kiểu `email` BE bỏ qua kèm warning `RULE_IMPLIED_BY_SCHEMA`.
+ */
+export function toValidationConfigDto(
+  fields: readonly TargetField[],
+  validations: ValidationsDraft,
+): ValidationConfigDto {
+  return {
+    validations: fields.flatMap((field) => {
+      const enabled = validations[field.key] ?? []
+      return USER_RULES.filter((rule) => enabled.includes(rule) && (rule !== 'email' || field.type === 'string')).map(
+        (rule) => ({ targetField: normalizeFieldName(field.name), type: rule }),
+      )
     }),
   }
 }

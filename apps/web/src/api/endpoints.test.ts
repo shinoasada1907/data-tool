@@ -2,7 +2,7 @@ import { http, HttpResponse } from 'msw'
 import { describe, expect, test } from 'vitest'
 import { configUpdateFixture, csvPreviewFixture, problemFixture } from '../mocks/fixtures'
 import { server } from '../mocks/node'
-import { getPreview, putMapping, putSchema } from './endpoints'
+import { getPreview, putMapping, putSchema, putTransformations, putValidations } from './endpoints'
 
 describe('getPreview', () => {
   test('gọi GET /api/import-sessions/{id}/preview?limit=50 và trả về SourcePreviewDto', async () => {
@@ -87,5 +87,23 @@ describe('putMapping', () => {
 
     await expect(putMapping('s-1', mapping)).resolves.toBeUndefined()
     expect(received).toEqual({ path: '/api/import-sessions/s-1/mapping', body: mapping })
+  })
+})
+
+describe('putTransformations và putValidations', () => {
+  test.each([
+    ['transformations', () => putTransformations('s-1', { transformations: [] }), { transformations: [] }],
+    ['validations', () => putValidations('s-1', { validations: [] }), { validations: [] }],
+  ] as const)('PUT /api/import-sessions/{id}/%s với đúng body; 200 thì resolve', async (section, call, body) => {
+    let received: { path: string; body: unknown } | null = null
+    server.use(
+      http.put(`/api/import-sessions/:id/${section}`, async ({ request }) => {
+        received = { path: new URL(request.url).pathname, body: await request.json() }
+        return HttpResponse.json(configUpdateFixture())
+      }),
+    )
+
+    await expect(call()).resolves.toBeUndefined()
+    expect(received).toEqual({ path: `/api/import-sessions/s-1/${section}`, body })
   })
 })

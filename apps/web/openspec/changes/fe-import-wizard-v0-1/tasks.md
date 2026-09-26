@@ -85,6 +85,7 @@
   - FE-F01 chỉ cần upload (3.5). Mỗi hàm còn lại làm cùng feature dùng nó.
   - FE-F02 đã xong `getPreview` (`limit=50`), có test với MSW: path, query, và body 200 sai dạng → `INVALID_RESPONSE` (kể cả ô không phải chuỗi hay `null`, vì React không vẽ boolean và vỡ trang với object).
   - FE-F05 đã xong `putMapping`, có test với MSW (method, path, body).
+  - FE-F06/F07 đã xong `putTransformations` và `putValidations`, có test với MSW. Hai lệnh này được gọi trong trình tự "Chạy xử lý" (FE-F08).
   - FE-F04 đã xong `putSchema`, có test với MSW: method, path, body; `200 {session, warnings}` thì resolve và bỏ qua body; `422` giữ `errors[]`. Body 200 chỉ được kiểm là có `session` (để body HTML từ proxy vẫn báo `INVALID_RESPONSE`).
 - [ ] 3.7 `domain/types.ts` và TDD `api/mappers.ts`:
   - đổi key ↔ tên field; `order` theo vị trí;
@@ -95,6 +96,7 @@
   - preview giữ đúng thứ tự `columns[]`.
   - FE-F01 đã xong: `SessionInfo` và `toSessionInfo`. Hàm này chỉ chép field nên không có unit test riêng; test component 5.3 kiểm nó (tên file của session hiện đúng khi quay lại bước Upload). Phần còn lại làm theo feature.
   - FE-F02 đã xong `SourcePreview` và `toSourcePreview`, có test: thứ tự `columns[]` giữ nguyên kể cả cột tên dạng số, `values` theo vị trí.
+  - FE-F06/F07 đã xong `Transformation`, `UserRule`, `toTransformationConfigDto` và `toValidationConfigDto`, có test: theo thứ tự schema rồi thứ tự bước, `order` từ 0 trong từng field; chỉ `defaultValue`/`dateFormat` có `params`; field kiểu `date` luôn gửi `outputFormat: "yyyy-MM-dd"`; validations chỉ `email`/`unique` theo thứ tự cố định, không `params`, bỏ `email` ở field không phải `string`.
   - FE-F05 đã xong `FieldMapping`, `MappingDraft` và `toMappingConfigDto`, có test: chỉ gồm field đã map, theo thứ tự schema; `targetField` là tên đã chuẩn hoá (NFC + trim), khớp tên đã PUT schema.
   - FE-F04 đã xong `TargetField`, `FieldType`, `FIELD_TYPES` và `toTargetSchemaDto`, có test: tên đã trim, `order` theo vị trí hiển thị từ 0, không gửi key nội bộ.
 - [ ] 3.8 Mock cho test:
@@ -139,6 +141,7 @@
     - `schemaEdited` mang một `edit`: `add`, `update`, `remove`, `move`. Mọi thay đổi đưa schema về chưa lưu. Key sinh từ `nextFieldSeq` (`f1`, `f2`, …), không dùng lại sau khi xoá, và đếm lại từ `f1` khi có session mới.
     - `sectionSaved` mang đúng bản draft đã gửi; reducer chỉ đánh dấu đã lưu khi draft hiện tại vẫn là bản đó (so tham chiếu). **LÝ DO:** nếu user sửa trong lúc PUT đang chạy, bản đang hiển thị chưa được lưu. Từ review FE-F04, phần sửa bị khoá trong lúc lưu, nên phép so này là lớp phòng thủ thứ hai.
     - Reducer đọc `section` bằng `switch`: thêm section mới vào union mà quên nhánh thì compiler báo lỗi.
+  - FE-F06/F07 đã xong `transformationsEdited` (add, update, remove, move; id bước `t1`, `t2`… từ `nextTransformationSeq`), `validationToggled` và `sectionSaved` cho hai section này, có test. Cascade từ schema (spec target-schema): mọi sửa schema đưa cả hai về chưa lưu với tham chiếu mới; xoá field thì xoá rules của nó; đổi kiểu khỏi `string` bỏ rule `email`; đổi kiểu sang `date` đặt `outputFormat` của mọi `dateFormat` về `yyyy-MM-dd`; "Tạo lại từ file" xoá hết rules. Reducer không cho bật `email` ở field không phải `string`, và giữ `outputFormat` ở ISO cho field kiểu `date` dù có patch khác.
   - FE-F05 đã xong `mappingEdited` và `sectionSaved` cho mapping, có test:
     - `mappingEdited { key, mapping }`, với `mapping: null` là bỏ map.
     - Schema sinh từ cột nguồn thì mapping được map sẵn theo tên cột. "Tạo lại từ file" thay mapping cùng field.
@@ -277,6 +280,7 @@
 - [ ] 7.4 Test tích hợp UI cho cascade:
   - Chưa làm ở FE-F04. **LÝ DO:** state của mapping, transformations và validations chưa tồn tại; mỗi ca cascade làm cùng feature đưa state đó vào (F05, F06, F07). Key cố định của field (D3) đã có sẵn cho việc này.
   - FE-F05 đã xong hai ca đầu cho mapping, có test tích hợp UI: đổi tên field thì mapping giữ nguyên và lần PUT mapping kế tiếp gửi tên mới; xoá field thì mapping của nó không còn trong PUT. Hai ca về rule làm ở F06/F07.
+  - FE-F06/F07 đã xong hai ca về rule ở mức reducer (đổi kiểu khỏi `string` bỏ `email`; đổi kiểu sang `date` đặt `outputFormat` về ISO). Kiểm payload PUT transformations/validations sau khi đổi tên làm ở FE-F08, khi có trình tự "Chạy xử lý".
   - đổi tên vẫn giữ mapping/rules, và các lần PUT mapping/transformations/validations sau đó gửi tên mới (BE đã xoá cấu hình của tên cũ khi PUT schema);
   - xoá field thì xoá cấu hình của field đó;
   - đổi kiểu khỏi `string` thì xoá rule `email`;
@@ -333,21 +337,42 @@
 
 ## 9. FE-F06/F07 Transform & Validate (spec rule-config)
 
-- [ ] 9.1 TDD `configRules.ts` phần rules:
+- [x] 9.1 TDD `configRules.ts` phần rules:
   - `defaultValue` rỗng và `dateFormat` thiếu định dạng → lỗi;
   - rule suy ra (`required`, `type:<kiểu>`);
   - `email` chỉ có ở field `string`;
   - `dateFormat` trên field `date` thì `outputFormat` cố định `yyyy-MM-dd`.
-- [ ] 9.2 `TransformationEditor`:
+  - `checkTransformations` trả lỗi theo từng ô tham số (`value`, `inputFormat`, `outputFormat`) và lý do khoá "Chạy xử lý" liệt kê tên field. `impliedRules` và `canUseRule` có test. Luật `outputFormat` ISO cho field `date` nằm ở reducer và mapper.
+  - ~~"Rỗng" theo `isBlank()` của Java như BE.~~ **Sai, đã sửa sau review FE-F06/F07:** BE có hai luật. Tham số transformation dùng `TextValues.isEmpty`, tính cả NBSP (U+00A0, U+2007, U+202F) là rỗng; giá trị cố định ở mapping dùng `isBlank()`. FE dùng đúng luật cho từng chỗ (`isEmptyLikeBe`, `isBlankLikeJava`), có test cho cả ba ký tự NBSP.
+- [x] 9.2 `TransformationEditor`:
   - thêm, xoá, Lên/Xuống; ô tham số;
   - gợi ý mẫu `dateFormat` (datalist); `outputFormat` điền sẵn `yyyy-MM-dd`, và **chỉ đọc** ở field kiểu `date`;
   - dòng tóm tắt "trim → uppercase" hoặc "Không biến đổi".
 
   Có component test.
-- [ ] 9.3 `ValidationEditor`: chip rule suy ra (chỉ đọc); bật/tắt `email` (chỉ field `string`) và `unique`. Component test theo các scenario của spec.
-- [ ] 9.4 `RulesStep`: ghép hai editor theo từng field, theo thứ tự schema. Test:
+  - Mỗi bước là một nhóm "Bước n: <loại>"; ô tham số có nhãn và `aria-describedby` trỏ tới lỗi. Ô định dạng dùng `<datalist>` với 6 mẫu gợi ý và vẫn cho nhập tự do.
+  - Focus (design D14): thêm bước có tham số thì vào ô tham số đầu (bước không có tham số thì focus ở lại nút "Thêm biến đổi"); Lên/Xuống tới biên thì sang nút chiều ngược lại của cùng bước; Xoá thì sang nút "Xoá" của bước kề bên, hết bước thì về ô chọn loại biến đổi.
+  - Thêm gợi ý dưới `dateFormat` khi chưa có `trim` đứng trước. **LÝ DO:** BE-F06 không tự bỏ khoảng trắng trước khi đọc ngày.
+- [x] 9.3 `ValidationEditor`: chip rule suy ra (chỉ đọc); bật/tắt `email` (chỉ field `string`) và `unique`. Component test theo các scenario của spec.
+- [x] 9.4 `RulesStep`: ghép hai editor theo từng field, theo thứ tự schema. Test:
   - payload transformations đúng thứ tự, không có `params` cho `trim`/`uppercase`/`lowercase`;
   - payload validations chỉ có rule do user bật, không có `params`.
+  - Mỗi field là một vùng (`<section>` có tiêu đề h3 là tên field). Hai test payload nằm ở test mapper (`toTransformationConfigDto`, `toValidationConfigDto`); test UI của payload làm ở FE-F08 cùng trình tự "Chạy xử lý".
+  - Nút "Chạy xử lý" có ở lát này nhưng khoá, lý do là lỗi tham số nếu có, hoặc "đang được hoàn thiện (FE-F08)". **LÝ DO:** trình tự chạy cần BE-F07 đến BE-F09; làm ở FE-F08 ngay sau.
+  - Đã làm mutation check (outputFormat không khoá ở field `date`, luôn nhắc trim, không chuyển focus sau khi xoá bước, `email` bật được ở mọi kiểu): đều có test fail.
+  - Chạy app thật (BE 8081): khối theo field, tóm tắt "trim → uppercase", `dateFormat` ở field `date` khoá đầu ra `yyyy-MM-dd`, chip `type:<kiểu>`, `email` chỉ ở field `string`, console sạch.
+
+> **Review FE-F06/F07** (senior-reviewer, 2026-09-26). Đã sửa, mỗi mục có test và đã làm mutation check:
+> - Luật "rỗng" của tham số transformation theo `TextValues.isEmpty` của BE (tính cả NBSP), tách khỏi luật của giá trị cố định ở mapping.
+> - Bộ lọc `email` theo kiểu trong `toValidationConfigDto` có test (field `number` và field kiểu `email`); docstring nói đúng hành vi của BE (422 hoặc warning `RULE_IMPLIED_BY_SCHEMA`).
+> - Dòng tóm tắt chuỗi biến đổi là vùng live (`aria-live="polite"`), nên thêm, xoá, đổi thứ tự bước đều được đọc. Xoá bước thì focus về control đầu tiên bấm được của bước kề bên, như bước Schema, để bấm đúp không xoá liên tiếp.
+> - Lời nhắc thêm `trim` là mô tả của ô "Định dạng đầu vào"; mẫu ngày có khoảng trắng ở đầu hoặc cuối có cảnh báo tại ô.
+> - Test UI cho cascade đổi kiểu: khỏi `string` thì checkbox `email` biến mất và `unique` còn bật; sang `date` thì đầu ra thành `yyyy-MM-dd` chỉ đọc. Test reducer "xoá field" kiểm cả việc field khác giữ nguyên cấu hình.
+> - Mỗi field là một nhóm (`role="group"`), không phải landmark, để file nhiều cột không tạo hàng trăm landmark.
+> - `TransformationEditor` và `ValidationEditor` được `memo`, dùng tham chiếu rỗng cố định và vấn đề tách theo field. Gõ vào một ô không render lại các field khác.
+> - Kiểu `patch` được reducer áp theo loại bước (không ép kiểu), khoá vắng giữ giá trị cũ.
+> - Gom phần chép giữa các bước (bước thứ ba dùng cùng khung, như đã hứa ở review FE-F05): `StepHeader` (tiêu đề và dòng giới thiệu) dùng chung cho Schema, Mapping, Rules; helper `focusMoveButton`/`focusFirstControl` dùng chung cho danh sách có Lên/Xuống/Xoá.
+> - Bỏ mã task nội bộ khỏi chuỗi hiển thị; bỏ ref không dùng; sửa comment và design theo cascade mới.
 
 ## 10. FE-F08 Chạy pipeline (spec pipeline-run)
 

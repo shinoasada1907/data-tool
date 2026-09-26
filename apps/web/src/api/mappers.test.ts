@@ -1,6 +1,13 @@
 import { describe, expect, test } from 'vitest'
 import { csvPreviewFixture, importSessionFixture, xlsxPreviewFixture } from '../mocks/fixtures'
-import { toMappingConfigDto, toSessionInfo, toSourcePreview, toTargetSchemaDto } from './mappers'
+import {
+  toMappingConfigDto,
+  toSessionInfo,
+  toSourcePreview,
+  toTargetSchemaDto,
+  toTransformationConfigDto,
+  toValidationConfigDto,
+} from './mappers'
 
 test('toSessionInfo lấy đúng id của session (F02 dùng id này để gọi /preview) và thông tin file', () => {
   const dto = importSessionFixture({
@@ -84,6 +91,91 @@ describe('toMappingConfigDto', () => {
         { targetField: 'email', mappingType: 'SOURCE_COLUMN', sourceColumn: 'E-mail', constantValue: null },
         { targetField: 'country', mappingType: 'CONSTANT', sourceColumn: null, constantValue: 'VN' },
       ],
+    })
+  })
+})
+
+describe('toTransformationConfigDto', () => {
+  const fields = [
+    { key: 'f1', name: ' name ', type: 'string' as const, required: false },
+    { key: 'f2', name: 'dob', type: 'date' as const, required: false },
+    { key: 'f3', name: 'note', type: 'string' as const, required: false },
+  ]
+
+  test('theo thứ tự schema rồi thứ tự bước, order từ 0 trong từng field; trim/uppercase/lowercase không có params', () => {
+    const dto = toTransformationConfigDto(fields, {
+      f2: [{ id: 't3', type: 'dateFormat', inputFormat: 'dd/MM/yyyy', outputFormat: 'yyyy-MM-dd' }],
+      f1: [
+        { id: 't1', type: 'trim' },
+        { id: 't2', type: 'uppercase' },
+        { id: 't4', type: 'defaultValue', value: 'N/A' },
+      ],
+    })
+
+    expect(dto).toEqual({
+      transformations: [
+        { targetField: 'name', order: 0, type: 'trim' },
+        { targetField: 'name', order: 1, type: 'uppercase' },
+        { targetField: 'name', order: 2, type: 'defaultValue', params: { value: 'N/A' } },
+        {
+          targetField: 'dob',
+          order: 0,
+          type: 'dateFormat',
+          params: { inputFormat: 'dd/MM/yyyy', outputFormat: 'yyyy-MM-dd' },
+        },
+      ],
+    })
+  })
+
+  test('field kiểu date luôn gửi outputFormat yyyy-MM-dd', () => {
+    const dto = toTransformationConfigDto(fields, {
+      f2: [{ id: 't1', type: 'dateFormat', inputFormat: 'dd/MM/yyyy', outputFormat: 'dd.MM.yyyy' }],
+    })
+
+    expect(dto.transformations[0].params).toEqual({ inputFormat: 'dd/MM/yyyy', outputFormat: 'yyyy-MM-dd' })
+  })
+})
+
+describe('toValidationConfigDto', () => {
+  test('chỉ rule do user bật, theo thứ tự schema rồi email trước unique, không có params', () => {
+    const dto = toValidationConfigDto(
+      [
+        { key: 'f1', name: 'email', type: 'string', required: true },
+        { key: 'f2', name: 'code', type: 'number', required: false },
+        { key: 'f3', name: 'note', type: 'string', required: false },
+      ],
+      { f2: ['unique'], f1: ['unique', 'email'] },
+    )
+
+    expect(dto).toEqual({
+      validations: [
+        { targetField: 'email', type: 'email' },
+        { targetField: 'email', type: 'unique' },
+        { targetField: 'code', type: 'unique' },
+      ],
+    })
+  })
+
+  test('rule email ở field không phải string (kể cả kiểu email) bị bỏ, unique giữ nguyên', () => {
+    const dto = toValidationConfigDto(
+      [
+        { key: 'f1', name: 'age', type: 'number', required: false },
+        { key: 'f2', name: 'mail', type: 'email', required: false },
+      ],
+      { f1: ['email', 'unique'], f2: ['email', 'unique'] },
+    )
+
+    expect(dto).toEqual({
+      validations: [
+        { targetField: 'age', type: 'unique' },
+        { targetField: 'mail', type: 'unique' },
+      ],
+    })
+  })
+
+  test('không bật rule nào thì gửi danh sách rỗng', () => {
+    expect(toValidationConfigDto([{ key: 'f1', name: 'email', type: 'email', required: true }], {})).toEqual({
+      validations: [],
     })
   })
 })

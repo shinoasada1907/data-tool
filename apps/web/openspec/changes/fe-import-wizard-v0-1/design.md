@@ -74,7 +74,7 @@ interface WizardState {
 - Trong lúc PUT cấu hình đang chạy, phần sửa của bước đó bị khoá (`<fieldset disabled>`), cùng lúc với stepper và nút điều hướng.
   - *Vì sao* (review FE-F04): bản đầu cho sửa trong lúc lưu. Sửa xen vào thì lưu xong mà đứng im không báo gì, lỗi 422 gắn theo bản đã gửi nên hiện sai field, và lưu lỗi thì focus bị giật khỏi ô đang gõ.
 - `sectionSaved` mang đúng bản draft đã gửi đi; reducer chỉ đánh dấu đã lưu khi draft hiện tại vẫn là bản đó (so tham chiếu, vì draft là mảng bất biến). Đây là lớp phòng thủ thứ hai sau việc khoá phần sửa.
-  - Payload PUT mapping phụ thuộc cả tên field, nên mọi lần sửa schema đều tạo tham chiếu mới cho `mapping.draft` dù nội dung không đổi. Nhờ vậy, bản mapping đã gửi trước lần sửa schema đó bị coi là cũ (review FE-F05).
+  - Payload PUT mapping, transformations và validations phụ thuộc cả tên field, nên mọi lần sửa schema đều tạo tham chiếu mới cho cả ba draft dù nội dung không đổi. Nhờ vậy, bản đã gửi trước lần sửa schema đó bị coi là cũ (review FE-F05, FE-F06/F07).
 - Phản hồi sau khi lưu (lỗi BE theo field, khối lỗi ở đầu bước, nút "Upload lại", nơi đặt focus) nằm ở hook dùng chung `wizard/useSaveFeedback.ts` và component `SaveFailureBanner`. Mỗi bước chỉ khai báo control nào nhận focus cho field lỗi.
   - *Vì sao* (review FE-F05): bản đầu của bước Mapping chép tay luồng này từ bước Schema, và sai ngay ở chỗ chọn control để focus.
 - **Trạng thái "đang bận" là một bộ đếm, không phải boolean.**
@@ -181,6 +181,8 @@ FE chỉ kiểm **cấu hình**: tên field, field required chưa map, hằng r�
   - Bước Schema (FE-F04): "Thêm field" → ô tên của field mới; "Lên"/"Xuống" tới biên thì nút vừa bấm bị khoá → nút chiều ngược lại của cùng field; "Xoá" → ô tên của field kề bên, hết field thì nút "Thêm field"; lưu lỗi → ô tên của field lỗi đầu tiên, hoặc tiêu đề bước.
   - Bước Mapping (FE-F05): lưu lỗi → control đang mang lỗi của field đầu tiên. Dòng dùng giá trị cố định thì là ô nhập giá trị, dòng khác là ô chọn nguồn; đánh dấu bằng `data-issue-target`, cùng chỗ gắn `aria-describedby`. Chọn "Giá trị cố định…" không tự đưa focus sang ô nhập (xem tasks 8.2).
   - Ô chọn nguồn ở bước Mapping được mô tả (`aria-describedby`) bằng kiểu, bắt buộc và giá trị mẫu của cột đang chọn, để user screen reader biết field cần gì trước khi chọn.
+  - Bước Biến đổi & kiểm tra (FE-F06/F07): thêm bước có tham số → ô tham số đầu; thêm bước không tham số → focus ở lại nút "Thêm biến đổi"; Lên/Xuống tới biên → nút chiều ngược lại; Xoá → control đầu tiên bấm được của bước kề bên, hết bước thì ô chọn loại biến đổi. Dòng tóm tắt chuỗi biến đổi là vùng live, nên mọi thay đổi danh sách bước đều được đọc.
+  - Tiêu đề bước (`wizard/StepHeader.tsx`) và các helper focus danh sách (`shared/ui/listFocus.ts`) dùng chung giữa các bước, để luật focus không lệch nhau khi chép tay.
   - Tiêu đề bước có `align-self: flex-start`, để viền focus ôm theo chữ thay vì kéo hết chiều ngang.
 - **Vùng nội dung căn giữa, rộng tối đa 1280px** (người dùng yêu cầu ngày 2026-09-26). Trước đó là 1120px và dồn trái, nên trên màn khoảng 2000px bên phải trống gần 600px. Màn laptop khoảng 1440px không đổi, vì vùng nội dung vẫn dùng hết bề ngang. Thay cho con số 1120px ở design D5 của change `fe-app-shell` (đã archive).
   - Vùng live của bước Xem trước là một `<p role="status">` luôn nằm trong DOM: "Đang tải…" rồi "Xem trước x / y dòng". `Spinner` chỉ để nhìn (`aria-hidden`) (FE-F02).
