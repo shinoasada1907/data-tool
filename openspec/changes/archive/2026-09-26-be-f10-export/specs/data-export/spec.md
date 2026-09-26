@@ -144,11 +144,17 @@ Mọi kiểm tra này MUST xong trước khi gửi byte đầu tiên của file.
 
 ### Requirement: Xử lý lỗi khi export
 - Không mở được nguồn dữ liệu của kết quả (ví dụ thiếu file `valid.ndjson`) SHALL trả `500` dạng `application/problem+json`, `code` là `EXPORT_FAILED`, trước khi gửi byte nào của file.
+- Lỗi khi đang ghi mà chưa có byte nào tới client SHALL cũng trả `500` `EXPORT_FAILED` dạng `application/problem+json`, không kèm `Content-Disposition`.
+- Một lần tải MUST NOT kết thúc như thể trọn vẹn khi file chưa được ghi hết.
 - Lỗi xảy ra **sau khi** đã bắt đầu gửi file SHALL được ghi log phía server (có `sessionId`, không có dữ liệu row) và làm kết nối bị huỷ. Hệ thống MUST NOT chèn body lỗi JSON vào giữa file.
 
 #### Scenario: Thiếu file dữ liệu hợp lệ
 - **WHEN** session đã `PROCESSED`, file `result/valid.ndjson` bị xoá khỏi storage, và client gọi `GET /export?format=json`
 - **THEN** hệ thống trả `500` dạng `application/problem+json` với `code` là `EXPORT_FAILED`
+
+#### Scenario: Lỗi sau khi đã gửi một phần file
+- **WHEN** đã gửi một phần file (quá bộ đệm của response), rồi việc đọc một row về sau thất bại
+- **THEN** kết nối bị huỷ mà không có chunk kết thúc, và phần đã nhận không chứa JSON lỗi hay trang lỗi nào
 
 #### Scenario: Lỗi giữa chừng không chèn JSON lỗi vào file
 - **WHEN** writer đã ghi xong row đầu tiên, và việc đọc row thứ hai ném `UncheckedIOException`

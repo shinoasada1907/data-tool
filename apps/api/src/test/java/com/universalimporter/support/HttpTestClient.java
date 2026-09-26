@@ -14,6 +14,14 @@ public final class HttpTestClient {
     public record Response(int status, HttpHeaders headers, String body) {
     }
 
+    /** A response read as bytes, for downloads (the BOM of a CSV, say). */
+    public record Download(int status, HttpHeaders headers, byte[] body) {
+
+        public String text() {
+            return new String(body, java.nio.charset.StandardCharsets.UTF_8);
+        }
+    }
+
     private final RestClient client;
 
     public HttpTestClient(int port) {
@@ -57,6 +65,15 @@ public final class HttpTestClient {
                 .retrieve()
                 .onStatus(status -> true, (request, response) -> { })
                 .toEntity(String.class));
+    }
+
+    public Download download(String path) {
+        ResponseEntity<byte[]> entity = client.get().uri(path)
+                .retrieve()
+                .onStatus(status -> true, (request, response) -> { })
+                .toEntity(byte[].class);
+        return new Download(entity.getStatusCode().value(), entity.getHeaders(),
+                entity.getBody() == null ? new byte[0] : entity.getBody());
     }
 
     private static Response toResponse(ResponseEntity<String> entity) {
