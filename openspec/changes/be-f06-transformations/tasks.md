@@ -241,7 +241,7 @@
   }
   ```
 
-- [ ] 5.1 Viết `TransformationRegistryTest`:
+- [x] 5.1 Viết `TransformationRegistryTest`:
   | Case | Mong đợi |
   |---|---|
   | `find("trim")` | có `TrimTransformation` |
@@ -249,7 +249,7 @@
   | `find("replace")` | empty |
   | `types()` | `[dateFormat, defaultValue, lowercase, trim, uppercase]` |
   | tạo registry với 2 transformation cùng `type` | `IllegalArgumentException` |
-- [ ] 5.2 Viết `TransformationEngineTest`, dùng registry thật cùng một `ExplodingTransformation` (type `explode`, luôn ném `IllegalStateException("boom")`) chỉ có trong test:
+- [x] 5.2 Viết `TransformationEngineTest`, dùng registry thật cùng một `ExplodingTransformation` (type `explode`, luôn ném `IllegalStateException("boom")`) chỉ có trong test:
   | Steps | Input | Mong đợi |
   |---|---|---|
   | `[trim(0), uppercase(1)]` | `"  an "` | ok `"AN"` |
@@ -259,10 +259,13 @@
   | `[dateFormat(0){dd/MM/yyyy}, uppercase(1)]` | `"31/02/2024"` | failed `("dateFormat", 0, "Value does not match pattern dd/MM/yyyy")` |
   | `[]` | `"x"` | ok `"x"` |
   | `[explode(0)]` | `"x"` | failed `("explode", 0, "Unexpected error while applying transformation.")`; message không chứa `boom` |
-- [ ] 5.3 Chạy `./mvnw -q test -Dtest=TransformationRegistryTest,TransformationEngineTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 5.4 Tạo các class ở phần Files. Engine sắp theo `order`, bắt `TransformationFailure` và `RuntimeException` theo design T2. `RuntimeException` được log WARN kèm `fieldName` và `type`, không kèm giá trị.
-- [ ] 5.5 Chạy lại lệnh ở 5.3. Mong đợi: PASS.
-- [ ] 5.6 Commit: `feat(domain): transformation registry and ordered engine`
+- [x] 5.3 Chạy `./mvnw -q test -Dtest=TransformationRegistryTest,TransformationEngineTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 5.4 Tạo các class ở phần Files. Engine sắp theo `order`, bắt `TransformationFailure` và `RuntimeException` theo design T2. `RuntimeException` được log WARN kèm `fieldName` và `type`, không kèm giá trị.
+  - Log WARN chỉ ghi tên class exception và frame đầu của stack, ~~không ghi cả exception~~. **LÝ DO:** message của exception có thể trích nguyên giá trị ô (ví dụ `NumberFormatException: For input string: "..."`), trái D13.
+  - `TransformationStep` bỏ các param có giá trị `null`, để `"params": {"outputFormat": null}` được coi như không gửi; nếu không, `Map.copyOf` sẽ ném NPE và trả 500.
+  - Thêm `TransformationRegistry.standard()` (xem bảng ở task 1).
+- [x] 5.5 Chạy lại lệnh ở 5.3. Mong đợi: PASS.
+- [x] 5.6 Commit: `feat(domain): transformation registry and ordered engine`
 
 ## 6. Kiểm cấu hình transformation
 
