@@ -32,14 +32,29 @@
 
 ## 1. Đối chiếu giả định với code F04/F06 đã merge
 
-- [ ] 1.1 Đọc code đã merge và ghi lại tên thật của:
+- [x] 1.1 Đọc code đã merge và ghi lại tên thật của:
   - `TargetSchema`, `TargetField`, `FieldType`;
   - aggregate config;
   - service cấu hình session và hàm cập nhật dùng chung;
   - khung prune và kiểu `Pruned`;
   - `RowErrorCode`, `TextValues`, `EngineConfig` (F06).
-- [ ] 1.2 Tên nào khác với `design.md` (mục "Giả định về F02–F06") thì sửa `design.md` và các task bên dưới: gạch tên cũ, ghi LÝ DO.
-- [ ] 1.3 Commit (nếu có sửa): `docs(openspec): align be-f07 plan with merged F04/F06 names`
+- [x] 1.2 Tên nào khác với `design.md` (mục "Giả định về F02–F06") thì sửa `design.md` và các task bên dưới: gạch tên cũ, ghi LÝ DO.
+- [x] 1.3 Commit (nếu có sửa): `docs(openspec): align be-f07 plan with merged F04/F06 names`
+
+**Kết quả đối chiếu (2026-09-26, code `dev` @ bd93049):**
+
+| Giả định | Tên thật / cách làm | Ảnh hưởng tới F07 |
+|---|---|---|
+| `TargetSchema`, `TargetField`, `FieldType` | Đúng như giả định (`domain.schema`) | Không |
+| ~~`SessionConfiguration`~~ | `domain.config.ImportConfiguration(sessionId, schema, mapping, transformations, version)`; constructor giữ thứ tự chuẩn của mọi phần | Thêm `validations`, `withValidations(ValidationConfig, warnings)`; constructor gọi `validations.normalized(schema)` |
+| Service cấu hình, hàm cập nhật chung | `ConfigurationService.update(UUID, BiFunction<ImportSession, ImportConfiguration, ConfigChange>)`; F06 đặt validate bên trong `update` | `updateValidations` làm giống `updateTransformations`; constructor nhận thêm `ValidationConfigValidator` |
+| Khung prune, kiểu `Pruned` | `FieldScopedSection` (có `prunedMessage`), `ConfigPruner`, `domain.config.Pruned<T>` (F06) | `ValidationConfig implements FieldScopedSection`, có `prunedFor(schema)` giống `TransformationConfig`; `withSchema` gọi sau phần transformations |
+| `RowErrorCode`, `TextValues`, `EngineConfig` | Đúng như giả định (`domain.common`, `infrastructure.config.EngineConfig`) | Thêm bean vào `EngineConfig` |
+| Lưu và hash | Mỗi phần có document riêng, params ghi bằng `TreeMap` (F06). **Plan thiếu task này** | Thêm task 6b: `ValidationsDocument`, cột `validations_json`, hash |
+| ~~`MAIN/api/importsession/ValidationConfigController`~~ | F04–F06 đặt controller theo phần cấu hình | `api.validation` |
+| ~~`TEST/application/importsession/UpdateValidationsTest`~~ | Test service nằm ở `application.configuration` | Đặt tại `application.configuration` |
+| Log WARN trong domain | F06 dùng `System.Logger`; chỉ log tên class exception và frame đầu, không log message (D13) | Làm giống vậy |
+| `ValidationContext.rowNumber` là `int` | `ImportRow.rowNumber()` là `long` | Giữ `int` như design (file ≤ 20MB nên không vượt `int`); F08 ép kiểu khi gọi |
 
 ## 2. Contract, rule required và rule type
 

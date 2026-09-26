@@ -10,6 +10,12 @@
 
 Task 1 trong tasks.md đối chiếu các giả định này với code đã merge rồi sửa lại cho khớp.
 
+> **Đã đối chiếu (2026-09-26):** bảng kết quả ở task 1 của `tasks.md`.
+> - ~~`SessionConfiguration`~~ → `ImportConfiguration`.
+> - Khung prune là `FieldScopedSection` / `ConfigPruner` / `Pruned`.
+> - Thêm phần lưu và hash `validations_json`.
+> - Controller đặt ở `api.validation`.
+
 - **F04**:
   - `TargetSchema`, `TargetField(name, type, required, order)`, `FieldType { STRING, NUMBER, BOOLEAN, DATE, EMAIL }`.
   - Aggregate config (`SessionConfiguration`) lưu trong `import_configuration` (V3).
