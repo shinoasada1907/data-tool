@@ -13,4 +13,9 @@ public interface FieldScopedSection<S extends FieldScopedSection<S>> {
 
     /** This section without the entries of fields outside {@code fieldNames}. */
     S retainFields(Set<String> fieldNames);
+
+    /** Message of the {@code CONFIG_PRUNED} warning for a field whose entries were dropped. */
+    default String prunedMessage(String field) {
+        return sectionLabel() + " for this field was removed because the field no longer exists.";
+    }
 }
