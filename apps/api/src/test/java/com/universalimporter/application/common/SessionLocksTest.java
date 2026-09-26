@@ -36,6 +36,7 @@ class SessionLocksTest {
 
     @Test
     void actions_on_different_sessions_run_side_by_side() throws Exception {
+        assertThat(SessionLocks.stripe(A)).as("A and B must not share a lock").isNotEqualTo(SessionLocks.stripe(B));
         // Each action waits for the other to start: only possible if neither blocks the other.
         CountDownLatch bothStarted = new CountDownLatch(2);
         try (ExecutorService pool = Executors.newFixedThreadPool(2)) {

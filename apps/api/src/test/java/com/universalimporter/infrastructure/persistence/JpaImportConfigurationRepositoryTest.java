@@ -61,6 +61,18 @@ class JpaImportConfigurationRepositoryTest {
     }
 
     @Test
+    void a_stored_schema_hashes_like_the_same_schema_defined_again() {
+        // What keeps a PROCESSED session processed when the client re-sends the schema it already has.
+        repository.save(ImportConfiguration.empty(ID).withSchema(SCHEMA).configuration(), T0);
+        flushAndClear();
+        JsonConfigHasher hasher = new JsonConfigHasher();
+        ImportConfiguration redefined = ImportConfiguration.empty(ID).withSchema(TargetSchema.define(List.of(
+                new FieldSpec(" name ", "string", false, 7), new FieldSpec("email", "email", true, 9)))).configuration();
+
+        assertThat(hasher.hash(repository.findBySessionId(ID).orElseThrow())).isEqualTo(hasher.hash(redefined));
+    }
+
+    @Test
     void a_session_without_configuration_is_not_found() {
         assertThat(repository.findBySessionId(UUID.fromString("11111111-2222-3333-4444-555555555555"))).isEmpty();
     }

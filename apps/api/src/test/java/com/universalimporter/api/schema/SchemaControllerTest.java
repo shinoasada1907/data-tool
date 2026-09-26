@@ -1,5 +1,6 @@
 package com.universalimporter.api.schema;
 
+import com.universalimporter.api.common.StrictJsonConfig;
 import com.universalimporter.application.configuration.ConfigUpdateResult;
 import com.universalimporter.application.configuration.ConfigurationService;
 import com.universalimporter.domain.common.DomainException;
@@ -14,8 +15,11 @@ import com.universalimporter.domain.importsession.SourceFileType;
 import com.universalimporter.domain.schema.FieldSpec;
 import com.universalimporter.domain.schema.TargetSchema;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -35,6 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(SchemaController.class)
+@Import(StrictJsonConfig.class)
 class SchemaControllerTest {
 
     private static final UUID ID = UUID.fromString("0b6f0c52-8a8e-4d5c-9a55-2f3c1c3f7e11");
@@ -87,6 +92,22 @@ class SchemaControllerTest {
     @Test
     void a_value_of_the_wrong_json_type_is_request_invalid() throws Exception {
         putSchema("{\"fields\":[{\"name\":\"a\",\"required\":\"yes\",\"order\":0}]}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("REQUEST_INVALID"));
+        verifyNoInteractions(service);
+    }
+
+    /** Jackson would otherwise quietly convert these; the spec wants a 400 for any wrong JSON type. */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{\"fields\":[{\"name\":\"a\",\"type\":\"string\",\"required\":\"true\",\"order\":0}]}",
+            "{\"fields\":[{\"name\":\"a\",\"type\":\"string\",\"required\":1,\"order\":0}]}",
+            "{\"fields\":[{\"name\":\"a\",\"type\":\"string\",\"order\":\"1\"}]}",
+            "{\"fields\":[{\"name\":\"a\",\"type\":\"string\",\"order\":1.5}]}",
+            "{\"fields\":[{\"name\":123,\"type\":\"string\",\"order\":0}]}",
+            "{\"fields\":[{\"name\":\"a\",\"type\":true,\"order\":0}]}"})
+    void a_scalar_of_another_json_type_is_not_converted_but_request_invalid(String body) throws Exception {
+        putSchema(body)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("REQUEST_INVALID"));
         verifyNoInteractions(service);

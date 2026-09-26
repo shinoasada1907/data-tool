@@ -17,6 +17,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.InputStreamSource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -74,7 +76,11 @@ public class ImportSessionService {
         return SessionDetails.of(session, ImportConfiguration.empty(id));
     }
 
-    /** The session with its stored configuration; a session never configured has the empty one. */
+    /**
+     * The session with its stored configuration; a session never configured has the empty one. Both are read
+     * from one snapshot, so a PUT committing in between cannot pair an old status with a new schema.
+     */
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public SessionDetails details(UUID id) {
         ImportSession session = repository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.SESSION_NOT_FOUND, "Import session not found."));

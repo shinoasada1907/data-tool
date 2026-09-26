@@ -125,6 +125,16 @@ class SchemaIntegrationTest {
     }
 
     @Test
+    void a_value_of_another_json_type_is_400_and_not_converted() {
+        Response put = http.putJson(sessionPath + "/schema",
+                "{\"fields\": [{\"name\": \"a\", \"type\": \"string\", \"required\": \"true\", \"order\": 0}]}");
+
+        assertThat(put.status()).isEqualTo(400);
+        assertThat((String) JsonPath.read(put.body(), "$.code")).isEqualTo("REQUEST_INVALID");
+        assertThat((List<Object>) JsonPath.read(http.get(sessionPath).body(), "$.config.schema.fields")).isEmpty();
+    }
+
+    @Test
     void a_schema_for_an_unknown_session_is_404() {
         Response put = http.putJson("/api/import-sessions/11111111-2222-3333-4444-555555555555/schema", FIVE_TYPES);
 
