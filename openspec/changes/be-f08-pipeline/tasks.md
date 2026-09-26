@@ -147,7 +147,7 @@
 **Interfaces:**
 - Produces: `public PipelineSummaryView process(UUID sessionId)`, với `PipelineSummaryView(UUID sessionId, SessionStatus status, ResultSummary summary)`.
 
-- [ ] 4.1 Viết `ProcessServiceTest` (`Clock.fixed(t0)`):
+- [x] 4.1 Viết `ProcessServiceTest` (`Clock.fixed(t0)`):
   | Case | Mong đợi |
   |---|---|
   | Session READY, config của bộ mẫu | trả `status`=PROCESSED, `total`=6, `valid`=3, `invalid`=3; session đã lưu là PROCESSED; kết quả đã commit có `configHash` bằng hash của config và `processedAt`=`t0` |
@@ -159,10 +159,13 @@
   | Parser ném `UncheckedIOException` ở row 3 | `DomainException(INTERNAL_ERROR)`; session thành FAILED; không còn thư mục tạm |
   | Ngay sau case FILE_PARSE_ERROR, gọi `process` lần nữa | `DomainException(SESSION_STATE_INVALID)` |
   | Session PROCESSED, gọi `process` lại | vẫn PROCESSED; kết quả được thay bằng lần chạy mới |
-- [ ] 4.2 Chạy `./mvnw -q test -Dtest=ProcessServiceTest`. Mong đợi: FAIL.
-- [ ] 4.3 Viết `ProcessService` theo design P6: toàn bộ chạy trong khoá session, lưu session một lần ở cuối, không bọc cả hàm trong `@Transactional`.
-- [ ] 4.4 Chạy lại lệnh ở 4.2. Mong đợi: PASS.
-- [ ] 4.5 Commit: `feat(app): process service with failure handling and re-processing`
+- [x] 4.2 Chạy `./mvnw -q test -Dtest=ProcessServiceTest`. Mong đợi: FAIL.
+- [x] 4.3 Viết `ProcessService` theo design P6: toàn bộ chạy trong khoá session, lưu session một lần ở cuối, không bọc cả hàm trong `@Transactional`.
+  - Làm thêm: lỗi IO của **result store** (ví dụ đầy đĩa) ~~xử lý như lỗi đọc file~~ trả 500 `INTERNAL_ERROR` "The result could not be stored.", nhưng **không** chuyển session sang `FAILED`, và kết quả cũ giữ nguyên. **LÝ DO:** design P6 chỉ nói về lỗi đọc file nguồn. `FAILED` là trạng thái cuối, không nên khoá vĩnh viễn một session chỉ vì sự cố đĩa tạm thời. Hai loại lỗi được tách bằng một exception bọc riêng cho store. Có test.
+  - Nếu session còn ở `CONFIGURING` mà readiness đã đạt (chỉ xảy ra với dữ liệu tạo trước khi có một readiness rule), thì chuyển sang `READY` trước rồi mới `PROCESSED`, vì D2 không cho `CONFIGURING → PROCESSED`.
+  - Fake: `support.InMemoryResultStore`; `FakeSourceParser.failingAtRow`.
+- [x] 4.4 Chạy lại lệnh ở 4.2. Mong đợi: PASS.
+- [x] 4.5 Commit: `feat(app): process service with failure handling and re-processing`
 
 ## 5. Đổi config thì xoá kết quả
 

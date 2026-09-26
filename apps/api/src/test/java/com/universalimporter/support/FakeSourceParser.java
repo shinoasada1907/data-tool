@@ -20,6 +20,8 @@ public class FakeSourceParser implements SourceParser {
     private List<ImportRow> rows = List.of();
     private byte[] inspectedContent;
     private boolean readStreamClosed;
+    private long failAtRow = -1;
+    private RuntimeException readFailure;
 
     private FakeSourceParser(SourceFileType type) {
         this.type = type;
@@ -41,6 +43,13 @@ public class FakeSourceParser implements SourceParser {
 
     public FakeSourceParser withRows(List<ImportRow> rows) {
         this.rows = List.copyOf(rows);
+        return this;
+    }
+
+    /** Reading the rows throws {@code failure} when it reaches row {@code rowNumber}. */
+    public FakeSourceParser failingAtRow(long rowNumber, RuntimeException failure) {
+        this.failAtRow = rowNumber;
+        this.readFailure = failure;
         return this;
     }
 
@@ -73,6 +82,12 @@ public class FakeSourceParser implements SourceParser {
 
     @Override
     public Stream<ImportRow> read(InputStream input) {
-        return rows.stream().onClose(() -> readStreamClosed = true);
+        return rows.stream()
+                .peek(row -> {
+                    if (row.rowNumber() == failAtRow) {
+                        throw readFailure;
+                    }
+                })
+                .onClose(() -> readStreamClosed = true);
     }
 }
