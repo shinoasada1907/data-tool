@@ -65,7 +65,7 @@
 - Consumes: `MappingConfig` (task 1), `ImportRow`, `SourceSchema` (F02), `TargetSchema` (F04).
 - Produces: như design M4.
 
-- [ ] 2.1 Viết `MappingStrategiesTest`:
+- [x] 2.1 Viết `MappingStrategiesTest`:
   | Case | Mong đợi |
   |---|---|
   | `SourceColumnMappingStrategy.map(row(2,["An",null]), resolved(idx 0))` | `"An"` |
@@ -74,16 +74,16 @@
   | `ConstantMappingStrategy.map(anyRow, resolved(const "VN"))` | `"VN"` |
   | `standard().strategyFor(SOURCE_COLUMN)` | là `SourceColumnMappingStrategy` |
   | `standard().strategyFor(CONSTANT)` | là `ConstantMappingStrategy` |
-- [ ] 2.2 Viết `RowMapperTest`. Schema `[name, country, note]`; source columns `["x","Họ tên"]`; mapping `name ← "Họ tên"`, `country ← "VN"`, `note` chưa map.
+- [x] 2.2 Viết `RowMapperTest`. Schema `[name, country, note]`; source columns `["x","Họ tên"]`; mapping `name ← "Họ tên"`, `country ← "VN"`, `note` chưa map.
   | Row | Mong đợi |
   |---|---|
   | `(2, ["x","An"])` | `{name:"An", country:"VN", note:null}`; thứ tự key đúng `name, country, note` |
   | `(3, ["y"])` | `{name:null, country:"VN", note:null}` |
   | Gọi `map` 2 lần với cùng row | hai kết quả `equals` nhau |
-- [ ] 2.3 Chạy `./mvnw -q test -Dtest=MappingStrategiesTest,RowMapperTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 2.4 Cài 6 class theo design M4. `RowMapper.of` đổi tên cột sang index một lần; không tìm lại theo tên ở mỗi row.
-- [ ] 2.5 Chạy lại lệnh ở 2.3. Mong đợi: PASS.
-- [ ] 2.6 Commit: `feat(domain): mapping strategies and row mapper`
+- [x] 2.3 Chạy `./mvnw -q test -Dtest=MappingStrategiesTest,RowMapperTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 2.4 Cài 6 class theo design M4. `RowMapper.of` đổi tên cột sang index một lần; không tìm lại theo tên ở mỗi row.
+- [x] 2.5 Chạy lại lệnh ở 2.3. Mong đợi: PASS.
+- [x] 2.6 Commit: `feat(domain): mapping strategies and row mapper`
 
 ## 3. Gắn mapping vào khung cấu hình (prune, warning, readiness)
 
