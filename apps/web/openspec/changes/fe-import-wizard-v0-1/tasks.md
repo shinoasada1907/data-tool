@@ -265,7 +265,7 @@
     - rời bước rồi quay lại, field đã báo lỗi vẫn báo lỗi;
     - "Xuống" ở giữa danh sách: nút của chính field vừa di chuyển giữ focus;
     - đổi thứ tự sau khi đã lưu cũng đưa schema về chưa lưu (test reducer).
-  - **Chưa kiểm với BE thật:** BE-F04 chưa có. Hiện BE trả `404` với `code: REQUEST_INVALID` và không có `detail`, nên màn Schema báo "Yêu cầu không hợp lệ" và giữ nguyên dữ liệu đang nhập. Khi BE-F04 vào `dev` thì kiểm lại (13.4).
+  - ~~**Chưa kiểm với BE thật:** BE-F04 chưa có.~~ Đã kiểm với BE thật sau khi BE-F04 vào `dev` (`4803fd0`); kết quả ghi ở 13.4.
 - [ ] 7.4 Test tích hợp UI cho cascade:
   - Chưa làm ở FE-F04. **LÝ DO:** state của mapping, transformations và validations chưa tồn tại; mỗi ca cascade làm cùng feature đưa state đó vào (F05, F06, F07). Key cố định của field (D3) đã có sẵn cho việc này.
   - đổi tên vẫn giữ mapping/rules, và các lần PUT mapping/transformations/validations sau đó gửi tên mới (BE đã xoá cấu hình của tên cũ khi PUT schema);
@@ -388,4 +388,12 @@
     - "Tiếp" sang bước Schema. Console không có lỗi hay cảnh báo.
     - Ảnh chụp lộ lỗi bảng bị bóp cột; đã sửa (design D14).
     - Sau các sửa đổi của review, chạy lại cùng kịch bản với BE `main` ở cổng 8081 (Vite 5174, `API_PROXY_TARGET=http://localhost:8081`): kết quả như trên, console sạch. Lý do đổi cổng: lúc đó 8080 là bản BE cũ do IntelliJ chạy từ thư mục chính (nhánh FE, chỉ có code BE-F01), không có endpoint preview.
+  - **FE-F04 và sinh schema (2026-09-26)**, BE `dev` `4803fd0` (có BE-F04) chạy ở 8081, FE `pnpm dev` qua proxy, Chrome headless:
+    - CSV 6 cột (`Mã KH`, `Họ tên`, `Ngày sinh`, `Số dư`, `Đang hoạt động`, `Email`): schema sinh sẵn đúng kiểu `string`, `string`, `date`, `number`, `boolean`, `email`.
+    - Đánh dấu `Mã KH` bắt buộc rồi bấm "Tiếp": `PUT /schema` trả `200`; body đúng tên (tiếng Việt nguyên vẹn), kiểu, `required`, `order` 0–5. Wizard sang Mapping, bước Schema "đã xong".
+    - Quay lại Schema rồi bấm "Tiếp" không sửa gì: không có PUT thứ hai.
+    - `GET /api/import-sessions/{id}`: `status = READY`, `config.schema` khớp 6 field đã gửi, `readiness = {ready: true, issues: []}`.
+    - `422` thật (gọi thẳng BE): `errors[]` có `field: "email"` cho field trùng tên đứng sau, và `field: null` cho tên rỗng và kiểu lạ. Khớp cách FE ghép lỗi (`matchServerErrors`). Session vẫn `READY`, không lưu gì.
+    - BE hiện mới trả `config.schema` (chưa có mapping, transformations, validations). Đã sửa `dto.ts` cho các phần đó là tuỳ chọn, và thêm `config`/`readiness` vào fixture session cho giống response thật.
+    - Console không có lỗi.
 - [ ] 13.5 `pnpm test`, `pnpm lint`, `pnpm build` đều xanh; đối chiếu từng mục "Done when" phía FE của F01–F11 trong Notion.

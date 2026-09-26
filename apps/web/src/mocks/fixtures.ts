@@ -11,6 +11,12 @@ export function importSessionFixture(overrides: Partial<ImportSessionDto> = {}):
     sizeBytes: 1_258_291,
     createdAt: '2026-09-26T08:00:00Z',
     updatedAt: '2026-09-26T08:00:00Z',
+    // Như BE-F04 trả cho một session vừa upload.
+    config: { schema: { fields: [] } },
+    readiness: {
+      ready: false,
+      issues: [{ field: null, code: 'SCHEMA_EMPTY', message: 'Target schema has no fields.' }],
+    },
     ...overrides,
   }
 }

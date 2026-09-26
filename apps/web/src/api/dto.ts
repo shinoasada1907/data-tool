@@ -37,10 +37,12 @@ export interface ImportSessionDto {
   updatedAt: string
   /** Từ BE-F04; FE V0.1 không dùng. */
   config?: {
+    /** Có từ BE-F04: tên đã trim, sắp theo `order` và đánh lại từ 0. */
     schema: TargetSchemaDto
-    mapping: MappingConfigDto
-    transformations: TransformationConfigDto
-    validations: ValidationConfigDto
+    /** Thêm ở BE-F05–F07; BE-F04 chưa trả. */
+    mapping?: MappingConfigDto
+    transformations?: TransformationConfigDto
+    validations?: ValidationConfigDto
   }
   /** Từ BE-F04; FE V0.1 không dùng. */
   readiness?: { ready: boolean; issues: ProblemItemDto[] }
