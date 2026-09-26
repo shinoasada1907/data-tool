@@ -49,7 +49,11 @@ public record MappingConfig(List<FieldMapping> mappings) implements FieldScopedS
 
 - **Mã lỗi top-level**: có ít nhất một item `MAPPING_INVALID` thì là `MAPPING_INVALID` (message `Mapping is invalid.`); ngược lại là `SOURCE_COLUMN_NOT_FOUND` (message `Source column not found.`).
 - **Message không chứa tên cột nguồn**, vì tên cột lấy từ file (D13). FE biết mình đã chọn cột nào.
-- **Chuẩn hoá**: mapping hợp lệ được sắp theo `order` của field trong schema, để cùng một mapping gửi theo thứ tự khác vẫn cho cùng `configHash`.
+- **Chuẩn hoá**: ~~mapping hợp lệ được sắp theo `order` của field trong schema (trong `define`)~~ → mapping **luôn** theo thứ tự schema. Đây là bất biến của `ImportConfiguration`: constructor gọi `MappingConfig.inSchemaOrder(schema)`, nên cùng một nội dung luôn cho cùng `configHash`, dù gửi theo thứ tự nào.
+  **LÝ DO** (review 2026-09-26): nếu chỉ sắp trong `define` thì khi PUT schema đổi thứ tự field, prune giữ nguyên thứ tự cũ của mapping. Hậu quả:
+  - GET trả mapping lệch thứ tự schema;
+  - session `PROCESSED` nhận lại đúng mapping cũ vẫn bị coi là đã đổi, nên rơi về `READY` (từ F08 còn bị xoá `result/`).
+  Đặt bất biến ở constructor thì phủ được mọi đường: `define`, prune, và đọc từ DB. F06/F07 nên làm tương tự cho phần của mình.
 - **Hằng rỗng bị từ chối**, dù D10 cho phép field rỗng. Lý do: hằng rỗng tương đương "chưa map" nhưng lại che mất warning `TARGET_FIELD_UNMAPPED`, và FE cũng coi đây là lỗi cấu hình.
 
 ### M2. Warning và readiness

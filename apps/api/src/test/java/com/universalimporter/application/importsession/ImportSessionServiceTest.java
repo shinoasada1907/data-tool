@@ -161,7 +161,7 @@ class ImportSessionServiceTest {
     @Test
     void details_returns_the_stored_session_and_configuration() {
         ImportSession uploaded = service.upload("customers.csv", content("a,b")).session();
-        TargetSchema schema = TargetSchema.define(List.of(new FieldSpec("email", "email", true, 0)));
+        TargetSchema schema = TargetSchema.define(List.of(new FieldSpec("email", "email", false, 0)));
         configurations.save(ImportConfiguration.empty(uploaded.id()).withSchema(schema).configuration(), NOW);
 
         SessionDetails found = service.details(uploaded.id());

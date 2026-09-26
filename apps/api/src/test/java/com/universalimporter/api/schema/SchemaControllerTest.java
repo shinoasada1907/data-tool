@@ -8,6 +8,7 @@ import com.universalimporter.domain.common.ErrorCode;
 import com.universalimporter.domain.common.ProblemItem;
 import com.universalimporter.domain.config.ImportConfiguration;
 import com.universalimporter.domain.config.Readiness;
+import com.universalimporter.domain.mapping.MappingConfig;
 import com.universalimporter.domain.importsession.ImportSession;
 import com.universalimporter.domain.importsession.SessionStatus;
 import com.universalimporter.domain.importsession.SourceFile;
@@ -173,7 +174,7 @@ class SchemaControllerTest {
         ImportSession session = ImportSession.restore(ID, new SourceFile("customers.csv", SourceFileType.CSV, 7),
                 SessionStatus.READY, T0, T0, 1L, null);
         TargetSchema schema = TargetSchema.define(List.of(new FieldSpec("email", "email", true, 0)));
-        return new ConfigUpdateResult(session, new ImportConfiguration(ID, schema, 0L),
+        return new ConfigUpdateResult(session, new ImportConfiguration(ID, schema, MappingConfig.empty(), 0L),
                 new Readiness(true, List.of()), List.of());
     }
 }

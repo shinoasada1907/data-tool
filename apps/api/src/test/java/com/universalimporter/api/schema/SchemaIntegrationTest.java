@@ -72,11 +72,16 @@ class SchemaIntegrationTest {
     }
 
     @Test
-    void a_schema_with_every_type_makes_the_session_ready_and_is_stored_in_order() {
+    void a_schema_with_every_type_is_stored_in_order() {
         Response put = http.putJson(sessionPath + "/schema", FIVE_TYPES);
 
         assertThat(put.status()).isEqualTo(200);
-        assertThat((String) JsonPath.read(put.body(), "$.session.status")).isEqualTo("READY");
+        // Required fields need a mapping before the session can be READY (BE-F05).
+        assertThat((String) JsonPath.read(put.body(), "$.session.status")).isEqualTo("CONFIGURING");
+        assertThat((List<String>) JsonPath.read(put.body(), "$.session.readiness.issues[*].field"))
+                .containsExactly("name", "email");
+        assertThat((List<String>) JsonPath.read(put.body(), "$.session.readiness.issues[*].code"))
+                .containsOnly("TARGET_FIELD_REQUIRED");
         assertThat((List<Object>) JsonPath.read(put.body(), "$.warnings")).isEmpty();
 
         Response session = http.get(sessionPath);
@@ -89,7 +94,16 @@ class SchemaIntegrationTest {
                 .containsExactly(0, 1, 2, 3, 4);
         assertThat((List<Boolean>) JsonPath.read(session.body(), "$.config.schema.fields[*].required"))
                 .containsExactly(true, false, false, false, true);
-        assertThat((Boolean) JsonPath.read(session.body(), "$.readiness.ready")).isTrue();
+        assertThat((Boolean) JsonPath.read(session.body(), "$.readiness.ready")).isFalse();
+    }
+
+    @Test
+    void a_schema_of_optional_fields_makes_the_session_ready() {
+        Response put = http.putJson(sessionPath + "/schema",
+                "{\"fields\": [{\"name\": \"note\", \"type\": \"string\", \"order\": 0}]}");
+
+        assertThat((String) JsonPath.read(put.body(), "$.session.status")).isEqualTo("READY");
+        assertThat((Boolean) JsonPath.read(put.body(), "$.session.readiness.ready")).isTrue();
     }
 
     @Test
@@ -119,7 +133,7 @@ class SchemaIntegrationTest {
         assertThat((String) JsonPath.read(put.body(), "$.errors[0].field")).isEqualTo("email");
         assertThat((String) JsonPath.read(put.body(), "$.errors[0].message")).isEqualTo("Duplicate field name.");
         Response session = http.get(sessionPath);
-        assertThat((String) JsonPath.read(session.body(), "$.status")).isEqualTo("READY");
+        assertThat((String) JsonPath.read(session.body(), "$.status")).isEqualTo("CONFIGURING");
         assertThat((List<String>) JsonPath.read(session.body(), "$.config.schema.fields[*].name"))
                 .containsExactly("name", "age", "active", "joined", "email");
     }

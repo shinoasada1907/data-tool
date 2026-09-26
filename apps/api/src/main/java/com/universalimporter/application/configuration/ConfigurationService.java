@@ -12,6 +12,8 @@ import com.universalimporter.domain.config.ReadinessEvaluator;
 import com.universalimporter.domain.importsession.ImportSession;
 import com.universalimporter.domain.importsession.ImportSessionRepository;
 import com.universalimporter.domain.importsession.SessionStatus;
+import com.universalimporter.domain.mapping.MappingConfig;
+import com.universalimporter.domain.mapping.MappingSpec;
 import com.universalimporter.domain.schema.FieldSpec;
 import com.universalimporter.domain.schema.TargetSchema;
 import org.springframework.stereotype.Service;
@@ -22,7 +24,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 
 /** The configuration PUTs. They all share one update flow (design S6); each passes its own change. */
 @Service
@@ -49,7 +51,14 @@ public class ConfigurationService {
 
     /** Replaces the whole target schema (spec: target-schema). */
     public ConfigUpdateResult updateSchema(UUID sessionId, List<FieldSpec> fields) {
-        return update(sessionId, configuration -> configuration.withSchema(TargetSchema.define(fields)));
+        return update(sessionId, (session, configuration) -> configuration.withSchema(TargetSchema.define(fields)));
+    }
+
+    /** Replaces the whole mapping, checked against the current schema and the file's columns (spec: field-mapping). */
+    public ConfigUpdateResult updateMapping(UUID sessionId, List<MappingSpec> mappings) {
+        return update(sessionId, (session, configuration) -> configuration.withMapping(MappingConfig.define(
+                mappings, configuration.schema(), session.sourceSchema().orElseThrow(() -> new IllegalStateException(
+                        "Session " + sessionId + " is past UPLOADED without a source schema")))));
     }
 
     /**
@@ -57,14 +66,16 @@ public class ConfigurationService {
      * The lock wraps the transaction, so the next write on this session sees this one committed. A rejected
      * change rolls back, leaving both the session and its configuration as they were.
      */
-    private ConfigUpdateResult update(UUID sessionId, Function<ImportConfiguration, ConfigChange> mutation) {
+    private ConfigUpdateResult update(UUID sessionId,
+                                      BiFunction<ImportSession, ImportConfiguration, ConfigChange> mutation) {
         return locks.withLock(sessionId, () -> transactions.execute(status -> {
             ImportSession session = sessions.findById(sessionId)
                     .orElseThrow(() -> new DomainException(ErrorCode.SESSION_NOT_FOUND, "Import session not found."));
             requireConfigurable(session);
             ImportConfiguration current = configurations.findBySessionId(sessionId)
                     .orElseGet(() -> ImportConfiguration.empty(sessionId));
-            ConfigChange change = mutation.apply(current);
+            // Past the state check, the file has been inspected, so the session has its source schema.
+            ConfigChange change = mutation.apply(session, current);
             boolean changed = !hasher.hash(current).equals(hasher.hash(change.configuration()));
             Readiness newReadiness = readiness.evaluate(change.configuration());
             Instant now = now();

@@ -33,7 +33,7 @@
 - Consumes: `TargetSchema` (F04), `SourceSchema` (F02), `FieldScopedSection` (F04), `DomainException`, `ProblemItem` (F01).
 - Produces: như design M1.
 
-- [ ] 1.1 Viết `MappingConfigTest`. Dùng schema `[name(order 0, required), country(order 1), note(order 2)]` và source columns `["Họ tên","email"]`. `sc(t, c)` là một mapping `SOURCE_COLUMN`; `k(t, v)` là một mapping `CONSTANT`.
+- [x] 1.1 Viết `MappingConfigTest`. Dùng schema `[name(order 0, required), country(order 1), note(order 2)]` và source columns `["Họ tên","email"]`. `sc(t, c)` là một mapping `SOURCE_COLUMN`; `k(t, v)` là một mapping `CONSTANT`.
   | Input `define` | Mong đợi |
   |---|---|
   | `[k("country","VN"), sc("name","Họ tên")]` | hợp lệ; `mappings` theo thứ tự schema: `name`, `country` |
@@ -50,10 +50,10 @@
   | `[sc("name","Name"), sc("phone","email")]` | top-level `MAPPING_INVALID`; 2 item, lần lượt có code `SOURCE_COLUMN_NOT_FOUND` và `MAPPING_INVALID` |
 
   Thêm test `retainFields({"name"})` chỉ giữ mapping của `name`; `referencedFields()` trả đúng các `targetField`; `sectionLabel()` là `"Mapping"`.
-- [ ] 1.2 Chạy `./mvnw -q test -Dtest=MappingConfigTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 1.3 Cài 4 class theo design M1.
-- [ ] 1.4 Chạy lại lệnh ở 1.2. Mong đợi: PASS.
-- [ ] 1.5 Commit: `feat(domain): field mapping configuration with validation rules`
+- [x] 1.2 Chạy `./mvnw -q test -Dtest=MappingConfigTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 1.3 Cài 4 class theo design M1.
+- [x] 1.4 Chạy lại lệnh ở 1.2. Mong đợi: PASS.
+- [x] 1.5 Commit: `feat(domain): field mapping configuration with validation rules`
 
 ## 2. Engine map row
 
@@ -65,7 +65,7 @@
 - Consumes: `MappingConfig` (task 1), `ImportRow`, `SourceSchema` (F02), `TargetSchema` (F04).
 - Produces: như design M4.
 
-- [ ] 2.1 Viết `MappingStrategiesTest`:
+- [x] 2.1 Viết `MappingStrategiesTest`:
   | Case | Mong đợi |
   |---|---|
   | `SourceColumnMappingStrategy.map(row(2,["An",null]), resolved(idx 0))` | `"An"` |
@@ -74,16 +74,16 @@
   | `ConstantMappingStrategy.map(anyRow, resolved(const "VN"))` | `"VN"` |
   | `standard().strategyFor(SOURCE_COLUMN)` | là `SourceColumnMappingStrategy` |
   | `standard().strategyFor(CONSTANT)` | là `ConstantMappingStrategy` |
-- [ ] 2.2 Viết `RowMapperTest`. Schema `[name, country, note]`; source columns `["x","Họ tên"]`; mapping `name ← "Họ tên"`, `country ← "VN"`, `note` chưa map.
+- [x] 2.2 Viết `RowMapperTest`. Schema `[name, country, note]`; source columns `["x","Họ tên"]`; mapping `name ← "Họ tên"`, `country ← "VN"`, `note` chưa map.
   | Row | Mong đợi |
   |---|---|
   | `(2, ["x","An"])` | `{name:"An", country:"VN", note:null}`; thứ tự key đúng `name, country, note` |
   | `(3, ["y"])` | `{name:null, country:"VN", note:null}` |
   | Gọi `map` 2 lần với cùng row | hai kết quả `equals` nhau |
-- [ ] 2.3 Chạy `./mvnw -q test -Dtest=MappingStrategiesTest,RowMapperTest`. Mong đợi: FAIL vì lỗi compile.
-- [ ] 2.4 Cài 6 class theo design M4. `RowMapper.of` đổi tên cột sang index một lần; không tìm lại theo tên ở mỗi row.
-- [ ] 2.5 Chạy lại lệnh ở 2.3. Mong đợi: PASS.
-- [ ] 2.6 Commit: `feat(domain): mapping strategies and row mapper`
+- [x] 2.3 Chạy `./mvnw -q test -Dtest=MappingStrategiesTest,RowMapperTest`. Mong đợi: FAIL vì lỗi compile.
+- [x] 2.4 Cài 6 class theo design M4. `RowMapper.of` đổi tên cột sang index một lần; không tìm lại theo tên ở mỗi row.
+- [x] 2.5 Chạy lại lệnh ở 2.3. Mong đợi: PASS.
+- [x] 2.6 Commit: `feat(domain): mapping strategies and row mapper`
 
 ## 3. Gắn mapping vào khung cấu hình (prune, warning, readiness)
 
@@ -100,22 +100,26 @@
   public final class RequiredFieldsMappedRule implements ReadinessRule { … }
   ```
 
-- [ ] 3.1 Thêm test vào `ImportConfigurationTest`:
+- [x] 3.1 Thêm test vào `ImportConfigurationTest`:
   | Case | Mong đợi |
   |---|---|
   | Schema `[name(required), note]`; `withMapping(mapping chỉ có name)` | `warnings` = `[("note","TARGET_FIELD_UNMAPPED","Field is not mapped.")]` |
   | Cấu hình có mapping `phone`; `withSchema(schema không có phone)` | mapping của `phone` bị xoá; `warnings` = `[("phone","CONFIG_PRUNED","Mapping for this field was removed because the field no longer exists.")]` |
   | Cấu hình có mapping `name`; `withSchema(schema vẫn có name, đổi type)` | mapping `name` giữ nguyên; `warnings` rỗng |
-- [ ] 3.2 Thêm test vào `ReadinessEvaluatorTest`:
+- [x] 3.2 Thêm test vào `ReadinessEvaluatorTest`:
   | Config | Mong đợi |
   |---|---|
   | Schema `[email(required), note]`, mapping chỉ `note` | `ready` false; issues `[("email","TARGET_FIELD_REQUIRED","Required field is not mapped.")]` |
   | Schema `[email(required)]`, mapping `email` | `ready` true |
   | Schema rỗng | issues chỉ có `SCHEMA_EMPTY` (rule mới không sinh thêm issue) |
-- [ ] 3.3 Chạy `./mvnw -q test -Dtest=ImportConfigurationTest,ReadinessEvaluatorTest`. Mong đợi: FAIL.
-- [ ] 3.4 Cài theo design M2 và M3. Cập nhật mọi chỗ tạo `ImportConfiguration` (constructor có thêm `mapping`).
-- [ ] 3.5 Chạy lại lệnh ở 3.3, rồi `./mvnw -q test`. Mong đợi: PASS toàn bộ.
-- [ ] 3.6 Commit: `feat(domain): prune mappings and require mapped required fields`
+- [x] 3.3 Chạy `./mvnw -q test -Dtest=ImportConfigurationTest,ReadinessEvaluatorTest`. Mong đợi: FAIL.
+- [x] 3.4 Cài theo design M2 và M3. Cập nhật mọi chỗ tạo `ImportConfiguration` (constructor có thêm `mapping`).
+- [x] 3.5 Chạy lại lệnh ở 3.3, rồi `./mvnw -q test`. Mong đợi: PASS toàn bộ.
+  - Làm thêm: sửa 4 test F04 từng giả định rằng schema có field required mà chưa map vẫn cho `READY`. **LÝ DO:** spec import-session của F05 ("Thêm field required vào schema đã READY → CONFIGURING") đổi đúng hành vi đó. Mỗi test giữ ý định ban đầu:
+    - `SchemaIntegrationTest`: case 5 kiểu giờ chờ `CONFIGURING` với issue `TARGET_FIELD_REQUIRED` cho `name` và `email`; thêm case schema toàn field optional thì `READY`; case 422 so trạng thái `CONFIGURING`.
+    - `ConfigurationServiceTest.a_processed_session_is_ready_again_after_a_real_change` và `ImportSessionServiceTest.details_…`: field `email` đổi thành optional.
+  - Tạm thời: adapter JPA đọc ra `MappingConfig.empty()` cho tới task 4 (lúc đó mới đọc/ghi cột `mapping_json`).
+- [x] 3.6 Commit: `feat(domain): prune mappings and require mapped required fields`
 
 ## 4. Persistence và hash của mapping
 
@@ -134,17 +138,19 @@
   }
   ```
 
-- [ ] 4.1 Thêm test:
+- [x] 4.1 Thêm test:
   | Test | Case | Mong đợi |
   |---|---|---|
   | Repository | Lưu cấu hình có mapping `name ← "Họ tên"`, `country ← "VN"`, rồi đọc lại | mapping đọc ra bằng bản đã lưu |
   | Repository | Đọc một row có `mapping_json` bằng giá trị mặc định | `mapping` là `MappingConfig.empty()` |
   | Hasher | Hai cấu hình cùng schema, khác mapping | hai hash khác nhau |
   | Hasher | Cùng mapping, `define` từ hai input khác thứ tự | hai hash giống nhau (nhờ đã chuẩn hoá thứ tự, M1) |
-- [ ] 4.2 Chạy `./mvnw -q test -Dtest=JpaImportConfigurationRepositoryTest,JsonConfigHasherTest`. Mong đợi: FAIL.
-- [ ] 4.3 Cài `MappingDocument`; đọc/ghi cột `mapping_json`; hasher thêm mapping theo thứ tự S7.
-- [ ] 4.4 Chạy lại lệnh ở 4.2. Mong đợi: PASS.
-- [ ] 4.5 Commit: `feat(infra): persist and hash field mappings`
+- [x] 4.2 Chạy `./mvnw -q test -Dtest=JpaImportConfigurationRepositoryTest,JsonConfigHasherTest`. Mong đợi: FAIL.
+- [x] 4.3 Cài `MappingDocument`; đọc/ghi cột `mapping_json`; hasher thêm mapping theo thứ tự S7.
+  - ~~`public record MappingDocument`~~ → record package-private. **LÝ DO:** giống `TargetSchemaDocument` của F04 và `SourceSchemaDocument` của F02; chỉ adapter và hasher cùng package dùng nó.
+  - Case "row có `mapping_json` bằng giá trị mặc định" được dựng bằng `INSERT` native không có cột `mapping_json`, đúng như row do F04 để lại.
+- [x] 4.4 Chạy lại lệnh ở 4.2. Mong đợi: PASS.
+- [x] 4.5 Commit: `feat(infra): persist and hash field mappings`
 
 ## 5. Use case `updateMapping`
 
@@ -154,7 +160,7 @@
 **Interfaces:**
 - Produces: `public ConfigUpdateResult updateMapping(UUID sessionId, List<MappingSpec> mappings);`
 
-- [ ] 5.1 Thêm test vào `ConfigurationServiceTest`. Session `CONFIGURING` có source columns `["Họ tên","email"]` và schema `[name(required), email(required), note]`.
+- [x] 5.1 Thêm test vào `ConfigurationServiceTest`. Session `CONFIGURING` có source columns `["Họ tên","email"]` và schema `[name(required), email(required), note]`.
   | Case | Mong đợi |
   |---|---|
   | `updateMapping` map `name`, `email` | `status` `READY`; `warnings` = `[note TARGET_FIELD_UNMAPPED]` |
@@ -163,10 +169,10 @@
   | Id không tồn tại | ném `SESSION_NOT_FOUND` |
   | Session `FAILED` | ném `SESSION_STATE_INVALID` |
   | Sau khi `READY`, gọi `updateSchema` bỏ field `email` | `warnings` chứa `("email","CONFIG_PRUNED",…)`; mapping không còn `email` |
-- [ ] 5.2 Chạy `./mvnw -q test -Dtest=ConfigurationServiceTest`. Mong đợi: FAIL.
-- [ ] 5.3 Cài theo design M5. `updateSchema` đổi sang `BiFunction` nhưng hành vi giữ nguyên.
-- [ ] 5.4 Chạy lại lệnh ở 5.2. Mong đợi: PASS, cả các case F04 cũ.
-- [ ] 5.5 Commit: `feat(app): PUT mapping use case`
+- [x] 5.2 Chạy `./mvnw -q test -Dtest=ConfigurationServiceTest`. Mong đợi: FAIL.
+- [x] 5.3 Cài theo design M5. `updateSchema` đổi sang `BiFunction` nhưng hành vi giữ nguyên.
+- [x] 5.4 Chạy lại lệnh ở 5.2. Mong đợi: PASS, cả các case F04 cũ.
+- [x] 5.5 Commit: `feat(app): PUT mapping use case`
 
 ## 6. API: PUT /mapping
 
@@ -186,7 +192,7 @@
   // PUT /api/import-sessions/{id}/mapping → 200 ConfigUpdateResponseDto
   ```
 
-- [ ] 6.1 Viết `MappingControllerTest` (`@WebMvcTest(MappingController.class)`, `@MockitoBean ConfigurationService`):
+- [x] 6.1 Viết `MappingControllerTest` (`@WebMvcTest(MappingController.class)`, `@MockitoBean ConfigurationService`):
   | Request | Stub | Mong đợi |
   |---|---|---|
   | PUT `{"mappings":[{"targetField":"name","mappingType":"SOURCE_COLUMN","sourceColumn":"Họ tên","constantValue":null}]}` | trả kết quả có warning `note` | 200; `$.session.config.mapping.mappings[0].sourceColumn` `Họ tên`; `$.warnings[0].code` `TARGET_FIELD_UNMAPPED`. Service nhận đúng `MappingSpec` |
@@ -195,18 +201,22 @@
   | PUT hợp lệ | ném `SOURCE_COLUMN_NOT_FOUND` kèm item | 422; `$.code` `SOURCE_COLUMN_NOT_FOUND`; `$.errors[0].field` `name` |
   | PUT hợp lệ | ném `SESSION_NOT_FOUND` | 404; `$.code` `SESSION_NOT_FOUND` |
   | PUT hợp lệ | ném `SESSION_STATE_INVALID` | 409 |
-- [ ] 6.2 Sửa `ImportSessionControllerTest`: `GET /{id}` trả `$.config.mapping.mappings` (mảng).
-- [ ] 6.3 Chạy `./mvnw -q test -Dtest=MappingControllerTest,ImportSessionControllerTest`. Mong đợi: FAIL.
-- [ ] 6.4 Cài controller và DTO; sửa `SessionConfigDto` và `ImportSessionDto.from`.
-- [ ] 6.5 Chạy lại lệnh ở 6.3. Mong đợi: PASS.
-- [ ] 6.6 Commit: `feat(api): PUT mapping endpoint`
+- [x] 6.2 Sửa `ImportSessionControllerTest`: `GET /{id}` trả `$.config.mapping.mappings` (mảng).
+- [x] 6.3 Chạy `./mvnw -q test -Dtest=MappingControllerTest,ImportSessionControllerTest`. Mong đợi: FAIL.
+- [x] 6.4 Cài controller và DTO; sửa `SessionConfigDto` và `ImportSessionDto.from`.
+  - `ImportSessionDto.from` không phải sửa: `SessionConfigDto.from` tự lấy mapping từ `ImportConfiguration`.
+  - Làm thêm:
+    - `MappingControllerTest` có case `"constantValue": 84` → 400 (nhờ `StrictJsonConfig` của F04), và case `mappingType` lạ vẫn tới được domain (để thành 422, không phải 400).
+    - `ApiDocsIntegrationTest` kiểm thêm path `/mapping`.
+- [x] 6.5 Chạy lại lệnh ở 6.3. Mong đợi: PASS.
+- [x] 6.6 Commit: `feat(api): PUT mapping endpoint`
 
 ## 7. Integration test qua HTTP thật
 
 **Files:**
 - Test: `TEST/api/mapping/MappingIntegrationTest.java` (setup như các integration test trước)
 
-- [ ] 7.1 Viết các case. Mọi case bắt đầu bằng: upload `customers.csv` = `Họ tên,email\nAn,an@x.com\n`, rồi PUT schema `[name(string, required, 0), email(email, required, 1), country(string, 2)]`.
+- [x] 7.1 Viết các case. Mọi case bắt đầu bằng: upload `customers.csv` = `Họ tên,email\nAn,an@x.com\n`, rồi PUT schema `[name(string, required, 0), email(email, required, 1), country(string, 2)]`.
   | Case | Mong đợi |
   |---|---|
   | PUT mapping `name ← "Họ tên"`, `email ← "email"`, `country ← hằng "VN"` | 200; `status` `READY`; `warnings` rỗng |
@@ -214,12 +224,27 @@
   | PUT mapping `name ← "Name"` | 422 `SOURCE_COLUMN_NOT_FOUND`; GET cho thấy mapping cũ không đổi |
   | Sau khi map đủ, PUT schema đổi `country` thành `nation` | `warnings` có `{field "country", code "CONFIG_PRUNED"}`; GET không còn mapping `country` |
   | PUT mapping cho UUID chưa từng tạo | 404 `SESSION_NOT_FOUND` |
-- [ ] 7.2 Chạy `./mvnw -q test -Dtest=MappingIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, không nới lỏng test.
-- [ ] 7.3 Commit: `test(api): field mapping over real HTTP`
+- [x] 7.2 Chạy `./mvnw -q test -Dtest=MappingIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, không nới lỏng test.
+- [x] 7.3 Commit: `test(api): field mapping over real HTTP`
 
 ## 8. Kiểm tra toàn bộ và hoàn tất
 
-- [ ] 8.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm ArchitectureTest (`domain.mapping` chỉ dùng `java.*` và `domain.*`).
-- [ ] 8.2 Chạy app thật và thử bằng `curl`: upload, PUT schema, PUT mapping (hợp lệ, sai cột, map trùng), GET session.
-- [ ] 8.3 Tick checkbox, ghi LÝ DO cho mọi chỗ làm khác kế hoạch. Commit: `docs(openspec): complete be-f05 tasks`
-- [ ] 8.4 Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f05-mapping-engine -y`.
+- [x] 8.1 Chạy `./mvnw -q verify`. Mong đợi: mọi test xanh, gồm ArchitectureTest (`domain.mapping` chỉ dùng `java.*` và `domain.*`).
+  - Kết quả 2026-09-26: 43 suite, 372 test, 0 failure, 0 error.
+- [x] 8.2 Chạy app thật và thử bằng `curl`: upload, PUT schema, PUT mapping (hợp lệ, sai cột, map trùng), GET session.
+  - Chạy ở cổng 8081 từ worktree BE (8080 là app của người dùng). Kết quả:
+    - PUT schema `[name*, email*, country]` → `CONFIGURING`, issue `TARGET_FIELD_REQUIRED` cho `name` và `email`;
+    - PUT mapping `country`, `name` → mapping theo thứ tự schema `[name, country]`, warning và issue cho `email`;
+    - cột `Name` → 422 `SOURCE_COLUMN_NOT_FOUND`;
+    - map trùng kèm type lạ → 422 `MAPPING_INVALID`, 2 lỗi;
+    - map đủ → `READY`.
+  - Lưu ý khi thử tay trên Windows: `curl.exe` gửi tham số `-d` theo code page ANSI, nên chuỗi tiếng Việt thành byte không phải UTF-8 và server trả 400. Phải gửi body bằng `--data-binary @file.json` (file UTF-8). Server không có lỗi: test integration gửi UTF-8 đều xanh.
+- [x] 8.2b (thêm) Review bằng agent `senior-reviewer` trên `dev...feature/be-f05-mapping-engine`: không có blocker. Đã sửa:
+  - **Thứ tự mapping khi schema đổi thứ tự:** mapping giữ thứ tự cũ, nên hash đổi dù nội dung không đổi. Đưa việc sắp xếp thành bất biến của `ImportConfiguration`; **LÝ DO** ghi ở design M1. Test:
+    - `ImportConfigurationTest`: 2 case;
+    - `ConfigurationServiceTest`: session `PROCESSED` nhận lại cùng mapping (cùng hoặc khác thứ tự) vẫn giữ `PROCESSED`, mapping đổi thì sang `READY`; sau khi đổi thứ tự schema, gửi lại mapping cũ không đổi gì.
+  - **`updateMapping`:** `orElseThrow()` trần → `IllegalStateException` có message nếu session quá `UPLOADED` mà thiếu source schema.
+  - **`MappingIntegrationTest`:** thêm case 422 `MAPPING_INVALID` gồm 3 item (trong đó có `field: null`) qua HTTP thật.
+  - Để lại: vòng phụ thuộc package `domain.config` ↔ `domain.mapping`. Vòng này có sẵn trong thiết kế S2/S3/S4: cấu hình gom các section, và section cài interface của `config`. Gỡ hẳn cần thiết kế lại, nên nếu làm thì làm trước F06/F07.
+- [x] 8.3 Tick checkbox, ghi LÝ DO cho mọi chỗ làm khác kế hoạch. Commit: `docs(openspec): complete be-f05 tasks`
+- [x] 8.4 ~~Hỏi người dùng trước khi merge. Sau khi merge: `openspec archive be-f05-mapping-engine -y`.~~ → `openspec archive be-f05-mapping-engine -y` trên nhánh feature, rồi tự merge vào `dev` và xoá nhánh. **LÝ DO:** luật nhánh người dùng chốt 2026-09-26 (như F04).

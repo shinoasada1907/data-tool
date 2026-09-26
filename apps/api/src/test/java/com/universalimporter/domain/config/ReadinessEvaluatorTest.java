@@ -1,6 +1,9 @@
 package com.universalimporter.domain.config;
 
 import com.universalimporter.domain.common.ProblemItem;
+import com.universalimporter.domain.mapping.FieldMapping;
+import com.universalimporter.domain.mapping.MappingConfig;
+import com.universalimporter.domain.mapping.MappingType;
 import com.universalimporter.domain.schema.FieldSpec;
 import com.universalimporter.domain.schema.TargetSchema;
 import org.junit.jupiter.api.Test;
@@ -33,5 +36,35 @@ class ReadinessEvaluatorTest {
 
         assertThat(readiness.ready()).isTrue();
         assertThat(readiness.issues()).isEmpty();
+    }
+
+    @Test
+    void a_required_field_without_mapping_is_an_issue() {
+        Readiness readiness = evaluator.evaluate(configuration(
+                List.of(new FieldSpec("email", "email", true, 0), new FieldSpec("note", "string", false, 1)), "note"));
+
+        assertThat(readiness.ready()).isFalse();
+        assertThat(readiness.issues())
+                .containsExactly(new ProblemItem("email", "TARGET_FIELD_REQUIRED", "Required field is not mapped."));
+    }
+
+    @Test
+    void mapping_every_required_field_makes_it_ready() {
+        Readiness readiness = evaluator.evaluate(configuration(List.of(new FieldSpec("email", "email", true, 0)), "email"));
+
+        assertThat(readiness.ready()).isTrue();
+    }
+
+    @Test
+    void an_empty_schema_only_reports_that_it_is_empty() {
+        assertThat(evaluator.evaluate(ImportConfiguration.empty(ID)).issues())
+                .extracting(ProblemItem::code).containsExactly("SCHEMA_EMPTY");
+    }
+
+    private static ImportConfiguration configuration(List<FieldSpec> fields, String... mapped) {
+        List<FieldMapping> mappings = java.util.Arrays.stream(mapped)
+                .map(field -> new FieldMapping(field, MappingType.CONSTANT, null, "x"))
+                .toList();
+        return new ImportConfiguration(ID, TargetSchema.define(fields), new MappingConfig(mappings), null);
     }
 }

@@ -1,6 +1,7 @@
 package com.universalimporter.domain.config;
 
 import com.universalimporter.domain.common.ProblemItem;
+import com.universalimporter.domain.mapping.RequiredFieldsMappedRule;
 
 import java.util.List;
 
@@ -13,9 +14,9 @@ public final class ReadinessEvaluator {
         this.rules = List.copyOf(rules);
     }
 
-    /** The rules of V0.1. F05 adds the rule that every required field is mapped. */
+    /** The rules of V0.1: the schema has fields, and every required field is mapped. */
     public static ReadinessEvaluator standard() {
-        return new ReadinessEvaluator(List.of(new SchemaNotEmptyRule()));
+        return new ReadinessEvaluator(List.of(new SchemaNotEmptyRule(), new RequiredFieldsMappedRule()));
     }
 
     public Readiness evaluate(ImportConfiguration configuration) {

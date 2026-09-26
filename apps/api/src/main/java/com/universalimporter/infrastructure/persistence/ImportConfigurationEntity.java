@@ -12,8 +12,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Row of {@code import_configuration}. The mapping, transformations and validations columns are not mapped
- * until their features need them, so inserts leave them at their database defaults.
+ * Row of {@code import_configuration}. The transformations and validations columns are not mapped until their
+ * features need them, so inserts leave them at their database defaults.
  */
 @Entity
 @Table(name = "import_configuration")
@@ -28,6 +28,11 @@ class ImportConfigurationEntity {
     @Column(name = "target_schema_json", nullable = false)
     private String targetSchemaJson;
 
+    /** {@link MappingDocument} as JSON text. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "mapping_json", nullable = false)
+    private String mappingJson;
+
     /** Wrapper type: {@code null} tells Spring Data that an entity with an assigned id is new. */
     @Version
     private Long version;
@@ -38,9 +43,11 @@ class ImportConfigurationEntity {
     protected ImportConfigurationEntity() {
     }
 
-    ImportConfigurationEntity(UUID sessionId, String targetSchemaJson, Long version, Instant updatedAt) {
+    ImportConfigurationEntity(UUID sessionId, String targetSchemaJson, String mappingJson, Long version,
+                              Instant updatedAt) {
         this.sessionId = sessionId;
         this.targetSchemaJson = targetSchemaJson;
+        this.mappingJson = mappingJson;
         this.version = version;
         this.updatedAt = updatedAt;
     }
@@ -51,6 +58,10 @@ class ImportConfigurationEntity {
 
     String getTargetSchemaJson() {
         return targetSchemaJson;
+    }
+
+    String getMappingJson() {
+        return mappingJson;
     }
 
     Long getVersion() {

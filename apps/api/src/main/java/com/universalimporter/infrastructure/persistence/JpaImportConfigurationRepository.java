@@ -29,14 +29,17 @@ public class JpaImportConfigurationRepository implements ImportConfigurationRepo
     @Override
     public ImportConfiguration save(ImportConfiguration configuration, Instant now) {
         String schemaJson = JSON.writeValueAsString(TargetSchemaDocument.from(configuration.schema()));
-        ImportConfigurationEntity entity =
-                new ImportConfigurationEntity(configuration.sessionId(), schemaJson, configuration.version(), now);
+        String mappingJson = JSON.writeValueAsString(MappingDocument.from(configuration.mapping()));
+        ImportConfigurationEntity entity = new ImportConfigurationEntity(
+                configuration.sessionId(), schemaJson, mappingJson, configuration.version(), now);
         // Flush now so the returned configuration carries the version the database really holds.
         return toDomain(jpa.saveAndFlush(entity));
     }
 
     private static ImportConfiguration toDomain(ImportConfigurationEntity entity) {
         TargetSchemaDocument schema = JSON.readValue(entity.getTargetSchemaJson(), TargetSchemaDocument.class);
-        return new ImportConfiguration(entity.getSessionId(), schema.toDomain(), entity.getVersion());
+        MappingDocument mapping = JSON.readValue(entity.getMappingJson(), MappingDocument.class);
+        return new ImportConfiguration(entity.getSessionId(), schema.toDomain(), mapping.toDomain(),
+                entity.getVersion());
     }
 }

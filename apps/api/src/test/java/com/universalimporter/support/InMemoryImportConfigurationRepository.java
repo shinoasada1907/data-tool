@@ -22,7 +22,8 @@ public class InMemoryImportConfigurationRepository implements ImportConfiguratio
     @Override
     public ImportConfiguration save(ImportConfiguration configuration, Instant now) {
         long version = configuration.version() == null ? 0 : configuration.version() + 1;
-        ImportConfiguration saved = new ImportConfiguration(configuration.sessionId(), configuration.schema(), version);
+        ImportConfiguration saved = new ImportConfiguration(configuration.sessionId(), configuration.schema(),
+                configuration.mapping(), version);
         configurations.put(saved.sessionId(), saved);
         return saved;
     }
