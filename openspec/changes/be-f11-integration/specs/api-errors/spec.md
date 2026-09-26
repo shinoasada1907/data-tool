@@ -14,7 +14,7 @@ Mỗi endpoint SHALL chỉ trả các `code` được liệt kê cho nó trong b
 | `PUT /api/import-sessions/{id}/mapping` | `REQUEST_INVALID`, `SESSION_NOT_FOUND`, `SESSION_STATE_INVALID`, `MAPPING_INVALID`, `SOURCE_COLUMN_NOT_FOUND` |
 | `PUT /api/import-sessions/{id}/transformations` | `REQUEST_INVALID`, `SESSION_NOT_FOUND`, `SESSION_STATE_INVALID`, `CONFIG_INVALID` |
 | `PUT /api/import-sessions/{id}/validations` | `REQUEST_INVALID`, `SESSION_NOT_FOUND`, `SESSION_STATE_INVALID`, `CONFIG_INVALID` |
-| `POST /api/import-sessions/{id}/process` | `REQUEST_INVALID`, `SESSION_NOT_FOUND`, `SESSION_NOT_READY`, `SESSION_STATE_INVALID`, `FILE_PARSE_ERROR` |
+| `POST /api/import-sessions/{id}/process` | `REQUEST_INVALID`, `SESSION_NOT_FOUND`, `SESSION_NOT_READY`, `SESSION_STATE_INVALID`, `FILE_PARSE_ERROR`, `FILE_EMPTY` |
 | `GET /api/import-sessions/{id}/result` | `REQUEST_INVALID`, `SESSION_NOT_FOUND`, `RESULT_NOT_AVAILABLE` |
 | `GET /api/import-sessions/{id}/export` | `REQUEST_INVALID`, `SESSION_NOT_FOUND`, `RESULT_NOT_AVAILABLE`, `EXPORT_FAILED` |
 | `GET /api/import-sessions/{id}/errors/export` | `REQUEST_INVALID`, `SESSION_NOT_FOUND`, `RESULT_NOT_AVAILABLE`, `EXPORT_FAILED` |

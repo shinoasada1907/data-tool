@@ -229,15 +229,17 @@
 - Test: `TEST/api/ErrorContractIntegrationTest.java`
 
 **Interfaces:**
-- Consumes: toàn bộ app, `ImportFlowClient` (F09), fixture và config của task 7 (`RES/fixtures/e2e/customers.csv`).
+- Consumes: toàn bộ app, ~~`ImportFlowClient` (F09)~~ `HttpTestClient` (thêm `upload(partName, …)` và `request(method, path, headers)`), fixture và config của task 7 (`RES/fixtures/e2e/customers.csv`, `support/E2eFlow`).
 - `@BeforeAll` dựng sẵn 4 session từ `customers.csv`:
   - `R`: PUT schema và mapping đầy đủ, nên ở trạng thái `READY`.
   - `U`: chỉ PUT schema, nên `name` và `email` là required mà chưa map.
   - `P`: giống `R`, rồi gọi process.
   - `F`: giống `R`, xoá `storageDir/{F}/source.bin`, rồi gọi process; khi đó process trả 500 và session sang `FAILED`.
 - Bảng `ALLOWED` (endpoint → tập code) chép đúng từ spec `api-errors` của F11, cộng thêm `INTERNAL_ERROR`.
+  - **Sửa spec**: `process` được phép trả thêm `FILE_EMPTY`. **LÝ DO**: sau review F08, `/process` trả nguyên mã lỗi của parser, và parser CSV/XLSX có thể ném `FILE_EMPTY` hoặc `FILE_PARSE_ERROR` (đã grep code parser).
+  - Thư mục storage tạo bằng `Files.createTempDirectory` trong static initializer, ~~`static @TempDir`~~. **LÝ DO**: `@TestInstance(PER_CLASS)` (cần cho `@BeforeAll` dùng `@LocalServerPort`) khiến context Spring khởi động trước khi JUnit gán `@TempDir` static, và `storageDir::toString` ném NPE.
 
-- [ ] 6.1 Viết `ErrorContractIntegrationTest` dạng `@ParameterizedTest`, mỗi dòng là một case:
+- [x] 6.1 Viết `ErrorContractIntegrationTest` dạng `@ParameterizedTest`, mỗi dòng là một case:
   | # | Request | Status | `code` |
   |---|---|---|---|
   | 1 | `POST /api/import-sessions` không có part `file` | 400 | `REQUEST_INVALID` |
@@ -265,8 +267,8 @@
   | 23 | `DELETE /api/import-sessions` | 405 | `REQUEST_INVALID` |
 
   Với mọi case, kiểm thêm: `Content-Type` chứa `application/problem+json`, và `code` thuộc `ALLOWED` của endpoint đó.
-- [ ] 6.2 Chạy `./mvnw -q test -Dtest=ErrorContractIntegrationTest`. Mong đợi: PASS. Case nào FAIL thì sửa code chính cho đúng contract (không sửa bảng cho khớp code sai), rồi chạy lại.
-- [ ] 6.3 Commit: `test(api): error contract for every endpoint`
+- [x] 6.2 Chạy `./mvnw -q test -Dtest=ErrorContractIntegrationTest`. Mong đợi: PASS. Case nào FAIL thì sửa code chính cho đúng contract (không sửa bảng cho khớp code sai), rồi chạy lại.
+- [x] 6.3 Commit: `test(api): error contract for every endpoint`
 
 ## 7. Happy path end-to-end: CSV và XLSX
 
