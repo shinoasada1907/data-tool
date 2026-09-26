@@ -430,6 +430,13 @@
 ## 10. Kiểm tra toàn bộ và hoàn tất
 
 - [ ] 10.1 Chạy `./mvnw -q verify`. Mong đợi: toàn bộ test F01–F11 xanh, gồm cả ArchitectureTest (`@EnableScheduling` và `@Scheduled` chỉ ở `infrastructure`).
-- [ ] 10.2 Chạy app thật với `IMPORTER_SESSION_TTL=1m`. Tạo một session, chờ khoảng 2 phút rồi restart app. Kiểm log có dòng cleanup với `deletedSessions` ≥ 1, và `GET` session đó trả 404. Kiểm log không chứa nội dung file.
+- [x] 10.2 Chạy app thật với `IMPORTER_SESSION_TTL=1m`. Tạo một session, chờ khoảng 2 phút rồi restart app. Kiểm log có dòng cleanup với `deletedSessions` ≥ 1, và `GET` session đó trả 404. Kiểm log không chứa nội dung file.
+  - Kết quả 2026-09-27, chạy trên Postgres riêng ở cổng 55432 và storage riêng (không đụng DB dev):
+    - session tạo lúc làm 9.4;
+    - tắt app, chờ khoảng 75 giây, rồi chạy lại với `IMPORTER_SESSION_TTL=1m`;
+    - log có dòng `Session cleanup: 1 sessions and 0 orphan directories deleted, 0 skipped, 0 failed`;
+    - `GET` session đó → 404 `SESSION_NOT_FOUND`; thư mục storage trống;
+    - log không chứa giá trị ô nào.
+  - Đã xoá container tạm và thư mục storage tạm.
 - [ ] 10.3 Tick đủ checkbox; chỗ nào làm khác kế hoạch thì gạch và ghi LÝ DO. Commit: `docs(openspec): complete be-f11 tasks`
 - [ ] 10.4 Hỏi người dùng trước khi merge vào `main`. Sau khi merge: `openspec archive be-f11-integration -y`, commit phần archive. Khi đó `openspec/specs/` phản ánh đầy đủ hệ thống V0.1 đang chạy.
