@@ -173,7 +173,7 @@ FE chỉ kiểm **cấu hình**: tên field, field required chưa map, hằng r�
 - Sắp xếp bằng nút Lên/Xuống thay vì kéo-thả, vì dùng được bằng bàn phím và không cần thêm thư viện.
 - Chuỗi giao diện bằng tiếng Việt, gom vào `shared/messages.ts`, gồm cả bảng `code → thông điệp`. BE cam kết không đổi `code`, còn `message` và `detail` của BE viết bằng tiếng Anh.
 - **Giao diện theo hướng C "Khối Thuỵ Sĩ" trên Claude Design**: https://claude.ai/artifact/MCkwHpanZPv1TUiW6trSbP (artboard "C · Khối Thuỵ Sĩ"; 5 màn ở hàng đầu là bản sạch/tối giản đầu tiên, đã được thay).
-  - Token (màu, bo góc, bóng đổ), font (Be Vietnam Pro, JetBrains Mono) và khung dashboard có sidebar được ghi ở change `fe-app-shell` (design D3–D5).
+  - Token (màu, bo góc, bóng đổ), font (Be Vietnam Pro, JetBrains Mono) và khung dashboard có sidebar được ghi ở change `fe-app-shell` (design D3–D5; đã archive ở `openspec/changes/archive/2026-09-26-fe-app-shell/`, spec chính ở `openspec/specs/app-shell/`).
   - Các bước sau (Preview, Schema, …) theo cùng ngôn ngữ hình ảnh: khung viền mực 2 px, không bo góc, bóng cứng, vàng làm điểm nhấn; bảng bên trong dùng đường kẻ 1 px cho khỏi rối.
 - **`DataTable`** (FE-F02):
   - Bảng rộng theo nội dung (`width: max-content`, tối thiểu bằng khung) và cuộn ngang trong khung; khung cuộn nhận focus (`role="region"` có tên) để cuộn được bằng bàn phím. Cột số dòng dính bên trái khi cuộn.
