@@ -9,6 +9,8 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
 afterEach(() => {
   cleanup()
   server.resetHandlers()
+  // Trạng thái giao diện lưu trong trình duyệt (ví dụ sidebar thu gọn) không được rò sang test sau.
+  localStorage.clear()
 })
 
 afterAll(() => server.close())

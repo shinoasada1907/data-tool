@@ -51,6 +51,8 @@ export const messages = {
 
   shell: {
     toolsHeading: 'Công cụ',
+    collapse: 'Thu gọn thanh bên',
+    expand: 'Mở rộng thanh bên',
   },
 
   tools: {

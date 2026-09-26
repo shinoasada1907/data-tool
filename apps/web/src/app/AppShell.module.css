@@ -2,6 +2,17 @@
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   min-height: 100vh;
+  transition: grid-template-columns 180ms ease;
+}
+
+.shell[data-collapsed] {
+  grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell {
+    transition: none;
+  }
 }
 
 /* Sidebar đen: tên app chữ đậm, mục đang mở nền vàng. */
@@ -13,8 +24,47 @@
   gap: 44px;
   height: 100vh;
   padding: var(--space-8) var(--space-6) var(--space-6);
+  /* Trong lúc co giãn, chữ của trạng thái mở không được tràn ra ngoài dải hẹp. */
+  overflow: hidden;
   background: var(--color-sidebar-bg);
   color: var(--color-sidebar-text);
+}
+
+/* Dải thu gọn: nút bật/tắt, ô vuông vàng và icon công cụ xếp dọc, căn giữa. */
+.shell[data-collapsed] .sidebar {
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-6) var(--space-3);
+}
+
+/* Mở: thương hiệu bên trái, nút bật/tắt góc phải. Thu gọn: nút ở trên, ô vuông vàng ở dưới. */
+.top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.shell[data-collapsed] .top {
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.toggle {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid var(--color-sidebar-muted);
+  background: transparent;
+  color: var(--color-sidebar-text);
+}
+
+.toggle:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 /* Nền tối: viền focus màu vàng mới thấy được. */
@@ -85,6 +135,13 @@
 
 .toolButton:hover {
   background: rgb(255 255 255 / 0.08);
+}
+
+.shell[data-collapsed] .toolButton {
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
 }
 
 .toolButton[aria-current='page'] {

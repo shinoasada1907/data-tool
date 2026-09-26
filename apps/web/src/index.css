@@ -44,6 +44,7 @@
 
   /* Bố cục */
   --sidebar-width: 280px;
+  --sidebar-collapsed-width: 64px;
   --content-max-width: 1280px;
 
   /* Chữ */

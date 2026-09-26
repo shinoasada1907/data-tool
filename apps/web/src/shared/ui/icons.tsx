@@ -126,3 +126,13 @@ export function PlusIcon({ size = 18 }: { size?: number }) {
     </Icon>
   )
 }
+
+/** Khung có cột bên trái: bật/tắt sidebar. */
+export function PanelLeftIcon({ size = 20 }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <rect x="3" y="4" width="18" height="16" rx="1" />
+      <path d="M9 4v16" />
+    </Icon>
+  )
+}

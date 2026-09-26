@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import App from '../App'
 import { AppShell } from './AppShell'
 import type { ToolDefinition } from './tools'
@@ -76,5 +76,83 @@ describe('khung app', () => {
     expect(dragOver.defaultPrevented).toBe(true)
     expect((dragOver as Event & { dataTransfer: { dropEffect: string } }).dataTransfer.dropEffect).toBe('none')
     expect(drop.defaultPrevented).toBe(true)
+  })
+})
+
+describe('thu gọn sidebar', () => {
+  function toggle() {
+    return within(screen.getByRole('complementary')).getByRole('button', { name: /thanh bên$/ })
+  }
+
+  test('mặc định mở: nút "Thu gọn thanh bên", aria-expanded="true", điều khiển chính sidebar', () => {
+    render(<AppShell tools={twoTools} />)
+
+    expect(toggle()).toHaveAccessibleName('Thu gọn thanh bên')
+    expect(toggle()).toHaveAttribute('aria-expanded', 'true')
+    expect(toggle()).toHaveAttribute('aria-controls', screen.getByRole('complementary').id)
+  })
+
+  test('bấm thì thu gọn: nút đổi tên, công cụ vẫn đọc đúng tên và vẫn đánh dấu đang mở', async () => {
+    const user = userEvent.setup()
+    render(<AppShell tools={twoTools} />)
+
+    await user.click(toggle())
+
+    expect(toggle()).toHaveAccessibleName('Mở rộng thanh bên')
+    expect(toggle()).toHaveAttribute('aria-expanded', 'false')
+    expect(toggle()).toHaveFocus()
+    const current = within(toolNav()).getByRole('button', { name: 'Import dữ liệu' })
+    expect(current).toHaveAttribute('aria-current', 'page')
+    // Di chuột vào icon thì hiện tên công cụ.
+    expect(current).toHaveAttribute('title', 'Import dữ liệu')
+  })
+
+  test('đang thu gọn vẫn chuyển được công cụ', async () => {
+    const user = userEvent.setup()
+    render(<AppShell tools={twoTools} />)
+    await user.click(toggle())
+
+    await user.click(within(toolNav()).getByRole('button', { name: 'Báo cáo' }))
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Báo cáo' })).toBeInTheDocument()
+    expect(screen.getByText('Nội dung báo cáo')).toBeInTheDocument()
+  })
+
+  test('bấm lần nữa thì mở lại', async () => {
+    const user = userEvent.setup()
+    render(<AppShell tools={twoTools} />)
+
+    await user.click(toggle())
+    await user.click(toggle())
+
+    expect(toggle()).toHaveAccessibleName('Thu gọn thanh bên')
+    expect(toggle()).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  test('nhớ trạng thái: thu gọn rồi tải lại thì vẫn thu gọn', async () => {
+    const user = userEvent.setup()
+    const first = render(<AppShell tools={twoTools} />)
+    await user.click(toggle())
+    first.unmount()
+
+    render(<AppShell tools={twoTools} />)
+
+    expect(toggle()).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  test('trình duyệt chặn localStorage: mặc định mở, bật/tắt vẫn dùng được', async () => {
+    const blocked = () => {
+      throw new DOMException('blocked', 'SecurityError')
+    }
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(blocked)
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(blocked)
+    const user = userEvent.setup()
+    render(<AppShell tools={twoTools} />)
+
+    expect(toggle()).toHaveAttribute('aria-expanded', 'true')
+    await user.click(toggle())
+    expect(toggle()).toHaveAttribute('aria-expanded', 'false')
+
+    vi.restoreAllMocks()
   })
 })
