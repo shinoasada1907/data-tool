@@ -102,7 +102,7 @@ export function mockProcess(...responders: Responder[]) {
   return mockSequence(http.post, PROCESS_URL, responders)
 }
 
-type ResultResponder = (query: Record<string, string>) => Response | Promise<Response>
+export type ResultResponder = (query: Record<string, string>) => Response | Promise<Response>
 
 /** GET /api/import-sessions/{id}/result; `queries` ghi query của từng lần gọi, responder nhận query đó. */
 export function mockResult(...responders: ResultResponder[]) {

@@ -3,48 +3,22 @@ import userEvent from '@testing-library/user-event'
 import { HttpResponse } from 'msw'
 import { describe, expect, test, vi } from 'vitest'
 import App from '../../App'
-import type { PipelineResultDto, PipelineSummaryDto } from '../../api/dto'
 import { pipelineResultFixture, pipelineSummaryFixture, validResultFixture } from '../../mocks/fixtures'
-import { fieldRegion, openRulesStep, RESULT_HEADING, runButton, saved, stepButton, type User } from '../../test/flows'
+import {
+  fieldRegion,
+  openResultStep,
+  pagesByView,
+  RESULT_HEADING,
+  stepButton,
+  type User,
+} from '../../test/flows'
 import {
   gate,
-  mockProcess,
-  mockResult,
-  mockSaveTransformations,
   mockSaveValidations,
   problemResponse,
   problemWithErrors,
   recordRequests,
 } from '../../test/http'
-
-type ResultResponder = Parameters<typeof mockResult>[number]
-
-/** Trả trang theo `view` của query: tab Lỗi dùng `invalid`, tab Hợp lệ dùng `valid`; số trang lấy từ query. */
-function pagesByView({
-  invalid = pipelineResultFixture(),
-  valid = validResultFixture(),
-}: { invalid?: PipelineResultDto; valid?: PipelineResultDto } = {}): ResultResponder {
-  return (query) => {
-    const base = query.view === 'valid' ? valid : invalid
-    return HttpResponse.json({ ...base, page: { ...base.page, number: Number(query.page) } })
-  }
-}
-
-/** Upload → … → Chạy xử lý → bước Kết quả. `result` trả mọi lần GET result (kể cả trang đầu). */
-async function openResultStep(
-  user: User,
-  { summary = pipelineSummaryFixture(), result = pagesByView() }: { summary?: PipelineSummaryDto; result?: ResultResponder } = {},
-) {
-  mockSaveTransformations(saved)
-  mockSaveValidations(saved)
-  mockProcess(() => HttpResponse.json(summary))
-  const requests = mockResult(result)
-  render(<App />)
-  await openRulesStep(user)
-  await user.click(runButton())
-  await screen.findByRole('heading', RESULT_HEADING)
-  return requests
-}
 
 function table() {
   return screen.getByRole('table')
@@ -75,6 +49,7 @@ function tab(name: RegExp) {
 describe('bước Kết quả', () => {
   test('ba thẻ tóm tắt Tổng / Hợp lệ / Lỗi lấy từ summary', async () => {
     const user = userEvent.setup()
+    render(<App />)
     await openResultStep(user)
 
     const summary = screen.getByRole('group', { name: 'Tóm tắt kết quả' })
@@ -84,6 +59,7 @@ describe('bước Kết quả', () => {
 
   test('có dòng lỗi thì tab "Lỗi (20)" được chọn sẵn', async () => {
     const user = userEvent.setup()
+    render(<App />)
     await openResultStep(user)
 
     expect(tab(/^Lỗi \(20\)$/)).toHaveAttribute('aria-selected', 'true')
@@ -93,6 +69,7 @@ describe('bước Kết quả', () => {
 
   test('cột "Dòng" rồi các field theo thứ tự schema, không theo thứ tự key của values (kể cả tên dạng số)', async () => {
     const user = userEvent.setup()
+    render(<App />)
     await openResultStep(user)
 
     expect(headers()).toEqual(['Dòng', '2024', 'Họ tên', '1', 'Email'])
@@ -102,6 +79,7 @@ describe('bước Kết quả', () => {
 
   test('lỗi validation: ô của field được đánh dấu, dưới dòng ghi field, nhãn mã lỗi, rule và giá trị nguồn', async () => {
     const user = userEvent.setup()
+    render(<App />)
     await openResultStep(user)
 
     expect(cell(3, 'Email')).toHaveAttribute('data-flagged')
@@ -118,6 +96,7 @@ describe('bước Kết quả', () => {
 
   test('lỗi transformation: ô null hiện placeholder và được đánh dấu; lỗi ghi rõ bước (step + 1) và giá trị nguồn', async () => {
     const user = userEvent.setup()
+    render(<App />)
     await openResultStep(user)
 
     expect(cell(3, '1')).toHaveAttribute('data-flagged')
@@ -135,6 +114,7 @@ describe('bước Kết quả', () => {
       '"__N__"',
       '12345678901234567890.50',
     )
+    render(<App />)
     await openResultStep(user, {
       summary: pipelineSummaryFixture({ valid: 120, invalid: 0, errorCountsByCode: {}, errorCountsByField: {} }),
       result: () => new HttpResponse(body, { headers: { 'Content-Type': 'application/json' } }),
@@ -145,6 +125,7 @@ describe('bước Kết quả', () => {
 
   test('tab Hợp lệ: gọi view=valid ở trang 0; giá trị đã ép kiểu hiện nguyên dạng, null hiện placeholder', async () => {
     const user = userEvent.setup()
+    render(<App />)
     const requests = await openResultStep(user)
 
     await user.click(tab(/^Hợp lệ/))
@@ -159,6 +140,7 @@ describe('bước Kết quả', () => {
 
   test('tab dùng phím mũi tên để chuyển focus, Enter mới tải tab đó', async () => {
     const user = userEvent.setup()
+    render(<App />)
     const requests = await openResultStep(user)
     tab(/^Lỗi/).focus()
 
@@ -173,6 +155,7 @@ describe('bước Kết quả', () => {
 
   test('tab: mũi tên phải vòng về đầu, Home/End tới tab đầu/cuối; Space tải tab đang focus', async () => {
     const user = userEvent.setup()
+    render(<App />)
     const requests = await openResultStep(user)
     tab(/^Lỗi/).focus()
 
@@ -191,6 +174,7 @@ describe('bước Kết quả', () => {
 
   test('dòng chi tiết lỗi chỉ gắn với ô số dòng của nó, không với mọi tiêu đề cột', async () => {
     const user = userEvent.setup()
+    render(<App />)
     await openResultStep(user)
 
     const detailCell = screen.getByRole('list', { name: 'Lỗi của dòng 3' }).closest('td')!
@@ -222,6 +206,7 @@ describe('bước Kết quả', () => {
         },
       ],
     })
+    render(<App />)
     await openResultStep(user, { result: pagesByView({ invalid: mappingError }) })
 
     const detail = within(screen.getByRole('list', { name: 'Lỗi của dòng 4' })).getByRole('listitem')
@@ -234,6 +219,7 @@ describe('bước Kết quả', () => {
 
     test('"Sau" gọi trang kế tiếp và hiện "Trang 2 / 3"; tới trang cuối thì focus sang "Trước"', async () => {
       const user = userEvent.setup()
+      render(<App />)
       const requests = await openResultStep(user, { result: pagesByView({ invalid: threePages }) })
       expect(screen.getByText('Trang 1 / 3')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Trước' })).toBeDisabled()
@@ -256,6 +242,7 @@ describe('bước Kết quả', () => {
       const user = userEvent.setup()
       const hold = gate()
       const pages = pagesByView({ invalid: threePages })
+      render(<App />)
       const requests = await openResultStep(user, {
         result: async (query) => {
           if (query.page !== '0') await hold.promise
@@ -276,6 +263,7 @@ describe('bước Kết quả', () => {
       const twoPages = pipelineResultFixture({ page: { number: 0, size: 50, totalElements: 60, totalPages: 2 } })
       const pages = pagesByView({ invalid: twoPages })
       let failNext = true
+      render(<App />)
       await openResultStep(user, {
         result: (query) => {
           if (query.page === '1' && failNext) {
@@ -297,6 +285,7 @@ describe('bước Kết quả', () => {
     test('"Trước" về trang đầu thì nút bị khoá, focus sang "Sau"', async () => {
       const user = userEvent.setup()
       const twoPages = pipelineResultFixture({ page: { number: 0, size: 50, totalElements: 60, totalPages: 2 } })
+      render(<App />)
       await openResultStep(user, { result: pagesByView({ invalid: twoPages }) })
       await user.click(screen.getByRole('button', { name: 'Sau' }))
       await screen.findByText('Trang 2 / 2')
@@ -310,6 +299,7 @@ describe('bước Kết quả', () => {
 
     test('đổi tab quay về trang 0', async () => {
       const user = userEvent.setup()
+      render(<App />)
       const requests = await openResultStep(user, { result: pagesByView({ invalid: threePages }) })
       await user.click(screen.getByRole('button', { name: 'Sau' }))
       await screen.findByText('Trang 2 / 3')
@@ -330,6 +320,7 @@ describe('bước Kết quả', () => {
 
     test('lựa chọn theo thứ tự schema kèm số lỗi; mã lỗi có nhãn tiếng Việt kèm số lỗi', async () => {
       const user = userEvent.setup()
+      render(<App />)
       await openResultStep(user, { summary })
 
       const fieldOptions = within(screen.getByRole('combobox', { name: 'Lọc theo field' })).getAllByRole('option')
@@ -351,6 +342,7 @@ describe('bước Kết quả', () => {
     test('chọn mã lỗi rồi field: gửi code và field, luôn về trang 0; "Xoá lọc" gọi lại không có bộ lọc', async () => {
       const user = userEvent.setup()
       const threePages = pipelineResultFixture({ page: { number: 0, size: 50, totalElements: 120, totalPages: 3 } })
+      render(<App />)
       const requests = await openResultStep(user, { summary, result: pagesByView({ invalid: threePages }) })
       await user.click(screen.getByRole('button', { name: 'Sau' }))
       await screen.findByText('Trang 2 / 3')
@@ -386,6 +378,7 @@ describe('bước Kết quả', () => {
       // Mỗi truy vấn một dòng khác nhau, để thấy trang nào đang được vẽ.
       const withRow = (rowNumber: number) =>
         HttpResponse.json(pipelineResultFixture({ rows: [{ ...pipelineResultFixture().rows[0], rowNumber, errors: [] }] }))
+      render(<App />)
       const requests = await openResultStep(user, {
         summary,
         result: async (query) => {
@@ -422,6 +415,7 @@ describe('bước Kết quả', () => {
 
     test('bộ lọc chỉ có ở tab Lỗi', async () => {
       const user = userEvent.setup()
+      render(<App />)
       await openResultStep(user)
 
       await user.click(tab(/^Hợp lệ/))
@@ -440,6 +434,7 @@ describe('bước Kết quả', () => {
         page: { number: 0, size: 50, totalElements: 0, totalPages: 0 },
         rows: [],
       })
+      render(<App />)
       await openResultStep(user, { summary: noErrors, result: pagesByView({ invalid: emptyPage }) })
       expect(tab(/^Hợp lệ \(120\)$/)).toHaveAttribute('aria-selected', 'true')
 
@@ -455,6 +450,7 @@ describe('bước Kết quả', () => {
       const user = userEvent.setup()
       const allInvalid = pipelineSummaryFixture({ valid: 0, invalid: 120 })
       const emptyValid = validResultFixture({ page: { number: 0, size: 50, totalElements: 0, totalPages: 0 }, rows: [] })
+      render(<App />)
       await openResultStep(user, { summary: allInvalid, result: pagesByView({ valid: emptyValid }) })
 
       await user.click(tab(/^Hợp lệ \(0\)$/))
@@ -474,6 +470,7 @@ describe('bước Kết quả', () => {
     test('sửa cấu hình rồi quay lại: cảnh báo kèm "Chạy lại"; giữ trang đang xem; khoá tab, trang, bộ lọc', async () => {
       const user = userEvent.setup()
       const threePages = pipelineResultFixture({ page: { number: 0, size: 50, totalElements: 120, totalPages: 3 } })
+      render(<App />)
       await openResultStep(user, { result: pagesByView({ invalid: threePages }) })
 
       await makeStale(user)
@@ -492,6 +489,7 @@ describe('bước Kết quả', () => {
 
     test('"Chạy lại" dùng trình tự lưu và chạy: chỉ gửi phần chưa lưu; kết quả mới thay kết quả cũ, focus về tiêu đề', async () => {
       const user = userEvent.setup()
+      render(<App />)
       await openResultStep(user)
       await makeStale(user)
       const log = recordRequests()
@@ -508,6 +506,7 @@ describe('bước Kết quả', () => {
     test('"Chạy lại" xong: vùng status không còn nói về trang của kết quả cũ', async () => {
       const user = userEvent.setup()
       const threePages = pipelineResultFixture({ page: { number: 0, size: 50, totalElements: 120, totalPages: 3 } })
+      render(<App />)
       await openResultStep(user, { result: pagesByView({ invalid: threePages }) })
       await user.click(screen.getByRole('button', { name: 'Sau' }))
       await screen.findByText('Trang 2 / 3')
@@ -522,6 +521,7 @@ describe('bước Kết quả', () => {
       const user = userEvent.setup()
       const threePages = pipelineResultFixture({ page: { number: 0, size: 50, totalElements: 120, totalPages: 3 } })
       let calls = 0
+      render(<App />)
       await openResultStep(user, {
         result: () => {
           calls += 1
@@ -545,6 +545,7 @@ describe('bước Kết quả', () => {
 
     test('"Chạy lại" lỗi: khối lỗi hiện ngay ở bước Kết quả, lỗi theo field nằm trong danh sách', async () => {
       const user = userEvent.setup()
+      render(<App />)
       await openResultStep(user)
       await makeStale(user)
       mockSaveValidations(() =>
@@ -564,6 +565,7 @@ describe('bước Kết quả', () => {
     test('BE trả 409 RESULT_NOT_AVAILABLE khi đổi trang: đánh dấu cũ, giữ trang đang xem, focus "Chạy lại"', async () => {
       const user = userEvent.setup()
       const threePages = pipelineResultFixture({ page: { number: 0, size: 50, totalElements: 120, totalPages: 3 } })
+      render(<App />)
       await openResultStep(user, {
         result: (query) =>
           query.page === '0'
@@ -585,6 +587,7 @@ describe('bước Kết quả', () => {
     const user = userEvent.setup()
     const threePages = pipelineResultFixture({ page: { number: 0, size: 50, totalElements: 120, totalPages: 3 } })
     let failNext = true
+    render(<App />)
     const requests = await openResultStep(user, {
       result: (query) => {
         if (query.page === '1' && failNext) {
@@ -614,6 +617,7 @@ describe('bước Kết quả', () => {
 
   test('"Quay lại" về bước Biến đổi & kiểm tra', async () => {
     const user = userEvent.setup()
+    render(<App />)
     await openResultStep(user)
 
     await user.click(screen.getByRole('button', { name: 'Quay lại' }))

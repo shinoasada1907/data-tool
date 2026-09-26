@@ -1,4 +1,5 @@
 import { request } from './client'
+import { download, type Download } from './download'
 import { RESULT_PAGE_SIZE, type ResultQuery } from '../domain/types'
 import type {
   ImportSessionDto,
@@ -94,6 +95,22 @@ export function getResult(sessionId: string, query: ResultQuery): Promise<Pipeli
     validate: isPipelineResultDto,
     exactNumbers: true,
   })
+}
+
+export type ExportFormat = 'json' | 'csv'
+
+/** File dữ liệu hợp lệ của lần chạy gần nhất (spec result-export). */
+export function downloadValidRows(
+  sessionId: string,
+  format: ExportFormat,
+  { signal }: { signal?: AbortSignal } = {},
+): Promise<Download> {
+  return download(`${SESSIONS}/${encodeURIComponent(sessionId)}/export?format=${format}`, { signal })
+}
+
+/** Báo cáo lỗi CSV của lần chạy gần nhất (spec result-export). */
+export function downloadErrorReport(sessionId: string, { signal }: { signal?: AbortSignal } = {}): Promise<Download> {
+  return download(`${SESSIONS}/${encodeURIComponent(sessionId)}/errors/export`, { signal })
 }
 
 /** Chỉ kiểm đó là body của PUT cấu hình (không phải trang HTML từ proxy); nội dung không dùng tới. */

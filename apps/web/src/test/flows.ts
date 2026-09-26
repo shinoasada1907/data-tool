@@ -1,9 +1,25 @@
 import { screen, within } from '@testing-library/react'
 import type userEvent from '@testing-library/user-event'
 import { HttpResponse } from 'msw'
-import { configUpdateFixture, importSessionFixture } from '../mocks/fixtures'
+import type { PipelineResultDto, PipelineSummaryDto } from '../api/dto'
+import {
+  configUpdateFixture,
+  importSessionFixture,
+  pipelineResultFixture,
+  pipelineSummaryFixture,
+  validResultFixture,
+} from '../mocks/fixtures'
 import { testFile } from './files'
-import { mockSaveMapping, mockSaveSchema, mockUpload } from './http'
+import {
+  mockProcess,
+  mockResult,
+  mockSaveMapping,
+  mockSaveSchema,
+  mockSaveTransformations,
+  mockSaveValidations,
+  mockUpload,
+  type ResultResponder,
+} from './http'
 
 // Các bước đi qua wizard dùng chung cho test của nhiều bước. Preview mặc định (csvPreviewFixture) sinh 4 field:
 // "2024" (string), "Họ tên" (string), "1" (number), "Email" (email).
@@ -71,4 +87,33 @@ export async function addStep(user: User, fieldName: string, type: string) {
   const region = fieldRegion(fieldName)
   await user.selectOptions(within(region).getByRole('combobox', { name: 'Loại biến đổi' }), type)
   await user.click(within(region).getByRole('button', { name: 'Thêm biến đổi' }))
+}
+
+/** Trả trang theo `view` của query: tab Lỗi dùng `invalid`, tab Hợp lệ dùng `valid`; số trang lấy từ query. */
+export function pagesByView({
+  invalid = pipelineResultFixture(),
+  valid = validResultFixture(),
+}: { invalid?: PipelineResultDto; valid?: PipelineResultDto } = {}): ResultResponder {
+  return (query) => {
+    const base = query.view === 'valid' ? valid : invalid
+    return HttpResponse.json({ ...base, page: { ...base.page, number: Number(query.page) } })
+  }
+}
+
+/**
+ * … → Biến đổi & kiểm tra → "Chạy xử lý" → bước Kết quả (trang đầu đã tải). `result` trả mọi lần GET result.
+ * Test tự render `<App />` trước khi gọi.
+ */
+export async function openResultStep(
+  user: User,
+  { summary = pipelineSummaryFixture(), result = pagesByView() }: { summary?: PipelineSummaryDto; result?: ResultResponder } = {},
+) {
+  mockSaveTransformations(saved)
+  mockSaveValidations(saved)
+  mockProcess(() => HttpResponse.json(summary))
+  const requests = mockResult(result)
+  await openRulesStep(user)
+  await user.click(runButton())
+  await screen.findByRole('heading', RESULT_HEADING)
+  return requests
 }

@@ -223,6 +223,18 @@ export const messages = {
     pageStatus: (label: string, page: number, total: number) => `${label}: trang ${page} / ${total}`,
   },
 
+  export: {
+    heading: 'Tải kết quả',
+    json: 'Tải JSON',
+    csv: 'Tải CSV',
+    errors: 'Tải báo cáo lỗi',
+    downloading: { json: 'Đang tải file JSON…', csv: 'Đang tải file CSV…', errors: 'Đang tải báo cáo lỗi…' },
+    saved: (fileName: string) => `Đã tải ${fileName}`,
+    staleReason: 'Chạy lại để tải kết quả khớp cấu hình hiện tại',
+    noValid: 'Không có dòng hợp lệ để tải',
+    noInvalid: 'Không có dòng lỗi để tải',
+  },
+
   pagination: {
     label: 'Phân trang',
     previous: 'Trước',

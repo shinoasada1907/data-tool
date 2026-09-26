@@ -32,6 +32,34 @@ export async function request<T>(
   const headers: Record<string, string> = { Accept: 'application/json, application/problem+json' }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
 
+  const { response, text } = await fetchWithin(
+    path,
+    { method, headers, body: body === undefined ? undefined : JSON.stringify(body) },
+    { signal, timeoutMs },
+    async (response) => ({ response, text: await response.text() }),
+  )
+
+  if (!response.ok) {
+    throw errorFromHttpResponse(response.status, response.headers.get('Content-Type'), text)
+  }
+
+  const value = parseJson(text, exactNumbers)
+  if (value === undefined || !validate(value)) {
+    throw new ApiError({ kind: 'http', status: response.status, code: 'INVALID_RESPONSE' })
+  }
+  return value
+}
+
+/**
+ * `fetch` rồi đọc body bằng `read`, trong cùng một thời gian chờ và cùng một tín hiệu huỷ (design D6). Lỗi mạng (kể
+ * cả kết nối đứt giữa lúc đọc body), hết giờ và huỷ đều thành ApiError; response lỗi HTTP vẫn được trả cho `read`.
+ */
+export async function fetchWithin<R>(
+  path: string,
+  init: Omit<RequestInit, 'signal'>,
+  { signal, timeoutMs }: { signal?: AbortSignal; timeoutMs: number },
+  read: (response: Response) => Promise<R>,
+): Promise<R> {
   // Một controller riêng gom cả hai nguồn huỷ (user và hết giờ), để còn phân biệt được nguồn nào khi fetch reject.
   const controller = new AbortController()
   let timedOut = false
@@ -43,16 +71,8 @@ export async function request<T>(
   if (signal?.aborted) controller.abort()
   else signal?.addEventListener('abort', forwardAbort, { once: true })
 
-  let response: Response
-  let text: string
   try {
-    response = await fetch(path, {
-      method,
-      headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
-      signal: controller.signal,
-    })
-    text = await response.text()
+    return await read(await fetch(path, { ...init, signal: controller.signal }))
   } catch (error) {
     // fetch chỉ reject khi bị huỷ, hết giờ, hoặc không tới được máy chủ; lỗi HTTP vẫn resolve.
     const kind = timedOut ? 'timeout' : signal?.aborted || isAbortError(error) ? 'aborted' : 'network'
@@ -61,16 +81,6 @@ export async function request<T>(
     clearTimeout(timer)
     signal?.removeEventListener('abort', forwardAbort)
   }
-
-  if (!response.ok) {
-    throw errorFromHttpResponse(response.status, response.headers.get('Content-Type'), text)
-  }
-
-  const value = parseJson(text, exactNumbers)
-  if (value === undefined || !validate(value)) {
-    throw new ApiError({ kind: 'http', status: response.status, code: 'INVALID_RESPONSE' })
-  }
-  return value
 }
 
 function isAbortError(error: unknown): boolean {

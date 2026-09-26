@@ -19,6 +19,7 @@ import { isBusy, type ResultState } from '../../wizard/state'
 import { StepActions } from '../../wizard/StepActions'
 import { StepHeader } from '../../wizard/StepHeader'
 import { useBusyRequest } from '../../wizard/useBusyRequest'
+import { ExportActions } from '../export/ExportActions'
 import { useRunPipeline } from '../run/useRunPipeline'
 import styles from './ResultStep.module.css'
 
@@ -86,13 +87,8 @@ function ResultContent({ session, result }: { session: SessionInfo; result: Resu
       } catch (error) {
         if (!queued.current) {
           if (error instanceof ApiError && error.code === 'RESULT_NOT_AVAILABLE') {
-            // Mọi nút đổi trang, tab, lọc bị khoá ngay: đưa focus tới việc duy nhất còn làm được.
             inFlight.current = null
-            flushSync(() => {
-              setPending(null)
-              dispatch({ type: 'resultUnavailable' })
-            })
-            rerunRef.current?.focus()
+            markUnavailable(() => setPending(null))
             return
           }
           setLoadFailure({ failure: toLoadFailure(error), query: target, summary })
@@ -104,6 +100,18 @@ function ResultContent({ session, result }: { session: SessionInfo; result: Resu
     }
     inFlight.current = null
     setPending(null)
+  }
+
+  /**
+   * BE báo kết quả không còn (`409 RESULT_NOT_AVAILABLE`, khi tải trang hoặc tải file): đánh dấu cũ (design D18). Mọi
+   * nút đổi trang, tab, lọc và tải file bị khoá ngay, nên đưa focus tới việc duy nhất còn làm được: "Chạy lại".
+   */
+  function markUnavailable(alsoUpdate?: () => void) {
+    flushSync(() => {
+      alsoUpdate?.()
+      dispatch({ type: 'resultUnavailable' })
+    })
+    rerunRef.current?.focus()
   }
 
   // Vừa chạy xong (vào bước, hoặc "Chạy lại" ngay tại bước): tải trang đầu. Nút "Chạy lại" biến mất cùng cảnh báo nên
@@ -140,6 +148,8 @@ function ResultContent({ session, result }: { session: SessionInfo; result: Resu
       />
 
       <SummaryCards summary={summary} />
+
+      <ExportActions session={session} summary={summary} stale={stale} onResultUnavailable={() => markUnavailable()} />
 
       {/* Luôn có trong DOM (design D14): báo lúc đang tải và trang vừa tải xong. */}
       <p role="status" className="sr-only">
