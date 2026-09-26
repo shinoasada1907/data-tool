@@ -4,6 +4,7 @@ import com.universalimporter.domain.common.RowErrorCode;
 import com.universalimporter.domain.pipeline.ErrorStage;
 import com.universalimporter.domain.pipeline.ImportError;
 import com.universalimporter.domain.pipeline.ResultSummary;
+import com.universalimporter.domain.pipeline.ResultView;
 import com.universalimporter.domain.pipeline.ResultWriter;
 import com.universalimporter.domain.pipeline.RowResult;
 import com.universalimporter.infrastructure.storage.StorageProperties;
@@ -236,6 +237,126 @@ class FileResultStoreTest {
         assertThat(store().findSummary(ID)).isEmpty();
     }
 
+    @Test
+    void rows_read_back_keep_their_order_types_and_errors() {
+        FileResultStore store = store();
+        Map<String, Object> typed = values("name", "Nguyễn An", "score", new BigDecimal("-3.50"),
+                "tiny", new BigDecimal("0.0000001"), "count", new BigDecimal("30"), "active", true,
+                "dob", LocalDate.of(1990, 12, 25), "note", null);
+        ImportError transformation = new ImportError(3, "dob", ErrorStage.TRANSFORMATION, "dateFormat", 0,
+                RowErrorCode.TRANSFORMATION_FAILED, "Value does not match the date pattern.", "31/02/1990");
+        ImportError validation = new ImportError(3, "email", ErrorStage.VALIDATION, "email", null,
+                RowErrorCode.VALIDATION_EMAIL, "Value is not a valid email address.", " ABC ");
+        try (ResultWriter writer = store.begin(ID)) {
+            writer.accept(new RowResult(2, true, typed, List.of()));
+            writer.accept(new RowResult(3, false, values("email", "abc", "dob", null), List.of(transformation, validation)));
+            writer.accept(new RowResult(4, true, values("name", "Bình"), List.of()));
+            writer.commit(summary("h"));
+        }
+
+        List<RowResult> valid;
+        try (Stream<RowResult> rows = store.readRows(ID, ResultView.VALID, 0)) {
+            valid = rows.toList();
+        }
+        List<RowResult> invalid;
+        try (Stream<RowResult> rows = store.readRows(ID, ResultView.INVALID, 0)) {
+            invalid = rows.toList();
+        }
+
+        assertThat(valid).extracting(RowResult::rowNumber).containsExactly(2, 4);
+        RowResult first = valid.getFirst();
+        assertThat(first.valid()).isTrue();
+        assertThat(first.errors()).isEmpty();
+        assertThat(first.values().keySet()).containsExactly("name", "score", "tiny", "count", "active", "dob", "note");
+        assertThat(new ArrayList<>(first.values().values())).containsExactly("Nguyễn An", new BigDecimal("-3.50"),
+                new BigDecimal("0.0000001"), new BigDecimal("30"), true, "1990-12-25", null);
+        assertThat(invalid).singleElement().satisfies(row -> {
+            assertThat(row.rowNumber()).isEqualTo(3);
+            assertThat(row.valid()).isFalse();
+            assertThat(row.values().keySet()).containsExactly("email", "dob");
+            assertThat(row.values().get("dob")).isNull();
+            assertThat(row.errors()).containsExactly(transformation, validation);
+        });
+    }
+
+    @Test
+    void rows_are_parsed_only_as_far_as_the_caller_reads() throws IOException {
+        FileResultStore store = thousandRowsWithLine500Corrupt();
+
+        try (Stream<RowResult> rows = store.readRows(ID, ResultView.VALID, 0)) {
+            assertThat(rows.skip(10).limit(2).map(RowResult::rowNumber).toList()).containsExactly(12, 13);
+        }
+    }
+
+    @Test
+    void skipped_rows_are_not_parsed() throws IOException {
+        FileResultStore store = thousandRowsWithLine500Corrupt();
+
+        try (Stream<RowResult> rows = store.readRows(ID, ResultView.VALID, 600)) {
+            assertThat(rows.limit(1).map(RowResult::rowNumber).toList()).containsExactly(602);
+        }
+    }
+
+    @Test
+    void an_unreadable_line_fails_without_its_content() throws IOException {
+        FileResultStore store = thousandRowsWithLine500Corrupt();
+
+        IllegalStateException ex;
+        try (Stream<RowResult> rows = store.readRows(ID, ResultView.VALID, 490)) {
+            ex = catchThrowableOfType(IllegalStateException.class, rows::toList);
+        }
+
+        assertThat(ex).hasMessage("Result of session " + ID + " is unreadable at line 500.").hasNoCause();
+    }
+
+    @Test
+    void a_reader_keeps_its_rows_while_the_result_is_replaced_and_deleted() throws IOException {
+        FileResultStore store = store();
+        commit(store, "old");
+
+        try (Stream<RowResult> rows = store.readRows(ID, ResultView.VALID, 0)) {
+            // On Windows a directory with an open file inside cannot be renamed: without a detached reader both fail.
+            commit(store, "new");
+            store.delete(ID);
+
+            assertThat(rows.map(row -> row.values().get("name")).toList()).containsExactly("old");
+        }
+        assertThat(leftovers()).isEmpty();
+    }
+
+    @Test
+    void an_open_reader_leaves_nothing_in_the_session_directory() throws IOException {
+        FileResultStore store = store();
+        commit(store, "h");
+
+        try (Stream<RowResult> rows = store.readRows(ID, ResultView.VALID, 0)) {
+            assertThat(leftovers()).isEmpty();
+            assertThat(rows.count()).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void reading_rows_without_a_result_is_an_io_error() {
+        assertThat(catchThrowableOfType(UncheckedIOException.class, () -> store().readRows(ID, ResultView.VALID, 0)))
+                .isNotNull();
+        assertThat(Files.exists(root.resolve(ID.toString()))).isFalse();
+    }
+
+    private FileResultStore thousandRowsWithLine500Corrupt() throws IOException {
+        FileResultStore store = store();
+        try (ResultWriter writer = store.begin(ID)) {
+            for (int row = 2; row < 1002; row++) {
+                writer.accept(new RowResult(row, true, values("n", new BigDecimal(row)), List.of()));
+            }
+            writer.commit(summary("h"));
+        }
+        Path valid = root.resolve(ID + "/result/valid.ndjson");
+        List<String> lines = new ArrayList<>(Files.readAllLines(valid, StandardCharsets.UTF_8));
+        lines.set(499, "secretCellValue");
+        Files.write(valid, lines, StandardCharsets.UTF_8);
+        return store;
+    }
+
     private static void commit(FileResultStore store, String hash) {
         try (ResultWriter writer = store.begin(ID)) {
             writer.accept(new RowResult(2, true, values("name", hash), List.of()));
@@ -271,7 +392,7 @@ class FileResultStoreTest {
         try (Stream<Path> entries = Files.list(dir)) {
             return entries.map(path -> path.getFileName().toString())
                     .filter(name -> name.startsWith("result.tmp-") || name.startsWith("result.old-")
-                            || name.startsWith("result.del-"))
+                            || name.startsWith("result.del-") || name.startsWith("result.read-"))
                     .toList();
         }
     }
