@@ -125,7 +125,7 @@ class ConfigurationServiceTest {
         givenSession(SessionStatus.PROCESSED);
         configurations.save(ImportConfiguration.empty(ID).withSchema(TargetSchema.define(NOTE)).configuration(), T0);
 
-        ConfigUpdateResult result = service.updateSchema(ID, List.of(new FieldSpec("email", "email", true, 0)));
+        ConfigUpdateResult result = service.updateSchema(ID, List.of(new FieldSpec("email", "email", false, 0)));
 
         assertThat(result.session().status()).isEqualTo(SessionStatus.READY);
         assertThat(result.session().updatedAt()).isEqualTo(NOW_IN_MICROS);

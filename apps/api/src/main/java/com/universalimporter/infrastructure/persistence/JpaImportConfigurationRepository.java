@@ -2,6 +2,7 @@ package com.universalimporter.infrastructure.persistence;
 
 import com.universalimporter.domain.config.ImportConfiguration;
 import com.universalimporter.domain.config.ImportConfigurationRepository;
+import com.universalimporter.domain.mapping.MappingConfig;
 import org.springframework.stereotype.Repository;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -37,6 +38,7 @@ public class JpaImportConfigurationRepository implements ImportConfigurationRepo
 
     private static ImportConfiguration toDomain(ImportConfigurationEntity entity) {
         TargetSchemaDocument schema = JSON.readValue(entity.getTargetSchemaJson(), TargetSchemaDocument.class);
-        return new ImportConfiguration(entity.getSessionId(), schema.toDomain(), entity.getVersion());
+        return new ImportConfiguration(entity.getSessionId(), schema.toDomain(), MappingConfig.empty(),
+                entity.getVersion());
     }
 }

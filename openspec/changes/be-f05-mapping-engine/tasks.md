@@ -100,22 +100,26 @@
   public final class RequiredFieldsMappedRule implements ReadinessRule { … }
   ```
 
-- [ ] 3.1 Thêm test vào `ImportConfigurationTest`:
+- [x] 3.1 Thêm test vào `ImportConfigurationTest`:
   | Case | Mong đợi |
   |---|---|
   | Schema `[name(required), note]`; `withMapping(mapping chỉ có name)` | `warnings` = `[("note","TARGET_FIELD_UNMAPPED","Field is not mapped.")]` |
   | Cấu hình có mapping `phone`; `withSchema(schema không có phone)` | mapping của `phone` bị xoá; `warnings` = `[("phone","CONFIG_PRUNED","Mapping for this field was removed because the field no longer exists.")]` |
   | Cấu hình có mapping `name`; `withSchema(schema vẫn có name, đổi type)` | mapping `name` giữ nguyên; `warnings` rỗng |
-- [ ] 3.2 Thêm test vào `ReadinessEvaluatorTest`:
+- [x] 3.2 Thêm test vào `ReadinessEvaluatorTest`:
   | Config | Mong đợi |
   |---|---|
   | Schema `[email(required), note]`, mapping chỉ `note` | `ready` false; issues `[("email","TARGET_FIELD_REQUIRED","Required field is not mapped.")]` |
   | Schema `[email(required)]`, mapping `email` | `ready` true |
   | Schema rỗng | issues chỉ có `SCHEMA_EMPTY` (rule mới không sinh thêm issue) |
-- [ ] 3.3 Chạy `./mvnw -q test -Dtest=ImportConfigurationTest,ReadinessEvaluatorTest`. Mong đợi: FAIL.
-- [ ] 3.4 Cài theo design M2 và M3. Cập nhật mọi chỗ tạo `ImportConfiguration` (constructor có thêm `mapping`).
-- [ ] 3.5 Chạy lại lệnh ở 3.3, rồi `./mvnw -q test`. Mong đợi: PASS toàn bộ.
-- [ ] 3.6 Commit: `feat(domain): prune mappings and require mapped required fields`
+- [x] 3.3 Chạy `./mvnw -q test -Dtest=ImportConfigurationTest,ReadinessEvaluatorTest`. Mong đợi: FAIL.
+- [x] 3.4 Cài theo design M2 và M3. Cập nhật mọi chỗ tạo `ImportConfiguration` (constructor có thêm `mapping`).
+- [x] 3.5 Chạy lại lệnh ở 3.3, rồi `./mvnw -q test`. Mong đợi: PASS toàn bộ.
+  - Làm thêm: sửa 4 test F04 từng giả định rằng schema có field required mà chưa map vẫn cho `READY`. **LÝ DO:** spec import-session của F05 ("Thêm field required vào schema đã READY → CONFIGURING") đổi đúng hành vi đó. Mỗi test giữ ý định ban đầu:
+    - `SchemaIntegrationTest`: case 5 kiểu giờ chờ `CONFIGURING` với issue `TARGET_FIELD_REQUIRED` cho `name` và `email`; thêm case schema toàn field optional thì `READY`; case 422 so trạng thái `CONFIGURING`.
+    - `ConfigurationServiceTest.a_processed_session_is_ready_again_after_a_real_change` và `ImportSessionServiceTest.details_…`: field `email` đổi thành optional.
+  - Tạm thời: adapter JPA đọc ra `MappingConfig.empty()` cho tới task 4 (lúc đó mới đọc/ghi cột `mapping_json`).
+- [x] 3.6 Commit: `feat(domain): prune mappings and require mapped required fields`
 
 ## 4. Persistence và hash của mapping
 

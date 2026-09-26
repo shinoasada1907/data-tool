@@ -1,6 +1,7 @@
 package com.universalimporter.infrastructure.persistence;
 
 import com.universalimporter.domain.config.ImportConfiguration;
+import com.universalimporter.domain.mapping.MappingConfig;
 import com.universalimporter.domain.schema.FieldSpec;
 import com.universalimporter.domain.schema.TargetSchema;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,6 @@ class JsonConfigHasherTest {
     private static ImportConfiguration configuration(UUID sessionId, Long version, boolean emailRequired) {
         TargetSchema schema = TargetSchema.define(List.of(
                 new FieldSpec("name", "string", false, 0), new FieldSpec("email", "email", emailRequired, 1)));
-        return new ImportConfiguration(sessionId, schema, version);
+        return new ImportConfiguration(sessionId, schema, MappingConfig.empty(), version);
     }
 }
