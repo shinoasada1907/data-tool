@@ -16,6 +16,7 @@ import com.universalimporter.domain.mapping.MappingConfig;
 import com.universalimporter.domain.schema.FieldSpec;
 import com.universalimporter.domain.schema.TargetSchema;
 import com.universalimporter.domain.transformation.TransformationConfig;
+import com.universalimporter.domain.validation.ValidationConfig;
 import com.universalimporter.domain.transformation.TransformationStep;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -143,7 +144,7 @@ class TransformationConfigControllerTest {
         TransformationConfig transformations =
                 new TransformationConfig(List.of(new TransformationStep("name", 0, "trim", null)));
         return new ConfigUpdateResult(session,
-                new ImportConfiguration(ID, schema, MappingConfig.empty(), transformations, 1L),
+                new ImportConfiguration(ID, schema, MappingConfig.empty(), transformations, ValidationConfig.empty(), 1L),
                 new Readiness(true, List.of()), List.of());
     }
 }

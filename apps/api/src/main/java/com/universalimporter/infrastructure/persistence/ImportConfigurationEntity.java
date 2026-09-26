@@ -11,10 +11,7 @@ import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * Row of {@code import_configuration}. The validations column is not mapped until its feature needs it, so inserts
- * leave it at its database default.
- */
+/** Row of {@code import_configuration}: one JSON column per section of the configuration. */
 @Entity
 @Table(name = "import_configuration")
 class ImportConfigurationEntity {
@@ -38,6 +35,11 @@ class ImportConfigurationEntity {
     @Column(name = "transformations_json", nullable = false)
     private String transformationsJson;
 
+    /** {@link ValidationsDocument} as JSON text. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "validations_json", nullable = false)
+    private String validationsJson;
+
     /** Wrapper type: {@code null} tells Spring Data that an entity with an assigned id is new. */
     @Version
     private Long version;
@@ -49,11 +51,12 @@ class ImportConfigurationEntity {
     }
 
     ImportConfigurationEntity(UUID sessionId, String targetSchemaJson, String mappingJson,
-                              String transformationsJson, Long version, Instant updatedAt) {
+                              String transformationsJson, String validationsJson, Long version, Instant updatedAt) {
         this.sessionId = sessionId;
         this.targetSchemaJson = targetSchemaJson;
         this.mappingJson = mappingJson;
         this.transformationsJson = transformationsJson;
+        this.validationsJson = validationsJson;
         this.version = version;
         this.updatedAt = updatedAt;
     }
@@ -72,6 +75,10 @@ class ImportConfigurationEntity {
 
     String getTransformationsJson() {
         return transformationsJson;
+    }
+
+    String getValidationsJson() {
+        return validationsJson;
     }
 
     Long getVersion() {

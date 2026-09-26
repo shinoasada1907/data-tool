@@ -16,6 +16,7 @@ import com.universalimporter.domain.importsession.SourceFileType;
 import com.universalimporter.domain.schema.FieldSpec;
 import com.universalimporter.domain.schema.TargetSchema;
 import com.universalimporter.domain.transformation.TransformationConfig;
+import com.universalimporter.domain.validation.ValidationConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -175,7 +176,8 @@ class SchemaControllerTest {
         ImportSession session = ImportSession.restore(ID, new SourceFile("customers.csv", SourceFileType.CSV, 7),
                 SessionStatus.READY, T0, T0, 1L, null);
         TargetSchema schema = TargetSchema.define(List.of(new FieldSpec("email", "email", true, 0)));
-        return new ConfigUpdateResult(session, new ImportConfiguration(ID, schema, MappingConfig.empty(), TransformationConfig.empty(), 0L),
+        return new ConfigUpdateResult(session, new ImportConfiguration(ID, schema, MappingConfig.empty(), TransformationConfig.empty(),
+                ValidationConfig.empty(), 0L),
                 new Readiness(true, List.of()), List.of());
     }
 }

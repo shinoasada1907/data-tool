@@ -1,17 +1,27 @@
 package com.universalimporter.domain.validation;
 
+import com.universalimporter.domain.common.ProblemItem;
+import com.universalimporter.domain.config.ConfigPruner;
+import com.universalimporter.domain.config.FieldScopedSection;
+import com.universalimporter.domain.config.Pruned;
+import com.universalimporter.domain.config.WarningCode;
+import com.universalimporter.domain.schema.FieldType;
 import com.universalimporter.domain.schema.TargetField;
 import com.universalimporter.domain.schema.TargetSchema;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * The user's validation rules of a session: only {@code email} and {@code unique} are stored, since
  * {@code required} and {@code type} come from the schema (spec: validation).
  */
-public record ValidationConfig(List<ValidationRuleConfig> validations) {
+public record ValidationConfig(List<ValidationRuleConfig> validations) implements FieldScopedSection<ValidationConfig> {
 
     /** email before unique, the order they run in. */
     private static final List<String> RULE_ORDER = List.of("email", "unique");
@@ -40,6 +50,51 @@ public record ValidationConfig(List<ValidationRuleConfig> validations) {
                 .sorted(byField.thenComparing(byRule).thenComparing(ValidationRuleConfig::type,
                         Comparator.nullsLast(Comparator.naturalOrder())))
                 .toList());
+    }
+
+    /**
+     * What is left valid after a schema change (design V6): rules of removed fields go (through the shared
+     * {@link ConfigPruner}), and so does an {@code email} rule on a field that is no longer a string, even one that
+     * became an email field. {@code unique} survives a type change. Each removal comes with a warning.
+     */
+    public Pruned<ValidationConfig> prunedFor(TargetSchema newSchema) {
+        List<ProblemItem> warnings = new ArrayList<>();
+        ValidationConfig kept = ConfigPruner.prune(this, newSchema.fieldNames(), warnings);
+        List<ValidationRuleConfig> rules = new ArrayList<>();
+        for (ValidationRuleConfig rule : kept.validations()) {
+            boolean stillString = newSchema.field(rule.targetField())
+                    .map(field -> field.type() == FieldType.STRING).orElse(false);
+            if ("email".equals(rule.type()) && !stillString) {
+                warnings.add(new ProblemItem(rule.targetField(), WarningCode.CONFIG_PRUNED.name(),
+                        "Rule 'email' removed because field '" + rule.targetField() + "' is no longer of type string."));
+            } else {
+                rules.add(rule);
+            }
+        }
+        return new Pruned<>(rules.size() == kept.validations().size() ? kept : new ValidationConfig(rules), warnings);
+    }
+
+    @Override
+    public String sectionLabel() {
+        return "Validation rules";
+    }
+
+    @Override
+    public Set<String> referencedFields() {
+        Set<String> fields = new LinkedHashSet<>();
+        validations.forEach(rule -> fields.add(rule.targetField()));
+        return Collections.unmodifiableSet(fields);
+    }
+
+    @Override
+    public ValidationConfig retainFields(Set<String> fieldNames) {
+        return new ValidationConfig(validations.stream().filter(rule -> fieldNames.contains(rule.targetField())).toList());
+    }
+
+    /** The wording of the spec (validation, "Prune validation khi schema đổi"). */
+    @Override
+    public String prunedMessage(String field) {
+        return "Validation rules removed because field '" + field + "' no longer exists.";
     }
 
     private static int rank(String type) {

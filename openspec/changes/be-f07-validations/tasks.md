@@ -239,7 +239,7 @@
 - Modify: `MAIN/domain/validation/ValidationConfig.java` (thêm `prunedFor`), và khung prune của F04 (đăng ký phần validations)
 - Test: `TEST/domain/validation/ValidationConfigPruneTest.java`
 
-- [ ] 6.1 Viết `ValidationConfigPruneTest`:
+- [x] 6.1 Viết `ValidationConfigPruneTest`:
   | Config cũ | Schema mới | Config mới | Warnings `(field, message)` |
   |---|---|---|---|
   | `[{phone,unique},{note,email}]` | `note:string` | `[{note,email}]` | `[(phone, "Validation rules removed because field 'phone' no longer exists.")]` |
@@ -248,10 +248,22 @@
   | `[{note,unique}]` | `note:number` | giữ nguyên | `[]` |
 
   Mọi warning có `code = "CONFIG_PRUNED"`.
-- [ ] 6.2 Chạy `./mvnw -q test -Dtest=ValidationConfigPruneTest`. Mong đợi: FAIL.
-- [ ] 6.3 Viết `prunedFor`, rồi đăng ký vào khung prune của F04.
-- [ ] 6.4 Chạy lại lệnh ở 6.2, và cả test PUT `/schema` của F04 và F06. Mong đợi: PASS.
-- [ ] 6.5 Commit: `feat(domain): prune validation rules when the target schema changes`
+- [x] 6.2 Chạy `./mvnw -q test -Dtest=ValidationConfigPruneTest`. Mong đợi: FAIL.
+- [x] 6.3 Viết `prunedFor`, rồi đăng ký vào khung prune của F04.
+- [x] 6.4 Chạy lại lệnh ở 6.2, và cả test PUT `/schema` của F04 và F06. Mong đợi: PASS.
+- [x] 6.5 Commit: `feat(domain): prune validation rules when the target schema changes`
+
+### 6b. (thêm) Lưu, hash và giữ thứ tự chuẩn của validations
+
+**LÝ DO:** giống task 7b của F06: plan thiếu phần lưu cột `validations_json`. Làm gộp vào commit của task 6, vì constructor `ImportConfiguration` đổi.
+
+- [x] 6b.1 `ImportConfiguration` có thêm `ValidationConfig validations`:
+  - `withValidations(config, warnings)`;
+  - `withSchema` prune sau transformations;
+  - constructor gọi `validations.normalized(schema)`.
+  - Test: prune qua `withSchema` và thứ tự warning mapping → transformations → validations; bất biến thứ tự.
+- [x] 6b.2 `ValidationsDocument` (params ghi bằng `TreeMap`), cột `validations_json`. Test: đọc lại đúng; row cũ (cột mặc định) đọc ra `ValidationConfig.empty()`.
+- [x] 6b.3 `JsonConfigHasher` hash thêm `ValidationsDocument`. Test: đổi validation thì hash đổi.
 
 ## 7. Use case: cập nhật validations
 
