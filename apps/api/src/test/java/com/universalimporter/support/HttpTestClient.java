@@ -36,6 +36,15 @@ public final class HttpTestClient {
                 .toEntity(String.class));
     }
 
+    public Response putJson(String path, String json) {
+        return toResponse(client.put().uri(path)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(json)
+                .retrieve()
+                .onStatus(status -> true, (request, response) -> { })
+                .toEntity(String.class));
+    }
+
     public Response get(String path) {
         return toResponse(client.get().uri(path)
                 .retrieve()

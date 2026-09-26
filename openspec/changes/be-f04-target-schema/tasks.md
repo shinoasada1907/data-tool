@@ -248,7 +248,7 @@
 **Files:**
 - Test: `TEST/api/schema/SchemaIntegrationTest.java` (setup như các integration test trước)
 
-- [ ] 7.1 Viết các case. Mọi case bắt đầu bằng upload `customers.csv` = `name,email\nAn,an@x.com\n`, trừ khi có ghi khác.
+- [x] 7.1 Viết các case. Mọi case bắt đầu bằng upload `customers.csv` = `name,email\nAn,an@x.com\n`, trừ khi có ghi khác.
   | Case | Mong đợi |
   |---|---|
   | Upload rồi GET | `readiness.issues[0].code` `SCHEMA_EMPTY`; `status` `CONFIGURING` |
@@ -256,8 +256,8 @@
   | PUT schema có `Email` và `email` | 422; `errors[0].message` `Duplicate field name.`; GET cho thấy schema cũ không đổi |
   | PUT schema cho UUID chưa từng tạo | 404; `code` `SESSION_NOT_FOUND` |
   | Hai PUT schema đồng thời (hai thread, schema `a` và schema `b`) | cả hai 200. GET trả schema khớp response hoàn tất sau |
-- [ ] 7.2 Chạy `./mvnw -q test -Dtest=SchemaIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, không nới lỏng test.
-- [ ] 7.3 Commit: `test(api): target schema over real HTTP`
+- [x] 7.2 Chạy `./mvnw -q test -Dtest=SchemaIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính, không nới lỏng test.
+- [x] 7.3 Commit: `test(api): target schema over real HTTP`
 
 ## 8. Kiểm tra toàn bộ và hoàn tất
 
