@@ -271,7 +271,7 @@
 ## 7. Happy path end-to-end: CSV và XLSX
 
 **Files:**
-- Create: `RES/fixtures/e2e/customers.csv`, `RES/fixtures/e2e/customers.xlsx`
+- Create: `RES/fixtures/e2e/customers.csv`, ~~`RES/fixtures/e2e/customers.xlsx`~~ `XlsxFixtures.e2eCustomers(dir)` (sinh bằng code, xem 1.1), `TEST/support/E2eFlow.java` (config dùng chung).
 - Test: `TEST/api/ImportFlowIntegrationTest.java`
 
 **Interfaces:**
@@ -321,8 +321,10 @@
   ```
   Transformations của **XLSX**: giống hệt nhưng **không có** phần `dob`, vì ô ngày trong XLSX đã được đọc ra dạng ISO (D9).
 
-- [ ] 7.1 Tạo 2 fixture theo bảng trên.
-- [ ] 7.2 Viết `ImportFlowIntegrationTest` với case CSV. Làm lần lượt từng bước và kiểm:
+- [x] 7.1 Tạo 2 fixture theo bảng trên.
+  - XLSX sinh bằng fastexcel: ô ngày là serial number với format `yyyy-mm-dd`, ô boolean là `t="b"`, ô số là số. Test xác nhận preview trả `1990-12-25`, `TRUE`, `10`, tức là parser đọc đúng kiểu ô.
+  - Config nằm ở `support/E2eFlow` thay vì text block trong từng test. **LÝ DO**: ba class (task 6, 7, 8) dùng chung đúng một config; chép ra ba chỗ thì sẽ lệch nhau.
+- [x] 7.2 Viết `ImportFlowIntegrationTest` với case CSV. Làm lần lượt từng bước và kiểm:
   | Bước | Mong đợi |
   |---|---|
   | upload `customers.csv` | 201; `status` = `CONFIGURING` |
@@ -334,7 +336,7 @@
   | `GET /export?format=json` | body = `[{"name":"An Nguyen","email":"an@example.com","dob":"1990-12-25","active":true,"score":10,"country":"VN"}]` |
   | `GET /export?format=csv` | BOM; `CsvTestReader` đọc ra `[[name,email,dob,active,score,country],[An Nguyen,an@example.com,1990-12-25,true,10,VN]]` |
   | `GET /errors/export` | đọc ra 5 dòng dữ liệu theo thứ tự `(3,dob)`, `(3,active)`, `(3,score)`, `(4,email)`, `(5,name)` |
-- [ ] 7.3 Thêm case XLSX vào cùng class, với transformations của XLSX:
+- [x] 7.3 Thêm case XLSX vào cùng class, với transformations của XLSX:
   | Bước | Mong đợi |
   |---|---|
   | upload `customers.xlsx` | 201; `status` = `CONFIGURING` |
@@ -342,8 +344,8 @@
   | `POST /process` | `total` 4, `valid` 1, `invalid` 3; `errorCountsByCode` = `{VALIDATION_TYPE:3, VALIDATION_UNIQUE:1, VALIDATION_REQUIRED:1}` |
   | `GET /result?view=invalid` | lỗi row 3: `dob/VALIDATION/type/VALIDATION_TYPE/"31/02/1991"`, `active/…/"yes"`, `score/…/"x"`; row 4 và row 5 giống case CSV |
   | `GET /export?format=json` | giống hệt kết quả của case CSV |
-- [ ] 7.4 Chạy `./mvnw -q test -Dtest=ImportFlowIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính (không sửa kết quả mong đợi cho khớp code sai), rồi chạy lại.
-- [ ] 7.5 Commit: `test(api): CSV and XLSX happy paths end-to-end`
+- [x] 7.4 Chạy `./mvnw -q test -Dtest=ImportFlowIntegrationTest`. Mong đợi: PASS. Nếu FAIL thì sửa code chính (không sửa kết quả mong đợi cho khớp code sai), rồi chạy lại.
+- [x] 7.5 Commit: `test(api): CSV and XLSX happy paths end-to-end`
 
 ## 8. Sửa config rồi process lại; vòng đời đầy đủ
 

@@ -29,8 +29,13 @@ public final class HttpTestClient {
     }
 
     public Response upload(String fileName, byte[] content) {
+        return upload("file", fileName, content);
+    }
+
+    /** Multipart upload under any part name, to send a request without the {@code file} part. */
+    public Response upload(String partName, String fileName, byte[] content) {
         MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
-        parts.add("file", new ByteArrayResource(content) {
+        parts.add(partName, new ByteArrayResource(content) {
             @Override
             public String getFilename() {
                 return fileName;
@@ -55,6 +60,16 @@ public final class HttpTestClient {
 
     public Response post(String path) {
         return toResponse(client.post().uri(path)
+                .retrieve()
+                .onStatus(status -> true, (request, response) -> { })
+                .toEntity(String.class));
+    }
+
+    /** Any method, with extra headers (an {@code Origin}, say), no body. */
+    public Response request(org.springframework.http.HttpMethod method, String path,
+                            java.util.Map<String, String> headers) {
+        return toResponse(client.method(method).uri(path)
+                .headers(h -> headers.forEach(h::set))
                 .retrieve()
                 .onStatus(status -> true, (request, response) -> { })
                 .toEntity(String.class));
