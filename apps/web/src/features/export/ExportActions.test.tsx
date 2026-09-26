@@ -1,12 +1,20 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import App from '../../App'
-import { pipelineSummaryFixture } from '../../mocks/fixtures'
+import { pipelineResultFixture, pipelineSummaryFixture } from '../../mocks/fixtures'
 import { server } from '../../mocks/node'
 import { captureDownloads } from '../../test/downloads'
-import { fieldRegion, openResultStep, RESULT_HEADING, runButton, stepButton, type User } from '../../test/flows'
+import {
+  fieldRegion,
+  openResultStep,
+  pagesByView,
+  RESULT_HEADING,
+  runButton,
+  stepButton,
+  type User,
+} from '../../test/flows'
 import { gate, mockProcess, problemResponse } from '../../test/http'
 
 const EXPORT_URL = '/api/import-sessions/:id/export'
@@ -141,16 +149,138 @@ describe('tải kết quả', () => {
     }
   })
 
-  test('404 SESSION_NOT_FOUND: nút "Upload lại"', async () => {
+  test('404 SESSION_NOT_FOUND: kết quả thành cũ vì session hỏng, ba nút khoá, focus "Upload lại" của cảnh báo', async () => {
     mockExport(() => problemResponse(404, 'SESSION_NOT_FOUND', 'Import session not found.'))
     const user = userEvent.setup()
     await openWith(user)
 
     await user.click(exportButton('Tải CSV'))
 
-    const alert = await within(exportGroup()).findByRole('alert')
-    await user.click(within(alert).getByRole('button', { name: 'Upload lại' }))
+    const reupload = await screen.findByRole('button', { name: 'Upload lại' })
+    expect(reupload).toHaveFocus()
+    expect(screen.getByText(/Phiên import không dùng được nữa — kết quả này là của lần chạy trước/)).toBeInTheDocument()
+    expect(exportButton('Tải CSV')).toHaveAccessibleDescription('Phiên import không dùng được nữa; hãy upload lại file')
+    expect(within(exportGroup()).queryByRole('alert')).not.toBeInTheDocument()
+    await user.click(reupload)
     expect(await screen.findByRole('heading', { level: 2, name: 'Upload file nguồn' })).toBeInTheDocument()
+  })
+
+  describe('gắn với lần chạy', () => {
+    /** Làm kết quả cũ bằng một 409 của lượt tải JSON, rồi "Chạy lại" ngay tại bước Kết quả. */
+    async function rerunAfterUnavailable(user: User) {
+      await user.click(exportButton('Tải JSON'))
+      await user.click(await screen.findByRole('button', { name: 'Chạy lại' }))
+      await vi.waitFor(() => expect(screen.queryByRole('button', { name: 'Chạy lại' })).not.toBeInTheDocument())
+      await screen.findByRole('table', { name: 'Dòng lỗi' })
+    }
+
+    test('lỗi tải của lần chạy trước không còn hiện trên kết quả mới', async () => {
+      server.use(
+        http.get(EXPORT_URL, ({ request }) =>
+          new URL(request.url).searchParams.get('format') === 'csv'
+            ? problemResponse(500, 'EXPORT_FAILED', 'Export could not be created.')
+            : problemResponse(409, 'RESULT_NOT_AVAILABLE', 'Result is not available.'),
+        ),
+      )
+      const user = userEvent.setup()
+      await openWith(user)
+      await user.click(exportButton('Tải CSV'))
+      await within(exportGroup()).findByRole('alert')
+
+      await rerunAfterUnavailable(user)
+
+      expect(within(exportGroup()).queryByRole('alert')).not.toBeInTheDocument()
+    })
+
+    test('lượt tải còn dở của lần chạy trước bị huỷ: không lưu file, không báo đã tải trên kết quả mới', async () => {
+      const saved = captureDownloads()
+      const hold = gate()
+      server.use(
+        http.get(EXPORT_URL, async ({ request }) => {
+          if (new URL(request.url).searchParams.get('format') === 'json') {
+            return problemResponse(409, 'RESULT_NOT_AVAILABLE', 'Result is not available.')
+          }
+          await hold.promise
+          return csvFile('a\r\n', 'old-valid.csv')
+        }),
+      )
+      const user = userEvent.setup()
+      await openWith(user)
+      await user.click(exportButton('Tải CSV'))
+
+      await rerunAfterUnavailable(user)
+      hold.open()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      expect(saved).toEqual([])
+      expect(screen.queryByText(/Đã tải/, { selector: '[role="status"]' })).not.toBeInTheDocument()
+      expect(exportButton('Tải CSV')).not.toHaveAttribute('aria-disabled')
+    })
+  })
+
+  describe('hai lượt tải cùng lúc', () => {
+    test('lượt này lỗi không xoá câu "đang tải" của lượt kia; bắt đầu lại một lượt không xoá lỗi của lượt khác', async () => {
+      captureDownloads()
+      const json = gate()
+      const csv = gate()
+      server.use(
+        http.get(EXPORT_URL, async ({ request }) => {
+          if (new URL(request.url).searchParams.get('format') === 'json') {
+            await json.promise
+            return problemResponse(500, 'EXPORT_FAILED', 'Export could not be created.')
+          }
+          await csv.promise
+          return csvFile('a\r\n', 'x-valid.csv')
+        }),
+        http.get(ERRORS_URL, () => csvFile('rowNumber\r\n', 'x-errors.csv')),
+      )
+      const user = userEvent.setup()
+      await openWith(user)
+
+      await user.click(exportButton('Tải JSON'))
+      await user.click(exportButton('Tải CSV'))
+      json.open()
+
+      expect(await within(exportGroup()).findByRole('alert')).toHaveTextContent('Không tạo được file export')
+      expect(screen.getByText('Đang tải file CSV…', { selector: '[role="status"]' })).toBeInTheDocument()
+      csv.open()
+      await screen.findByText('Đã tải x-valid.csv', { selector: '[role="status"]' })
+      await user.click(exportButton('Tải báo cáo lỗi'))
+      await screen.findByText('Đã tải x-errors.csv', { selector: '[role="status"]' })
+      expect(within(exportGroup()).getByRole('alert')).toHaveTextContent('Không tạo được file export')
+    })
+  })
+
+  test('409 khi một trang khác đang tải ("Chạy lại" còn khoá): focus về tiêu đề bước; trang về muộn không được vẽ', async () => {
+    const exportHold = gate()
+    const pageHold = gate()
+    server.use(
+      http.get(EXPORT_URL, async () => {
+        await exportHold.promise
+        return problemResponse(409, 'RESULT_NOT_AVAILABLE', 'Result is not available.')
+      }),
+    )
+    const threePages = pipelineResultFixture({ page: { number: 0, size: 50, totalElements: 120, totalPages: 3 } })
+    const pages = pagesByView({ invalid: threePages })
+    const user = userEvent.setup()
+    render(<App />)
+    await openResultStep(user, {
+      result: async (query) => {
+        if (query.page === '1') await pageHold.promise
+        return pages(query)
+      },
+    })
+
+    await user.click(exportButton('Tải CSV'))
+    await user.click(screen.getByRole('button', { name: 'Sau' }))
+    exportHold.open()
+
+    await screen.findByText('Máy chủ không còn giữ kết quả này — chạy lại để có kết quả mới')
+    expect(screen.getByRole('button', { name: 'Chạy lại' })).toBeDisabled()
+    expect(screen.getByRole('heading', RESULT_HEADING)).toHaveFocus()
+    pageHold.open()
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Chạy lại' })).toBeEnabled())
+    expect(screen.getByText('Trang 1 / 3')).toBeInTheDocument()
   })
 
   describe('khoá nút', () => {
@@ -174,6 +304,18 @@ describe('tải kết quả', () => {
       expect(exportButton('Tải báo cáo lỗi')).toBeDisabled()
       expect(exportButton('Tải báo cáo lỗi')).toHaveAccessibleDescription('Không có dòng lỗi để tải')
       expect(exportButton('Tải CSV')).toBeEnabled()
+    })
+
+    test('kết quả cũ thì lý do khoá là "chạy lại", kể cả khi không có dòng hợp lệ', async () => {
+      const user = userEvent.setup()
+      await openWith(user, pipelineSummaryFixture({ valid: 0, invalid: 120 }))
+
+      await user.click(stepButton(/Biến đổi & kiểm tra/))
+      await user.click(within(fieldRegion('Họ tên')).getByRole('checkbox', { name: /unique/ }))
+      await user.click(stepButton(/Kết quả/))
+      await screen.findByRole('heading', RESULT_HEADING)
+
+      expect(exportButton('Tải CSV')).toHaveAccessibleDescription('Chạy lại để tải kết quả khớp cấu hình hiện tại')
     })
 
     test('kết quả cũ (đã sửa cấu hình): khoá cả ba nút kèm lý do', async () => {

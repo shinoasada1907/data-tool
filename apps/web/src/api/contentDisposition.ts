@@ -7,10 +7,11 @@ export function fileNameFromContentDisposition(header: string | null): string | 
   if (!header) return null
   const params = parseParams(header)
   const extended = params.get('filename*')
-  const name = (extended === undefined ? null : decodeExtValue(extended)) ?? params.get('filename') ?? null
+  // `filename*` rỗng hay hỏng thì rơi về `filename`.
+  const name = (extended === undefined ? null : decodeExtValue(extended)) || params.get('filename') || null
   if (name === null) return null
-  // eslint-disable-next-line no-control-regex -- chủ đích: loại ký tự điều khiển khỏi tên file.
-  const safe = name.replace(/[/\\\u0000-\u001f\u007f]/g, '_')
+  // Ký tự đường dẫn, điều khiển (Cc) và định dạng vô hình (Cf, ví dụ U+202E đảo chiều chữ), như BE (be-f10 F10-D6).
+  const safe = name.replace(/[/\\\p{Cc}\p{Cf}]/gu, '_')
   return safe.trim() === '' ? null : safe
 }
 
@@ -21,7 +22,9 @@ function parseParams(header: string): Map<string, string> {
   for (const match of header.matchAll(pattern)) {
     const name = match[1].toLowerCase()
     const raw = match[2].trim()
-    const value = raw.startsWith('"') ? raw.slice(1, -1).replace(/\\(.)/g, '$1') : raw
+    // Chỉ bỏ ngoặc kép khi có cả hai đầu; thiếu ngoặc đóng thì giữ nguyên phần sau ngoặc mở, không cắt mất ký tự cuối.
+    const quoted = raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"')
+    const value = quoted ? raw.slice(1, -1).replace(/\\(.)/g, '$1') : raw.replace(/^"/, '')
     if (!params.has(name)) params.set(name, value)
   }
   return params

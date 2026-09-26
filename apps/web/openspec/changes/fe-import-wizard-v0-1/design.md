@@ -146,13 +146,14 @@ FE chỉ kiểm **cấu hình**: tên field, field required chưa map, hằng r�
 
 ### D10. Export bằng `fetch` + blob
 - *Vì sao*: F10 đòi "hiển thị download error nếu request thất bại". Một link `<a href>` trực tiếp không bắt được lỗi, và trình duyệt sẽ tải về chính body lỗi.
-- *Đánh đổi*: cả file nằm trong RAM của trình duyệt, tối đa cỡ vài chục MB vì upload giới hạn 20 MB. V0.1 chấp nhận.
+- *Đánh đổi*: cả file nằm trong RAM của trình duyệt. ~~Tối đa cỡ vài chục MB vì upload giới hạn 20 MB.~~ **Sửa sau review FE-F10 — LÝ DO:** theo tính toán của BE, 20 MB CSV có thể thành khoảng 130 MB JSON. V0.1 vẫn chấp nhận; về sau đổi sang tải qua link trực tiếp.
 - Tên file ưu tiên `filename*` (RFC 5987; BE luôn gửi dạng này), sau đó `filename`, cuối cùng là tên dự phòng. Luôn loại `/` và `\` khỏi tên.
 - Hiện thực (FE-F10):
-  - `download.ts` dùng chung phần fetch + timeout + huỷ với `request()` (`fetchWithin`), timeout 5 phút như BE (be-f10 F10-D8).
+  - `download.ts` dùng chung phần fetch + huỷ với `request()` (`fetchWithin`). ~~Timeout 5 phút như BE (be-f10 F10-D8).~~ **Đổi sau review FE-F10 — LÝ DO:** BE đã bỏ F10-D8 (giới hạn tổng làm file lớn bị cắt trên mạng chậm). Nay là thời gian im lặng 30 giây: chưa có header, hoặc giữa hai chunk; đọc body theo chunk và tính lại sau mỗi chunk. Proxy của Vite không chuyển việc BE cắt kết nối giữa chừng về trình duyệt (request treo), nên thời gian im lặng cũng là thứ kết thúc lượt tải trong trường hợp đó.
+  - Bị huỷ khi đang đọc body thì không bao giờ trả file bị cắt cụt.
   - BE lỗi sau khi đã gửi một phần file thì cắt kết nối, status vẫn 200: `blob()` reject, FE coi là lỗi mạng và không lưu gì.
   - Không có `Content-Disposition` thì dùng tên dự phòng theo đúng luật của BE (bỏ đuôi cuối, thay `"`, `\`, `/`, ký tự điều khiển; rỗng thì `export`).
-  - Tải file không khoá điều hướng; rời bước thì huỷ lượt tải (tiêu chí ngoại lệ của D2).
+  - Tải file không khoá điều hướng; rời bước thì huỷ lượt tải (tiêu chí ngoại lệ của D2). Lượt tải gắn với lần chạy (`ResultState.runId`): chạy lại thì cụm tải mới, lượt tải cũ bị huỷ và lỗi cũ không còn hiện.
 - FE và BE cùng origin qua Vite proxy nên không cần CORS. Nếu sau này deploy khác origin, BE phải bật `Access-Control-Expose-Headers: Content-Disposition`.
 
 ### D11. Kiểm file phía client chỉ là lớp UX
@@ -302,6 +303,8 @@ src/
   | `sessionUnusable` | process lỗi và session `FAILED` hoặc không còn | "Phiên import không dùng được nữa — kết quả này là của lần chạy trước, hãy upload lại file" | "Upload lại" |
 
   - `sessionUnusable` luôn thắng, vì chạy lại chắc chắn lỗi; các lý do khác giữ lý do có trước.
+  - Tải trang hoặc tải file gặp `SESSION_NOT_FOUND`/`SESSION_STATE_INVALID` cũng là `sessionUnusable` (review FE-F10), không chỉ hiện khối lỗi.
+  - Nút hành động của cảnh báo nhận focus nếu bấm được; đang khoá (một request khác còn chạy) thì focus tiêu đề bước. Trang về tới sau khi kết quả đã cũ thì không vẽ.
   - *Vì sao*: bản đầu dùng một boolean cho cả ba. Process trả 422 thì màn Kết quả báo "Cấu hình đã thay đổi" dù user không sửa gì, và mời "Chạy lại" trên session đã `FAILED`.
 - FE đánh dấu cũ cả khi user sửa rồi sửa ngược lại về đúng cấu hình cũ, dù BE vẫn giữ kết quả (BE so `configHash`, PUT không đổi gì thì giữ `PROCESSED`). Chấp nhận: sớm hơn BE thì chỉ tốn một lần chạy lại, còn muộn hơn thì user xem kết quả không khớp cấu hình.
 

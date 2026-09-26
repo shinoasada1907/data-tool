@@ -550,7 +550,7 @@ describe('kết quả xử lý', () => {
 
   test('processCompleted lưu kết quả (chưa cũ, trang đầu chưa tải) và sang bước Kết quả', () => {
     expect(processed.step).toBe('result')
-    expect(processed.result).toEqual({ summary, columns, query, page: null, stale: null })
+    expect(processed.result).toEqual({ runId: 1, summary, columns, query, page: null, stale: null })
   })
 
   test('resultPageLoaded thay trang đang xem và truy vấn, giữ tóm tắt và cột', () => {
@@ -580,6 +580,13 @@ describe('kết quả xử lý', () => {
     // Sửa cấu hình sau khi session đã hỏng: vẫn chỉ còn cách upload lại.
     const editedAgain = wizardReducer(dead, { type: 'validationToggled', key: 'f1', rule: 'unique', enabled: false })
     expect(editedAgain.result?.stale).toBe('sessionUnusable')
+  })
+
+  test('trang về tới sau khi kết quả đã cũ thì không thay trang đang xem (design D18)', () => {
+    const stale = wizardReducer(completed, { type: 'resultUnavailable', reason: 'unavailable' })
+    const nextPage: ResultPage = { ...page, number: 1, totalPages: 2 }
+
+    expect(wizardReducer(stale, { type: 'resultPageLoaded', query: { ...query, page: 1 }, page: nextPage })).toBe(stale)
   })
 
   test('chưa có kết quả thì resultPageLoaded và resultUnavailable không làm gì', () => {
@@ -625,7 +632,8 @@ describe('kết quả xử lý', () => {
 
     const next = wizardReducer(stale, { type: 'processCompleted', summary: newSummary, columns, query: validQuery })
 
-    expect(next.result).toEqual({ summary: newSummary, columns, query: validQuery, page: null, stale: null })
+    // Lần chạy thứ hai của session: runId tăng, để phần gắn với lần chạy trước (lượt tải file…) được bỏ.
+    expect(next.result).toEqual({ runId: 2, summary: newSummary, columns, query: validQuery, page: null, stale: null })
   })
 
   test('sessionCreated và reset xoá kết quả', () => {

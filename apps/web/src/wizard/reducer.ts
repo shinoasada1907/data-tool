@@ -50,10 +50,12 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
       return markSaved(state, action)
     case 'processCompleted': {
       const { summary, columns, query } = action
-      return { ...state, step: 'result', result: { summary, columns, query, page: null, stale: null } }
+      const runId = (state.result?.runId ?? 0) + 1
+      return { ...state, step: 'result', result: { runId, summary, columns, query, page: null, stale: null } }
     }
     case 'resultPageLoaded':
-      if (!state.result) return state
+      // Trang về tới sau khi kết quả đã cũ: không vẽ, giữ trang đang xem (design D18).
+      if (!state.result || state.result.stale !== null) return state
       return { ...state, result: { ...state.result, query: action.query, page: action.page } }
     case 'resultUnavailable': {
       if (!state.result) return state

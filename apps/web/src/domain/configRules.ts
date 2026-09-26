@@ -59,8 +59,8 @@ export function checkMapping(fields: readonly TargetField[], mapping: MappingDra
 // - tham số transformation: `TextValues.isEmpty`, thêm cả NBSP (U+00A0, U+2007, U+202F).
 // Khác `trim()` của JS: U+001C–U+001F là khoảng trắng theo Java, còn NBSP thì tuỳ luật.
 
-/** `String.isBlank()` của Java: luật BE dùng cho giá trị cố định ở mapping. */
-function isBlankLikeJava(value: string): boolean {
+/** `String.isBlank()` của Java: luật BE dùng cho giá trị cố định ở mapping (và cho tên file export, be-f10). */
+export function isBlankLikeJava(value: string): boolean {
   // Cố ý khớp ký tự điều khiển: U+001C–U+001F là khoảng trắng theo Java.
   // oxlint-disable-next-line no-control-regex
   return /^[\t\n\u000B\f\r\u001C-\u001F \u1680\u2000-\u2006\u2008-\u200A\u2028\u2029\u205F\u3000]*$/.test(value)

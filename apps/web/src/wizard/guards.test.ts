@@ -25,6 +25,7 @@ const summary: PipelineSummary = {
   processedAt: '2026-09-26T09:00:00Z',
 }
 const result: NonNullable<WizardState['result']> = {
+  runId: 1,
   summary,
   columns: ['email'],
   query: { view: 'valid', page: 0, field: null, code: null },
