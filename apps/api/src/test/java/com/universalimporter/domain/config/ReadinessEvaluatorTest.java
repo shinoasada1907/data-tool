@@ -6,6 +6,7 @@ import com.universalimporter.domain.mapping.MappingConfig;
 import com.universalimporter.domain.mapping.MappingType;
 import com.universalimporter.domain.schema.FieldSpec;
 import com.universalimporter.domain.schema.TargetSchema;
+import com.universalimporter.domain.transformation.TransformationConfig;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -65,6 +66,7 @@ class ReadinessEvaluatorTest {
         List<FieldMapping> mappings = java.util.Arrays.stream(mapped)
                 .map(field -> new FieldMapping(field, MappingType.CONSTANT, null, "x"))
                 .toList();
-        return new ImportConfiguration(ID, TargetSchema.define(fields), new MappingConfig(mappings), null);
+        return new ImportConfiguration(ID, TargetSchema.define(fields), new MappingConfig(mappings),
+                TransformationConfig.empty(), null);
     }
 }

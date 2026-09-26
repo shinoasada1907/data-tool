@@ -6,6 +6,8 @@ import com.universalimporter.domain.mapping.MappingConfig;
 import com.universalimporter.domain.mapping.MappingType;
 import com.universalimporter.domain.schema.FieldSpec;
 import com.universalimporter.domain.schema.TargetSchema;
+import com.universalimporter.domain.transformation.TransformationConfig;
+import com.universalimporter.domain.transformation.TransformationStep;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -90,6 +92,43 @@ class ImportConfigurationTest {
     }
 
     @Test
+    void with_schema_prunes_transformations_after_mappings() {
+        ImportConfiguration configuration = new ImportConfiguration(ID,
+                schema(new FieldSpec("name", "string", true, 0), new FieldSpec("phone", "string", false, 1)),
+                new MappingConfig(List.of(constant("phone"))),
+                new TransformationConfig(List.of(trim("name", 0), trim("phone", 0))), 3L);
+
+        ConfigChange change = configuration.withSchema(schema(new FieldSpec("name", "string", true, 0)));
+
+        assertThat(change.configuration().transformations().transformations()).containsExactly(trim("name", 0));
+        assertThat(change.warnings()).extracting(ProblemItem::message).containsExactly(
+                "Mapping for this field was removed because the field no longer exists.",
+                "Transformations removed because field 'phone' no longer exists.");
+    }
+
+    @Test
+    void with_transformations_replaces_them_without_warnings() {
+        ImportConfiguration configuration = configuration(schema(new FieldSpec("name", "string", true, 0)),
+                MappingConfig.empty());
+
+        ConfigChange change = configuration.withTransformations(new TransformationConfig(List.of(trim("name", 0))));
+
+        assertThat(change.configuration().transformations().transformations()).containsExactly(trim("name", 0));
+        assertThat(change.warnings()).isEmpty();
+    }
+
+    @Test
+    void transformations_are_always_kept_in_schema_then_step_order() {
+        ImportConfiguration configuration = new ImportConfiguration(ID,
+                schema(new FieldSpec("name", "string", true, 0), new FieldSpec("note", "string", false, 1)),
+                MappingConfig.empty(),
+                new TransformationConfig(List.of(trim("note", 0), trim("name", 1), trim("name", 0))), null);
+
+        assertThat(configuration.transformations().transformations())
+                .containsExactly(trim("name", 0), trim("name", 1), trim("note", 0));
+    }
+
+    @Test
     void with_schema_replaces_the_schema_and_keeps_the_version() {
         TargetSchema schema = TargetSchema.define(List.of(new FieldSpec("email", "email", true, 0)));
 
@@ -106,7 +145,11 @@ class ImportConfigurationTest {
     }
 
     private static ImportConfiguration configuration(TargetSchema schema, MappingConfig mapping) {
-        return new ImportConfiguration(ID, schema, mapping, 3L);
+        return new ImportConfiguration(ID, schema, mapping, TransformationConfig.empty(), 3L);
+    }
+
+    private static TransformationStep trim(String field, int order) {
+        return new TransformationStep(field, order, "trim", null);
     }
 
     private static FieldMapping constant(String field) {

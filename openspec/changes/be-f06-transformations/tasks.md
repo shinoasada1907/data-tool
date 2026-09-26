@@ -326,7 +326,7 @@
 **Interfaces:**
 - Produces: `public Pruned<TransformationConfig> prunedFor(TargetSchema newSchema)`. `Pruned` lấy của F04 nếu F04 đã có kiểu tương đương, nếu không thì là `record Pruned<T>(T config, List<ProblemItem> warnings)`. Warning có `code = "CONFIG_PRUNED"`.
 
-- [ ] 7.1 Viết `TransformationConfigPruneTest`:
+- [x] 7.1 Viết `TransformationConfigPruneTest`:
   | Config cũ | Schema mới | Config mới | Warnings |
   |---|---|---|---|
   | `[{phone,0,trim},{name,0,trim}]` | `name:string` | `[{name,0,trim}]` | `[(phone, "Transformations removed because field 'phone' no longer exists.")]` |
@@ -334,10 +334,23 @@
   | `[{dob,0,dateFormat,{in:dd/MM/yyyy}}]` | `dob:date` | giữ nguyên | `[]` |
   | `[{dob,0,dateFormat,{in:dd/MM/yyyy,out:yyyy-MM-dd}}]` | `dob:date` | giữ nguyên | `[]` |
   | `[{name,0,trim}]` | `name:string` | giữ nguyên | `[]` |
-- [ ] 7.2 Chạy `./mvnw -q test -Dtest=TransformationConfigPruneTest`. Mong đợi: FAIL.
-- [ ] 7.3 Viết `prunedFor`, rồi đăng ký vào khung prune của F04, để PUT `/schema` gom warning của phần transformations.
-- [ ] 7.4 Chạy lại lệnh ở 7.2, và cả test PUT `/schema` của F04. Mong đợi: PASS.
-- [ ] 7.5 Commit: `feat(domain): prune transformations when the target schema changes`
+- [x] 7.2 Chạy `./mvnw -q test -Dtest=TransformationConfigPruneTest`. Mong đợi: FAIL.
+- [x] 7.3 Viết `prunedFor`, rồi đăng ký vào khung prune của F04, để PUT `/schema` gom warning của phần transformations.
+- [x] 7.4 Chạy lại lệnh ở 7.2, và cả test PUT `/schema` của F04. Mong đợi: PASS.
+- [x] 7.5 Commit: `feat(domain): prune transformations when the target schema changes`
+
+### 7b. (thêm) Lưu, hash và giữ thứ tự chuẩn của transformations
+
+**LÝ DO:** plan giả định có sẵn "lớp serialize config" dùng chung. Thực tế mỗi phần cấu hình tự có document riêng và adapter đọc/ghi từng cột (xem bảng ở task 1), nên phải thêm phần này. Làm gộp vào commit của task 7, vì `ImportConfiguration` đổi constructor thì mọi chỗ phải đổi cùng lúc.
+
+- [x] 7b.1 `ImportConfiguration` có thêm `TransformationConfig transformations`:
+  - `withTransformations(...)`;
+  - `withSchema` gọi `transformations.prunedFor(schema)`, sau phần prune mapping;
+  - constructor gọi `transformations.normalized(schema)` (bài học review F05).
+  - Test trong `ImportConfigurationTest`: prune qua `withSchema`, thứ tự warning mapping rồi đến transformations, và bất biến thứ tự.
+- [x] 7b.2 `TransformationsDocument`, cột `transformations_json` trong entity và adapter. Test: đọc lại đúng bản đã lưu; row của F05 (cột mặc định) đọc ra `TransformationConfig.empty()`.
+- [x] 7b.3 `JsonConfigHasher` hash thêm `TransformationsDocument`. Test: transformation đổi thì hash đổi; params gửi theo thứ tự khác vẫn cùng hash (`ORDER_MAP_ENTRIES_BY_KEYS`).
+- [x] 7b.4 Khung prune của F04: `FieldScopedSection` có thêm `default String prunedMessage(String field)`, và `ConfigPruner` dùng hàm này. Mapping giữ message cũ; `TransformationConfig` override theo message của spec F06. Thêm `domain.config.Pruned<T>`.
 
 ## 8. Use case: cập nhật transformations
 
