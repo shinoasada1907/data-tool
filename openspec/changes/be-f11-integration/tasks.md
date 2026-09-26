@@ -390,13 +390,13 @@
 - Create: `README.md` (gốc repo)
 - Test: `TEST/api/NoCorsIntegrationTest.java`
 
-- [ ] 9.1 Viết `NoCorsIntegrationTest`:
+- [x] 9.1 Viết `NoCorsIntegrationTest`:
   | Request | Mong đợi |
   |---|---|
   | `GET /api/import-sessions/{id}` kèm header `Origin: http://localhost:5173` | 200; response **không** có header `Access-Control-Allow-Origin` |
   | `OPTIONS /api/import-sessions/{id}` kèm `Origin: http://localhost:5173` và `Access-Control-Request-Method: GET` | response không có header `Access-Control-Allow-Origin` |
-- [ ] 9.2 Chạy `./mvnw -q test -Dtest=NoCorsIntegrationTest`. Mong đợi: PASS, vì D3 không cấu hình CORS. Nếu có header thì tìm chỗ nào đã bật CORS và gỡ đi.
-- [ ] 9.3 Viết `README.md` ở gốc repo, gồm các mục:
+- [x] 9.2 Chạy `./mvnw -q test -Dtest=NoCorsIntegrationTest`. Mong đợi: PASS, vì D3 không cấu hình CORS. Nếu có header thì tìm chỗ nào đã bật CORS và gỡ đi.
+- [x] 9.3 Viết `README.md` ở gốc repo, gồm các mục:
   1. Universal Importer là gì (2–3 câu), và cấu trúc `apps/api`, `apps/web`.
   2. Yêu cầu: Java 21, Docker, Node + pnpm.
   3. **Demo flow**:
@@ -416,8 +416,16 @@
      - session tự xoá sau 24h không có lệnh ghi;
      - không CORS.
   7. **Chạy test**: `cd apps/api && ./mvnw verify` (cần Docker cho Testcontainers).
-- [ ] 9.4 Làm theo README từ đầu trên máy local, gồm cả phần curl. Chỗ nào không chạy được thì sửa README, rồi làm lại.
-- [ ] 9.5 Commit: `docs: root README with demo flow and environment variables`
+- [x] 9.4 Làm theo README từ đầu trên máy local, gồm cả phần curl. Chỗ nào không chạy được thì sửa README, rồi làm lại.
+  - Kết quả 2026-09-27: trích **nguyên văn** khối curl trong README, chỉ đổi cổng 8080 thành 8081, rồi chạy bằng bash.
+    - Kết quả: upload → `CONFIGURING`; schema → mapping → `READY`; process: total 4 / valid 1 / invalid 3.
+    - Ba file tải về đúng tên (`customers-valid.json`, `customers-valid.csv` có BOM `EF BB BF`, `customers-errors.csv`); JSON đúng một row hợp lệ.
+  - Chạy trên **Postgres riêng** (container tạm ở cổng 55432) và `IMPORTER_STORAGE_DIR` riêng. **LÝ DO**: app F11 dọn dẹp ngay khi khởi động, nên không được chạy bản của nhánh trên DB dev dùng chung.
+    - Lần đầu mình lỡ chạy trên DB chung. Cleanup lúc khởi động xoá 0 session và 0 thư mục; đã tắt app ngay.
+  - ~~Chạy `pnpm install && pnpm dev`~~ phần FE: không chạy ở đây. **LÝ DO**: là việc của phiên FE; `apps/web/README.md` do phiên FE viết ở FE-F11 (đã thống nhất qua SendMessage). README gốc chỉ link sang đó.
+  - README gốc dùng tên và giá trị mặc định biến môi trường FE do phiên FE xác nhận. `VITE_USE_MOCK` ghi là "có ở FE-F11".
+  - README có thêm các giới hạn phát hiện trong F08–F11: mỗi instance cần `IMPORTER_STORAGE_DIR` riêng; số lớn khi dùng `JSON.parse`; export hỏng giữa chừng thì cắt kết nối, và proxy phải dùng HTTP/1.1.
+- [x] 9.5 Commit: `docs: root README with demo flow and environment variables`
 
 ## 10. Kiểm tra toàn bộ và hoàn tất
 
