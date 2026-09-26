@@ -3,7 +3,6 @@ const DEFAULT_MAX_UPLOAD_MB = 20
 
 export interface AppConfig {
   maxUploadMb: number
-  useMock: boolean
 }
 
 export function readConfig(env: Record<string, unknown>): AppConfig {
@@ -12,7 +11,6 @@ export function readConfig(env: Record<string, unknown>): AppConfig {
 
   return {
     maxUploadMb: Number.isFinite(maxUploadMb) && maxUploadMb > 0 ? maxUploadMb : DEFAULT_MAX_UPLOAD_MB,
-    useMock: env.VITE_USE_MOCK === 'true',
   }
 }
 

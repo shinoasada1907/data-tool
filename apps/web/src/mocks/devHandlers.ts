@@ -1,32 +1,45 @@
 import { http, HttpResponse, type RequestHandler } from 'msw'
-import type { PipelineResultDto, SourceFileType } from '../api/dto'
-import {
-  configUpdateFixture,
-  csvPreviewFixture,
-  importSessionFixture,
-  pipelineResultFixture,
-  pipelineSummaryFixture,
-  problemFixture,
-  validResultFixture,
-  xlsxPreviewFixture,
-} from './fixtures'
+import type {
+  ImportErrorDto,
+  MappingConfigDto,
+  PipelineResultDto,
+  PipelineSummaryDto,
+  SourceFileType,
+  SourcePreviewDto,
+  TargetSchemaDto,
+} from '../api/dto'
+import { configUpdateFixture, csvPreviewFixture, importSessionFixture, problemFixture, xlsxPreviewFixture } from './fixtures'
 
-// BE giả cho chế độ `pnpm dev:mock` (design D15): đi hết luồng upload → export mà không cần BE. Dữ liệu là mẫu cố định
-// trong fixtures.ts, không phụ thuộc file upload hay cấu hình: FE không chạy logic dữ liệu (design D8). Không dùng cho
-// test, vì test tự khai báo từng response để kiểm đúng tình huống của nó.
+// BE giả cho chế độ `pnpm dev:mock` (design D15): đi hết luồng upload → export mà không cần BE.
+// - Dữ liệu nguồn là bảng mẫu cố định theo loại file (CSV hoặc XLSX, trong fixtures.ts), không đọc file upload.
+// - Kết quả dựng từ bảng mẫu theo schema và mapping đã PUT, nên đổi tên field hay đổi mapping thì thấy ngay. Không chạy
+//   biến đổi hay kiểm tra (design D8): dòng mẫu thứ hai luôn lỗi ở field đầu tiên, các dòng khác hợp lệ.
+// - Như BE: PUT làm cấu hình đổi thì xoá kết quả (result và export trả 409); PUT giống hệt bản đã có thì giữ kết quả.
+// Không dùng cho test của từng bước: test tự khai báo từng response để kiểm đúng tình huống của nó.
+
+type ConfigSection = 'schema' | 'mapping' | 'transformations' | 'validations'
 
 interface MockSession {
   id: string
   fileName: string
   fileType: SourceFileType
   sizeBytes: number
-  /** Tên field của schema đã PUT, theo thứ tự: key của file export. */
-  fieldNames: string[]
-  /** Đã process và cấu hình chưa đổi từ đó: result và export dùng được. */
-  processed: boolean
+  /** Body đã PUT của từng phần cấu hình, để nhận ra PUT không đổi gì (BE so `configHash`). */
+  config: Partial<Record<ConfigSection, string>>
+  /** Kết quả của lần process gần nhất; null khi chưa chạy hoặc cấu hình đã đổi. */
+  result: MockRow[] | null
+}
+
+interface MockRow {
+  rowNumber: number
+  valid: boolean
+  /** Theo thứ tự schema (mảng song song với `fieldNames`), để export giữ đúng thứ tự dù tên field là số. */
+  values: (string | null)[]
+  errors: ImportErrorDto[]
 }
 
 const SESSIONS = '/api/import-sessions'
+const SECTIONS: readonly ConfigSection[] = ['schema', 'mapping', 'transformations', 'validations']
 
 /** Mỗi lần gọi là một BE giả mới, không có session nào. */
 export function createDevHandlers(): RequestHandler[] {
@@ -36,26 +49,17 @@ export function createDevHandlers(): RequestHandler[] {
     return sessions.get(id) ?? problem(404, 'SESSION_NOT_FOUND', 'Import session not found.')
   }
 
-  function configChanged(id: string, fieldNames?: string[]) {
-    const session = find(id)
-    if (session instanceof Response) return session
-    session.processed = false
-    if (fieldNames) session.fieldNames = fieldNames
-    return HttpResponse.json(configUpdateFixture())
-  }
-
   return [
     http.post(SESSIONS, async ({ request }) => {
       const upload = await readUpload(request)
       if (!upload) return problem(400, 'REQUEST_INVALID', 'Part "file" is missing.')
-      const fileType: SourceFileType = upload.name.toLowerCase().endsWith('.xlsx') ? 'XLSX' : 'CSV'
       const session: MockSession = {
         id: crypto.randomUUID(),
         fileName: upload.name,
-        fileType,
+        fileType: upload.name.toLowerCase().endsWith('.xlsx') ? 'XLSX' : 'CSV',
         sizeBytes: upload.size,
-        fieldNames: [],
-        processed: false,
+        config: {},
+        result: null,
       }
       sessions.set(session.id, session)
       return HttpResponse.json(toSessionDto(session), { status: 201 })
@@ -68,58 +72,64 @@ export function createDevHandlers(): RequestHandler[] {
 
     http.get<{ id: string }>(`${SESSIONS}/:id/preview`, ({ params }) => {
       const session = find(params.id)
-      if (session instanceof Response) return session
-      const preview = session.fileType === 'XLSX' ? xlsxPreviewFixture() : csvPreviewFixture()
-      return HttpResponse.json({ ...preview, sessionId: session.id })
+      return session instanceof Response ? session : HttpResponse.json(samplePreview(session))
     }),
 
-    http.put<{ id: string }>(`${SESSIONS}/:id/schema`, async ({ params, request }) => {
-      const body = (await request.json()) as { fields?: { name: string }[] }
-      return configChanged(params.id, (body.fields ?? []).map((field) => field.name))
-    }),
-    http.put<{ id: string }>(`${SESSIONS}/:id/mapping`, ({ params }) => configChanged(params.id)),
-    http.put<{ id: string }>(`${SESSIONS}/:id/transformations`, ({ params }) => configChanged(params.id)),
-    http.put<{ id: string }>(`${SESSIONS}/:id/validations`, ({ params }) => configChanged(params.id)),
+    ...SECTIONS.map((section) =>
+      http.put<{ id: string }>(`${SESSIONS}/:id/${section}`, async ({ params, request }) => {
+        const session = find(params.id)
+        if (session instanceof Response) return session
+        const body = await request.text()
+        if (session.config[section] !== body) {
+          session.config[section] = body
+          session.result = null
+        }
+        return HttpResponse.json(configUpdateFixture())
+      }),
+    ),
 
     http.post<{ id: string }>(`${SESSIONS}/:id/process`, ({ params }) => {
       const session = find(params.id)
       if (session instanceof Response) return session
-      session.processed = true
-      return HttpResponse.json(summaryOf(session.id))
+      if (fieldNames(session).length === 0) {
+        return problem(409, 'SESSION_NOT_READY', 'Session is not ready.', [
+          { field: null, code: 'SCHEMA_EMPTY', message: 'Target schema has no fields.' },
+        ])
+      }
+      session.result = runPipeline(session)
+      return HttpResponse.json(summaryOf(session, session.result))
     }),
 
     http.get<{ id: string }>(`${SESSIONS}/:id/result`, ({ params, request }) => {
       const session = find(params.id)
       if (session instanceof Response) return session
-      if (!session.processed) return problem(409, 'RESULT_NOT_AVAILABLE', 'Result is not available.')
-      const query = new URL(request.url).searchParams
-      const page = Number(query.get('page') ?? 0)
-      const result = resultPage(query.get('view') === 'invalid', page, query.get('field'), query.get('code'))
-      return HttpResponse.json({ ...result, summary: summaryOf(session.id) })
+      if (!session.result) return problem(409, 'RESULT_NOT_AVAILABLE', 'Result is not available.')
+      return HttpResponse.json(resultPage(session, session.result, new URL(request.url).searchParams))
     }),
 
     http.get<{ id: string }>(`${SESSIONS}/:id/export`, ({ params, request }) => {
       const session = find(params.id)
       if (session instanceof Response) return session
-      if (!session.processed) return problem(409, 'RESULT_NOT_AVAILABLE', 'Result is not available.')
-      const rows = validResultFixture().rows.map((row) => session.fieldNames.map((name) => row.values[name] ?? null))
+      if (!session.result) return problem(409, 'RESULT_NOT_AVAILABLE', 'Result is not available.')
+      const names = fieldNames(session)
+      const rows = session.result.filter((row) => row.valid)
       if (new URL(request.url).searchParams.get('format') === 'json') {
         // Ghép chuỗi thay vì dựng object: object của JS đưa key dạng số ("1", "2024") lên đầu, lệch thứ tự schema.
         const objects = rows.map(
-          (values) => `{${session.fieldNames.map((name, i) => `${JSON.stringify(name)}:${JSON.stringify(values[i])}`).join(',')}}`,
+          (row) => `{${names.map((name, i) => `${JSON.stringify(name)}:${JSON.stringify(row.values[i])}`).join(',')}}`,
         )
         return file(`[${objects.join(',')}]`, 'application/json', exportName(session.fileName, '-valid.json'))
       }
-      const lines = [session.fieldNames, ...rows.map((values) => values.map((value) => (value === null ? '' : String(value))))]
+      const lines = [names, ...rows.map((row) => row.values.map((value) => value ?? ''))]
       return file(`﻿${toCsv(lines)}`, 'text/csv;charset=UTF-8', exportName(session.fileName, '-valid.csv'))
     }),
 
     http.get<{ id: string }>(`${SESSIONS}/:id/errors/export`, ({ params }) => {
       const session = find(params.id)
       if (session instanceof Response) return session
-      if (!session.processed) return problem(409, 'RESULT_NOT_AVAILABLE', 'Result is not available.')
+      if (!session.result) return problem(409, 'RESULT_NOT_AVAILABLE', 'Result is not available.')
       const header = ['rowNumber', 'fieldName', 'stage', 'rule', 'step', 'code', 'message', 'sourceValue']
-      const lines = pipelineResultFixture().rows.flatMap((row) =>
+      const lines = session.result.flatMap((row) =>
         row.errors.map((error) => [
           String(error.rowNumber),
           error.fieldName,
@@ -134,6 +144,93 @@ export function createDevHandlers(): RequestHandler[] {
       return file(`﻿${toCsv([header, ...lines])}`, 'text/csv;charset=UTF-8', exportName(session.fileName, '-errors.csv'))
     }),
   ]
+}
+
+/** Bảng mẫu theo loại file; `totalRows` là đúng số dòng mẫu, để "Xem trước x / y dòng" khớp với thẻ Tổng. */
+function samplePreview(session: MockSession): SourcePreviewDto {
+  const preview = session.fileType === 'XLSX' ? xlsxPreviewFixture() : csvPreviewFixture()
+  return { ...preview, sessionId: session.id, totalRows: preview.rows.length }
+}
+
+function fieldNames(session: MockSession): string[] {
+  const schema = parse<TargetSchemaDto>(session.config.schema)
+  return (schema?.fields ?? []).map((field) => field.name)
+}
+
+/**
+ * Giá trị từng field theo mapping đã PUT: cột nguồn, hằng số, hoặc null nếu chưa map. Dòng mẫu thứ hai lỗi ở field đầu
+ * tiên, để màn Kết quả luôn có cả dòng hợp lệ lẫn dòng lỗi.
+ */
+function runPipeline(session: MockSession): MockRow[] {
+  const preview = samplePreview(session)
+  const names = fieldNames(session)
+  const mappings = parse<MappingConfigDto>(session.config.mapping)?.mappings ?? []
+  const valueOf = (name: string, source: (string | null)[]): string | null => {
+    const mapping = mappings.find((candidate) => candidate.targetField === name)
+    if (!mapping) return null
+    if (mapping.mappingType === 'CONSTANT') return mapping.constantValue
+    const column = preview.columns.findIndex((candidate) => candidate.name === mapping.sourceColumn)
+    return column === -1 ? null : (source[column] ?? null)
+  }
+
+  return preview.rows.map((row, index) => {
+    const values = names.map((name) => valueOf(name, row.values))
+    if (index !== 1) return { rowNumber: row.rowNumber, valid: true, values, errors: [] }
+    const error: ImportErrorDto = {
+      rowNumber: row.rowNumber,
+      fieldName: names[0],
+      stage: 'VALIDATION',
+      rule: 'type',
+      step: null,
+      code: 'VALIDATION_TYPE',
+      message: 'Mock: the second sample row always fails on the first field.',
+      sourceValue: values[0],
+    }
+    return { rowNumber: row.rowNumber, valid: false, values, errors: [error] }
+  })
+}
+
+function summaryOf(session: MockSession, rows: MockRow[]): PipelineSummaryDto {
+  const errors = rows.flatMap((row) => row.errors)
+  const countBy = (key: (error: ImportErrorDto) => string) =>
+    errors.reduce<Record<string, number>>((counts, error) => ({ ...counts, [key(error)]: (counts[key(error)] ?? 0) + 1 }), {})
+  const valid = rows.filter((row) => row.valid).length
+  return {
+    sessionId: session.id,
+    status: 'PROCESSED',
+    total: rows.length,
+    valid,
+    invalid: rows.length - valid,
+    errorCountsByCode: countBy((error) => error.code),
+    errorCountsByField: countBy((error) => error.fieldName),
+    processedAt: new Date().toISOString(),
+  }
+}
+
+/** Một trang kết quả; bộ lọc chỉ áp cho tab Lỗi, giữ dòng có ít nhất một lỗi khớp cả field lẫn mã (như BE-F09). */
+function resultPage(session: MockSession, rows: MockRow[], query: URLSearchParams): PipelineResultDto {
+  const invalid = query.get('view') === 'invalid'
+  const field = query.get('field')
+  const code = query.get('code')
+  const page = Number(query.get('page') ?? 0)
+  const size = Number(query.get('size') ?? 50)
+  const names = fieldNames(session)
+  const matching = rows.filter(
+    (row) =>
+      row.valid !== invalid &&
+      (!invalid || row.errors.some((error) => (!field || error.fieldName === field) && (!code || error.code === code))),
+  )
+  return {
+    summary: summaryOf(session, rows),
+    view: invalid ? 'invalid' : 'valid',
+    page: { number: page, size, totalElements: matching.length, totalPages: Math.ceil(matching.length / size) },
+    rows: matching.slice(page * size, (page + 1) * size).map((row) => ({
+      rowNumber: row.rowNumber,
+      valid: row.valid,
+      values: Object.fromEntries(names.map((name, i) => [name, row.values[i]])),
+      errors: row.errors,
+    })),
+  }
 }
 
 /**
@@ -152,51 +249,32 @@ async function readUpload(request: Request): Promise<{ name: string; size: numbe
   }
 }
 
-/** Summary khớp với các dòng mẫu: 2 dòng hợp lệ, 1 dòng lỗi mang 2 lỗi. */
-function summaryOf(sessionId: string) {
-  const invalidRows = pipelineResultFixture().rows
-  const errors = invalidRows.flatMap((row) => row.errors)
-  const countBy = (key: (error: (typeof errors)[number]) => string) =>
-    errors.reduce<Record<string, number>>((counts, error) => ({ ...counts, [key(error)]: (counts[key(error)] ?? 0) + 1 }), {})
-  const valid = validResultFixture().rows.length
-  return pipelineSummaryFixture({
-    sessionId,
-    total: valid + invalidRows.length,
-    valid,
-    invalid: invalidRows.length,
-    errorCountsByCode: countBy((error) => error.code),
-    errorCountsByField: countBy((error) => error.fieldName),
-  })
-}
-
 function toSessionDto(session: MockSession) {
   return importSessionFixture({
     id: session.id,
-    status: session.processed ? 'PROCESSED' : 'CONFIGURING',
+    status: session.result ? 'PROCESSED' : 'CONFIGURING',
     originalFileName: session.fileName,
     fileType: session.fileType,
     sizeBytes: session.sizeBytes,
   })
 }
 
-/** Trang kết quả từ mẫu cố định; bộ lọc giữ các dòng có ít nhất một lỗi khớp cả field lẫn mã (như BE-F09). */
-function resultPage(invalid: boolean, page: number, field: string | null, code: string | null): PipelineResultDto {
-  const base = invalid ? pipelineResultFixture() : validResultFixture()
-  const rows = base.rows.filter(
-    (row) =>
-      !invalid ||
-      row.errors.some((error) => (!field || error.fieldName === field) && (!code || error.code === code)),
-  )
-  const size = base.page.size
-  return {
-    ...base,
-    page: { number: page, size, totalElements: rows.length, totalPages: Math.ceil(rows.length / size) },
-    rows: rows.slice(page * size, (page + 1) * size),
+function parse<T>(json: string | undefined): T | null {
+  if (json === undefined) return null
+  try {
+    return JSON.parse(json) as T
+  } catch {
+    return null
   }
 }
 
-function problem(status: number, code: string, detail: string): Response {
-  return HttpResponse.json(problemFixture(status, code, detail), {
+function problem(
+  status: number,
+  code: string,
+  detail: string,
+  errors?: { field: string | null; code: string; message: string }[],
+): Response {
+  return HttpResponse.json(problemFixture(status, code, detail, errors ? { errors } : {}), {
     status,
     headers: { 'Content-Type': 'application/problem+json' },
   })

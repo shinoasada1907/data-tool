@@ -108,7 +108,8 @@ Giới hạn file XLSX (chống zip bomb) có thêm `IMPORTER_XLSX_MAX_UNCOMPRES
 |---|---|---|
 | `API_PROXY_TARGET` | `http://localhost:8080` | Đích proxy `/api` khi chạy `pnpm dev`. Chỉ dùng trong `vite.config.ts`, không bao giờ tới trình duyệt |
 | `VITE_MAX_UPLOAD_MB` | `20` | Giới hạn upload kiểm ở trình duyệt; phải khớp `IMPORTER_MAX_FILE_SIZE` |
-| `VITE_USE_MOCK` | `false` | `true` thì FE chạy trên dữ liệu giả (MSW), không cần backend. Chế độ này có ở FE-F11 |
+
+Chạy FE không cần backend: `cd apps/web && pnpm dev:mock` (BE giả bằng MSW trong trình duyệt, chỉ có ở dev server; xem [`apps/web/README.md`](apps/web/README.md)).
 
 ## Giới hạn đã biết của V0.1
 

@@ -74,7 +74,18 @@ describe('luồng đầy đủ', () => {
     }
   })
 
-  test('XLSX: bước Xem trước có tên sheet; schema sinh từ cột của sheet; đi tới kết quả', async () => {
+  test('XLSX: bước Xem trước có tên sheet; schema sinh từ cột của sheet; đi tới kết quả và tải CSV', async () => {
+    const downloads = captureDownloads()
+    server.use(
+      http.get('/api/import-sessions/:id/export', () =>
+        new HttpResponse('\uFEFFMã KH,Ngày sinh,Số dư\r\n', {
+          headers: {
+            'Content-Type': 'text/csv;charset=UTF-8',
+            'Content-Disposition': "attachment; filename*=UTF-8''khach-hang-valid.csv",
+          },
+        }),
+      ),
+    )
     mockUpload(() =>
       HttpResponse.json(importSessionFixture({ originalFileName: 'khach-hang.xlsx', fileType: 'XLSX' }), { status: 201 }),
     )
@@ -108,6 +119,9 @@ describe('luồng đầy đủ', () => {
     expect(within(screen.getByRole('group', { name: 'Tóm tắt kết quả' })).getAllByRole('definition')[0]).toHaveTextContent(
       '120',
     )
+    await user.click(within(screen.getByRole('group', { name: 'Tải kết quả' })).getByRole('button', { name: 'Tải CSV' }))
+    await screen.findByText('Đã tải khach-hang-valid.csv', { selector: '[role="status"]' })
+    expect(downloads.map((file) => file.fileName)).toEqual(['khach-hang-valid.csv'])
   })
 
   test('sửa cấu hình rồi chạy lại: đổi tên field ở Schema, lưu lại Schema và Mapping, chạy lại gửi tên mới; kết quả mới dùng tên mới', async () => {
@@ -126,8 +140,11 @@ describe('luồng đầy đủ', () => {
     expect(stepButton(/Kết quả/)).toHaveAttribute('aria-disabled', 'true')
     await user.click(nextButton())
     await screen.findByRole('heading', { level: 2, name: 'Mapping' })
+    expect(stepButton(/Kết quả/)).toHaveAttribute('aria-disabled', 'true')
     await user.click(nextButton())
     await screen.findByRole('heading', RULES_HEADING)
+    // Mapping đã lưu lại: bước Kết quả mở lại (kết quả cũ vẫn xem được), trước khi chạy lại.
+    expect(stepButton(/Kết quả/)).not.toHaveAttribute('aria-disabled')
     await user.click(runButton())
     await screen.findByRole('heading', RESULT_HEADING)
     await screen.findByRole('table', { name: 'Dòng lỗi' })

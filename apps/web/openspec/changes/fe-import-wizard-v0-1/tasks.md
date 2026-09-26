@@ -137,15 +137,21 @@
 - [x] 3.9 Chế độ `dev:mock`:
   - Tạo `mocks/browser.ts`; chạy `pnpm dlx msw init public/ --save` để sinh `public/mockServiceWorker.js`.
   - `main.tsx` chỉ import động và khởi động worker khi `VITE_USE_MOCK=true`.
-  - Tạo `.env.mock`; script `dev:mock` = `vite --mode mock`.
+  - ~~Tạo `.env.mock`;~~ script `dev:mock` = `vite --mode mock`. (`.env.mock` bỏ ở review FE-F11, xem dưới.)
 
   Kiểm: `pnpm dev:mock` mở được app không cần BE; bản build thường không tải chunk mock.
   - Chưa làm ở FE-F01. **LÝ DO:** lúc này chỉ bước Upload chạy được, và BE thật đã có upload, nên chế độ mock chưa đem lại gì. Sẽ làm khi có từ hai bước chạy được trở lên.
   - Làm ở FE-F11:
     - BE giả có trạng thái theo session ở `mocks/devHandlers.ts` (`createDevHandlers()`), tách khỏi `mocks/handlers.ts` của test: test vẫn tự khai báo từng response và vẫn báo lỗi khi có request lạ.
-    - Dữ liệu là mẫu cố định trong `fixtures.ts`, không chạy logic dữ liệu (design D8). Summary khớp các dòng mẫu. Sửa cấu hình sau khi chạy thì result và export trả 409 như BE thật. Export đặt tên theo tên file upload, JSON giữ thứ tự schema.
-    - ~~Script `dev:mock` = `vite --mode mock`, `main.tsx` khởi động worker khi `VITE_USE_MOCK=true` (qua `config.ts`).~~ **Đổi — LÝ DO:** `main.tsx` đọc thẳng `import.meta.env.VITE_USE_MOCK` thay vì qua `config.ts`, để Vite thay bằng hằng số lúc build và bỏ hẳn nhánh mock: bản build thường chỉ có một chunk JS, không có code MSW (đã kiểm `dist/assets`).
-    - Test `mocks/devHandlers.test.tsx` đi hết luồng với BE giả (upload → … → tải JSON; sửa rule rồi chạy lại), để chế độ này không hỏng mà không ai biết.
+    - ~~Dữ liệu là mẫu cố định trong `fixtures.ts`, không chạy logic dữ liệu (design D8). Summary khớp các dòng mẫu. Sửa cấu hình sau khi chạy thì result và export trả 409 như BE thật.~~ **Sai, đã sửa ở review FE-F11 — LÝ DO:**
+      - Kết quả lấy từ fixture với key cứng, nên đổi tên field hay upload XLSX thì bảng kết quả trống và export ra `null`.
+      - "409 như BE thật" không đúng: BE giữ kết quả khi PUT không đổi cấu hình, còn mock thì PUT nào cũng xoá.
+      - Test không chứng minh được luật đó: mutation bỏ luật vẫn xanh, vì qua giao diện không tới được nhánh này.
+
+      Nay kết quả dựng từ bảng mẫu theo schema và mapping đã PUT (design D15). PUT chỉ xoá kết quả khi body khác bản đã có. `totalRows` của preview bằng số dòng mẫu. Export đặt tên theo tên file upload; JSON giữ thứ tự schema.
+    - ~~Script `dev:mock` = `vite --mode mock`, `main.tsx` khởi động worker khi `VITE_USE_MOCK=true` (qua `config.ts`).~~ ~~`main.tsx` đọc thẳng `import.meta.env.VITE_USE_MOCK`.~~ **Đổi hai lần — LÝ DO (review FE-F11):** gate theo biến env thì `.env` quên bật cờ là bản build production mang theo BE giả. Nay gate theo `import.meta.env.DEV && MODE === 'mock'`; bỏ `VITE_USE_MOCK` khỏi `config.ts`, `env.d.ts`, `.env.example`; bỏ `.env.mock`. Đã kiểm ba bản build (thường, `--mode mock`, và `.env.local` có `VITE_USE_MOCK=true`): cả ba chỉ có một chunk JS, không có `setupWorker`, không có `mockServiceWorker.js` (plugin `drop-mock-service-worker`).
+    - BE giả không khởi động được (không có service worker: mở qua IP LAN, trình duyệt ẩn danh) thì vẫn hiện app và ghi lỗi rõ vào console, thay vì trang trắng.
+    - Test `mocks/devHandlers.test.tsx`: gọi thẳng BE giả bằng `fetch` cho từng luật (đổi tên field; mapping hằng số, cột khác, chưa map; XLSX; PUT giống hệt giữ kết quả, PUT khác thì 409 tới lần process sau; schema rỗng thì `SESSION_NOT_READY`; session lạ thì 404), và đi hết luồng qua giao diện một lần. 8 mutation đều bị bắt.
     - Kiểm bằng Chrome headless với `pnpm dev:mock`, không có BE nào chạy: đi hết 6 bước, ba file tải về đúng tên và nội dung, console sạch.
 
 ## 4. Khung wizard (phần khung của FE-F11, làm trước để các bước cắm vào)
@@ -545,9 +551,10 @@
     - tải file: `ExportActions`.
 
     Cả bốn đều dựng trên `ErrorBanner`. Nút tải file tự bấm lại được nên không cần "Thử lại" riêng.
-  - Thiếu một test và đã bổ sung: GET result gặp `SESSION_NOT_FOUND` thì hiện "Upload lại", không có "Thử lại". Sau khi gộp FE-F10, test này theo hành vi mới: "Upload lại" nằm trong cảnh báo kết quả cũ và nhận focus.
+  - ~~Thiếu một test và đã bổ sung: GET result gặp `SESSION_NOT_FOUND` thì hiện "Upload lại", không có "Thử lại".~~ **Sửa lại (review FE-F11) — LÝ DO:** test F11 viết cho ca này đã bị thay khi gộp `dev`, bằng test cùng ca có sẵn từ bản sửa FE-F10 (`e3c7020`): "Upload lại" nằm trong cảnh báo kết quả cũ và nhận focus. Vậy F11 chỉ rà, không thêm test nào cho 13.2.
 - [x] 13.3 Viết lại `apps/web/README.md`: yêu cầu cài đặt, biến môi trường, `pnpm dev` (chạy với BE thật; Postgres khởi động bằng `docker compose up -d` với `docker-compose.yml` ở gốc repo), `pnpm dev:mock`, `pnpm test`, demo flow từng bước.
-  - Thay README mẫu của Vite. Demo từng bước dùng `customers-sample.csv` (fixture pipeline của BE), cấu hình và kết quả mong đợi như lần kiểm với BE thật ở 13.4.
+  - Thay README mẫu của Vite. Demo từng bước dùng `customers-sample.csv` (fixture pipeline của BE), cấu hình và kết quả mong đợi như lần kiểm với BE thật ở 13.4 (FE-F06–F09), kể cả rule `unique` của `Email` (bản đầu thiếu, review FE-F11).
+  - Sửa sau review FE-F11: Node 22.13+ hoặc 24+ (và `engines` trong `package.json`); ba terminal thay cho "chạy lần lượt"; đổi biến bằng `.env.local` thay cho cú pháp chỉ có ở shell POSIX; mô tả đúng BE giả; thêm mục "Deploy" (yêu cầu proxy chuyển nguyên 413).
 - [x] 13.4 Kiểm tay với BE thật, khi các feature BE tương ứng đã có. Ghi kết quả từng mục ngay dưới task này:
   - CSV happy path;
   - XLSX happy path;
@@ -602,20 +609,32 @@
     - **File vượt 20 MB (`413`):** Vite chạy với `VITE_MAX_UPLOAD_MB=30` để file 21 MB lọt qua bước kiểm phía client.
       - Qua proxy dev của Vite, Chrome nhận `ERR_CONNECTION_RESET` thay cho 413, và FE hiện "Không kết nối được máy chủ" kèm "Upload lại".
       - Đã probe để tìm nguyên nhân: Chrome gọi thẳng BE (trang cùng origin 8081) nhận đúng `413 FILE_TOO_LARGE` cả 3 lần; curl nhận 413 cả khi gọi thẳng lẫn qua proxy. Vậy lỗi nằm ở cách proxy của Vite chuyển câu trả lời sớm của BE cho trình duyệt đang upload, không phải ở BE hay FE.
-      - Không sửa: bản chạy thật không đi qua proxy này; trong dev, FE chặn trước file vượt giới hạn (khớp `IMPORTER_MAX_FILE_SIZE`), nên chỉ gặp khi hai giới hạn lệch nhau. Cách FE hiển thị 413 đã có test với MSW.
+      - ~~Không sửa: bản chạy thật không đi qua proxy này.~~ **Sửa kết luận (review FE-F11) — LÝ DO:** repo chưa có topology deploy nào, nên "không đi qua proxy" là giả định. Mọi reverse proxy không đọc hết body hoặc không chuyển nguyên 413 đều phá lại đúng điều BE đã làm; nginx mặc định còn chặn từ 1 MB. Nay ghi thành yêu cầu khi deploy (design D16, README mục "Deploy").
+      - Không sửa proxy dev của Vite: trong dev, FE chặn trước file vượt giới hạn (khớp `IMPORTER_MAX_FILE_SIZE`), nên chỉ gặp khi hai giới hạn lệch nhau. Cách FE hiển thị 413 đã có test với MSW.
     - **XLSX happy path:** `types.xlsx` (fixture của BE). Hiện "Sheet: Data" và 15 cột; schema đoán kiểu (`int`/`decimal`/`big` → `number`, `bool` → `boolean`, `date_*` → `date`); chạy xử lý ra 1 dòng hợp lệ. Bảng 15 cột cuộn ngang, `84901234567` hiện đủ chữ số; "Tải báo cáo lỗi" khoá kèm lý do "Không có dòng lỗi để tải".
     - **Đổi tên field rồi chạy lại:** thêm `trim` cho field `text`, đổi tên thành `text mới` ở bước Schema, rồi đi lại Mapping và Biến đổi.
       - Rule `trim` vẫn còn trên field đã đổi tên.
       - PUT schema, mapping và transformations đều mang tên mới (`"targetField":"text mới"`), cùng PUT validations.
       - Bảng kết quả mới dùng tên mới và không còn cảnh báo kết quả cũ.
     - Console chỉ có hai dòng Chrome ghi request lỗi của hai ca cố ý làm hỏng (422 và reset). Không có lỗi hay cảnh báo nào của app.
+> **Review FE-F11** (senior-reviewer, 2026-09-27). Đã sửa, mỗi mục có test hoặc được kiểm lại bằng build:
+> - **BLOCKER:** `.env` có `VITE_USE_MOCK=true` thì bản build production chạy BE giả. Nay chế độ mock đi theo mode của dev server, mọi bản build đều loại nó, và `mockServiceWorker.js` không còn trong `dist` (3.9, design D15).
+> - BE giả trả kết quả không theo schema: đổi tên field hay upload XLSX thì bảng trống. "409 như BE" thì sai và không có test chứng minh. Đã sửa như 3.9; 8 mutation đều bị bắt.
+> - Kết luận về 413 qua proxy dựa trên giả định về deploy. Nay là yêu cầu deploy (design D16, README).
+> - BE giả không khởi động được thì trang trắng. Nay vẫn hiện app và ghi lỗi rõ.
+> - Cờ `useMock` còn sót trong `config.ts`; comment của `handlers.ts` và `devHandlers.ts` cùng design D15 nói sai về mock. Đã sửa hết.
+> - README sai phiên bản Node, lệnh chạy BE/FE, cú pháp biến env trên PowerShell, và mô tả BE giả. Đã sửa (13.3).
+> - Ghi chú 13.2 nói F11 thêm một test trong khi test đó đã bị thay khi gộp `dev`. Đã sửa lời.
+> - Test tích hợp: ca XLSX đi tới tải file; ca đổi tên kiểm bước Kết quả khoá rồi mở lại khi mapping được lưu.
+> - **Câu hỏi của reviewer, vì sao gate bằng biến env rồi thêm `.env.mock`:** làm theo kế hoạch ở task 3.9 mà không xét biến env còn sống lúc build. Đã đổi sang gate theo mode như reviewer gợi ý.
+
 - [x] 13.5 `pnpm test`, `pnpm lint`, `pnpm build` đều xanh; đối chiếu từng mục "Done when" phía FE của F01–F11 trong Notion.
   - 2026-09-27: `pnpm test` xanh (488 test), `pnpm lint` không cảnh báo, `pnpm build` thành công (một chunk JS, không có code của `dev:mock`).
   - Đối chiếu trang "03 — Feature Breakdown để Dev" của Notion (đọc qua API public), chỉ các mục phía FE. Mục thuần BE (test BE, storage path, formula injection, reproducible…) thuộc các change BE.
 
     | Feature | Mục "Done when" / FE | Bằng chứng |
     |---|---|---|
-    | F01 | CSV/XLSX tạo session; sang Preview sau khi upload; file sai loại hoặc quá giới hạn báo rõ | test `UploadStep`, `checkFiles`; BE thật 13.4 (CSV, XLSX). 413 qua proxy dev của Vite thành lỗi mạng (xem 13.4). |
+    | F01 | CSV/XLSX tạo session; sang Preview sau khi upload; file sai loại hoặc quá giới hạn báo rõ | test `UploadStep`, `checkFiles`; BE thật 13.4 (CSV, XLSX). File quá giới hạn: FE chặn trước khi gửi; 413 của BE hiển thị đúng khi gọi thẳng BE (test MSW). Qua proxy thì phụ thuộc cấu hình proxy (yêu cầu deploy ở design D16); proxy dev của Vite biến nó thành lỗi mạng. |
     | F02 | Header đúng thứ tự; sample rows + số dòng; parse error hiển thị có cấu trúc | test `PreviewStep`; BE thật 13.4 (FE-F02, `FILE_PARSE_ERROR`) |
     | F03 | XLSX preview được; dùng chung preview; workbook trống báo rõ; số dòng truy được | cùng bảng preview, tên sheet; `FILE_EMPTY` có thông điệp riêng; BE thật `types.xlsx` |
     | F04 | Thêm/xoá/sắp xếp field; 5 kiểu end-to-end; trùng tên chặn ở FE và BE; `required` lưu đúng | test `SchemaStep`, `schemaRules`; BE thật 13.4 (FE-F04, 422 trùng tên) |

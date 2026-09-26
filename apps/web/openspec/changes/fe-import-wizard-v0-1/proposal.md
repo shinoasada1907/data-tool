@@ -35,7 +35,7 @@ Nguồn yêu cầu: Notion "Universal Importer — Agent Project Pack" (00 Conte
 
 ## Impact
 
-- **Code**: thay toàn bộ nội dung template trong `apps/web/src`; sửa `vite.config.ts` (proxy `/api`, cấu hình test), `index.html`, `tsconfig.app.json` (`strict`), `package.json` (script `test`, `dev:mock`); thêm `public/mockServiceWorker.js`, `.env.example`, `.env.mock`; viết lại `README.md`.
+- **Code**: thay toàn bộ nội dung template trong `apps/web/src`; sửa `vite.config.ts` (proxy `/api`, cấu hình test), `index.html`, `tsconfig.app.json` (`strict`), `package.json` (script `test`, `dev:mock`); thêm `public/mockServiceWorker.js`, `.env.example`, ~~`.env.mock`~~ (bỏ ở review FE-F11: chế độ mock đi theo mode của dev server, design D15); viết lại `README.md`.
 - **Dependencies**: chỉ thêm devDependencies (`vitest`, `jsdom`, `@testing-library/react`, `@testing-library/user-event`, `@testing-library/jest-dom`, `msw`). Không thêm runtime dependency.
 - **API (phụ thuộc BE)**: 10 endpoint theo Notion §10, cộng `GET /api/import-sessions/{id}` mà V0.1 chưa dùng. Contract V0.1 đã chốt ngày 2026-09-25; BE đã trả lời đủ Q1–Q10 (design.md → Open Questions). FE gọi BE cùng origin qua Vite proxy, không cần CORS.
 - **Không đụng** `apps/api` và các file ở gốc repo.

@@ -225,7 +225,16 @@ FE chỉ kiểm **cấu hình**: tên field, field required chưa map, hằng r�
 - **Unit**: reducer, guards, mappers, `schemaRules`, `configRules`, `apiError`, `client`, `contentDisposition`, `download`, `upload`, `checkFiles`, `describeError`.
 - **Component**: từng bước, render `<App/>` với MSW handler theo từng tình huống (`server.use(...)`). Setup đặt `onUnhandledRequest: 'error'`, nên request nào không có handler đều làm test fail.
 - **Tích hợp**: render `<App/>` và chạy hết 6 bước với MSW, một lần cho CSV và một lần cho XLSX.
-- **Mock**: `.env.mock` bật `VITE_USE_MOCK=true`; script `pnpm dev:mock` chạy `vite --mode mock`, chạy được trên Windows mà không cần `cross-env`. `main.tsx` chỉ import và khởi động MSW worker khi cờ này bật. Mock là fixture theo contract V0.1, **không** mô phỏng pipeline.
+- **Mock**:
+  - Script `pnpm dev:mock` chạy `vite --mode mock`, chạy được trên Windows mà không cần `cross-env`.
+  - ~~`.env.mock` bật `VITE_USE_MOCK=true`; `main.tsx` chỉ khởi động MSW worker khi cờ này bật.~~ **Đổi (review FE-F11) — LÝ DO:** Vite nạp `.env`/`.env.local` ở mọi mode, kể cả lúc build. Chỉ cần `VITE_USE_MOCK=true` để quên trong `.env` là bản build production chạy BE giả mà không báo gì; reviewer đã build thử và thấy chunk mock 427 KB. Nay `main.tsx` chỉ khởi động worker khi `import.meta.env.DEV && MODE === 'mock'`: mọi bản build, kể cả `--mode mock`, bỏ hẳn nhánh này. Không còn biến `VITE_USE_MOCK` hay file `.env.mock`. Plugin `drop-mock-service-worker` trong `vite.config.ts` gỡ `mockServiceWorker.js` khỏi `dist`.
+  - ~~Mock là fixture theo contract V0.1, **không** mô phỏng pipeline.~~ **Đổi — LÝ DO:** fixture thuần cho kết quả không khớp schema: đổi tên field hay upload XLSX thì bảng kết quả trống. Nay BE giả (`mocks/devHandlers.ts`) có trạng thái theo session:
+    - dữ liệu nguồn là bảng mẫu theo loại file;
+    - kết quả dựng từ bảng mẫu theo schema và mapping đã PUT, và dòng mẫu thứ hai luôn lỗi ở field đầu;
+    - PUT làm cấu hình đổi thì xoá kết quả, PUT giống hệt thì giữ (như BE so `configHash`).
+
+    Nó vẫn không chạy biến đổi hay kiểm tra (D8).
+  - Test của từng bước không dùng BE giả này, mà tự khai báo từng response (`mocks/handlers.ts` chỉ có handler mặc định cho GET preview).
 - Vitest phải chọn bản có peerDependency khớp Vite 8 (đang dùng 5.0.1).
 - **jsdom ghim ở `^29.1.1`.** Vitest 5.0.1 bọc `Request` để đổi `FormData`/`Blob` của jsdom sang bản của Node, dựa vào một symbol ẩn mà jsdom 30 không còn để lộ. Kết quả: gửi `FormData` có file thì crash. Nâng jsdom thì chạy lại test upload trước (tasks 1.3).
 - **Upload dùng XHR giả khi test tiến độ và huỷ.** Interceptor XHR của MSW bỏ qua `abort()` khi handler còn treo: request vẫn hoàn tất với 201, khác trình duyệt. Các test này thay `XMLHttpRequest` bằng `src/test/fakeXhr.ts` qua `vi.stubGlobal`; mọi test upload khác vẫn đi qua MSW. XHR giả cũng theo đúng trình duyệt ở điểm này: gọi `abort()` sau khi request đã xong thì không phát sự kiện nào.
@@ -237,14 +246,21 @@ FE chỉ kiểm **cấu hình**: tên field, field required chưa map, hằng r�
 |---|---|---|---|
 | `API_PROXY_TARGET` | `vite.config.ts` (qua `loadEnv`, không lộ ra client) | `http://localhost:8080` | Đích proxy `/api` khi chạy dev |
 | `VITE_MAX_UPLOAD_MB` | `src/config.ts` | `20` | Giới hạn kiểm trước khi upload; phải khớp `IMPORTER_MAX_FILE_SIZE` của BE |
-| `VITE_USE_MOCK` | `src/main.tsx` | `false` | Bật MSW worker trên trình duyệt |
+
+~~`VITE_USE_MOCK` (`src/main.tsx`, mặc định `false`): bật MSW worker trên trình duyệt.~~ **Bỏ (review FE-F11) — LÝ DO:** chế độ mock đi theo mode của dev server (D15), không theo biến env có thể đặt nhầm lúc build.
 
 `API_BASE` luôn là đường dẫn tương đối `/api`. Có `.env.example` mô tả các biến; `.env` bị gitignore ở gốc repo.
+
+**Yêu cầu khi deploy sau reverse proxy** (review FE-F11):
+- Proxy phải chuyển nguyên `413 FILE_TOO_LARGE` của BE. BE đọc hết body quá cỡ rồi mới trả 413 (`server.tomcat.max-swallow-size: -1`); proxy trả lời sớm hoặc cắt kết nối thì trình duyệt chỉ thấy lỗi mạng.
+- Với nginx, `client_max_body_size` phải ít nhất bằng `IMPORTER_MAX_REQUEST_SIZE` (21 MB). Mặc định 1 MB sẽ chặn file từ 1 MB bằng một trang 413 HTML.
+- Proxy dev của Vite không đạt yêu cầu này (kiểm ở tasks 13.4). Trong dev không gặp, vì FE chặn file quá `VITE_MAX_UPLOAD_MB` trước khi gửi.
+- README của `apps/web` có mục "Deploy" nêu lại yêu cầu này.
 
 ### D17. Cấu trúc thư mục
 ```
 src/
-  main.tsx                 # bootstrap; khởi động MSW khi VITE_USE_MOCK
+  main.tsx                 # bootstrap; khởi động MSW worker khi chạy `pnpm dev:mock`
   App.tsx                  # <AppShell tools={tools} /> (change fe-app-shell)
   app/                     # khung dashboard: AppShell, danh sách công cụ, ImportTool = <WizardProvider><WizardShell/></WizardProvider>
   config.ts                # đọc import.meta.env, có giá trị mặc định

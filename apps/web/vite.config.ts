@@ -1,6 +1,26 @@
 /// <reference types="vitest/config" />
+import { rmSync } from 'node:fs'
+import { resolve } from 'node:path'
 import react from '@vitejs/plugin-react'
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
+
+/**
+ * `public/mockServiceWorker.js` chỉ phục vụ `pnpm dev:mock`: gỡ khỏi bản build, để origin chạy thật không phục vụ một
+ * service worker giả mạo mọi request `/api` (review FE-F11).
+ */
+function dropMockServiceWorker(): Plugin {
+  let outDir = 'dist'
+  return {
+    name: 'drop-mock-service-worker',
+    apply: 'build',
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir)
+    },
+    closeBundle() {
+      rmSync(resolve(outDir, 'mockServiceWorker.js'), { force: true })
+    },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -9,7 +29,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, import.meta.dirname, '')
 
   return {
-    plugins: [react()],
+    plugins: [react(), dropMockServiceWorker()],
     server: {
       proxy: {
         '/api': {
