@@ -87,3 +87,42 @@ export function AlertTriangleIcon({ size }: { size?: number }) {
     </Icon>
   )
 }
+
+export function ArrowUpIcon({ size = 18 }: { size?: number }) {
+  return (
+    <Icon size={size} strokeWidth={2.25}>
+      <path d="M12 19V5" />
+      <path d="m6 11 6-6 6 6" />
+    </Icon>
+  )
+}
+
+export function ArrowDownIcon({ size = 18 }: { size?: number }) {
+  return (
+    <Icon size={size} strokeWidth={2.25}>
+      <path d="M12 5v14" />
+      <path d="m6 13 6 6 6-6" />
+    </Icon>
+  )
+}
+
+export function TrashIcon({ size = 18 }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M4 7h16" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+      <path d="M6 7l1 13h10l1-13" />
+      <path d="M9 7V4h6v3" />
+    </Icon>
+  )
+}
+
+export function PlusIcon({ size = 18 }: { size?: number }) {
+  return (
+    <Icon size={size} strokeWidth={2.25}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </Icon>
+  )
+}

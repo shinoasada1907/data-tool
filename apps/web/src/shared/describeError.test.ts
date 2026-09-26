@@ -19,6 +19,10 @@ describe('describeApiError', () => {
     })
   })
 
+  test('hết thời gian chờ: báo máy chủ không phản hồi', () => {
+    expect(describeApiError(new ApiError({ kind: 'timeout' }))).toEqual({ headline: 'Máy chủ không phản hồi' })
+  })
+
   test('mã FE chưa biết: dòng chính là detail của BE, không có dòng phụ', () => {
     const error = new ApiError({ kind: 'http', status: 400, code: 'SOMETHING_NEW', detail: 'Chi tiết' })
 

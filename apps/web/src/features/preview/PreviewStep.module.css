@@ -10,6 +10,8 @@
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.02em;
+  /* Tiêu đề nhận focus khi đổi bước (design D14): viền focus ôm theo chữ, không kéo hết chiều ngang. */
+  align-self: flex-start;
 }
 
 /* Dòng tổng quan: tên file đậm, các thông tin còn lại chữ mono nhỏ, ngăn bằng vạch đứng. */

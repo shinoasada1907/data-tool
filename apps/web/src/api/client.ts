@@ -1,34 +1,67 @@
 import { ApiError, errorFromHttpResponse } from './apiError'
 
+/**
+ * Thời gian chờ mặc định. Không có nó thì BE hoặc proxy treo làm spinner quay mãi; với PUT, stepper và nút điều hướng
+ * đang khoá nên user không còn lối thoát nào ngoài tải lại trang và mất cấu hình (design D6).
+ */
+export const DEFAULT_TIMEOUT_MS = 30_000
+
 export interface RequestOptions<T> {
+  method?: 'GET' | 'PUT' | 'POST'
+  /** Gửi dạng JSON. */
+  body?: unknown
   /** Kiểm tối thiểu body 2xx theo contract; sai dạng thì báo INVALID_RESPONSE thay vì chạy tiếp với dữ liệu hỏng. */
   validate: (value: unknown) => value is T
   signal?: AbortSignal
+  timeoutMs?: number
 }
 
 /**
- * Gọi endpoint JSON bằng fetch (design D6). Lỗi HTTP, lỗi mạng, huỷ và response 2xx sai dạng đều reject
+ * Gọi endpoint JSON bằng fetch (design D6). Lỗi HTTP, lỗi mạng, hết giờ, huỷ và response 2xx sai dạng đều reject
  * bằng ApiError. Không tự retry.
  */
-export async function request<T>(path: string, { validate, signal }: RequestOptions<T>): Promise<T> {
+export async function request<T>(
+  path: string,
+  { method = 'GET', body, validate, signal, timeoutMs = DEFAULT_TIMEOUT_MS }: RequestOptions<T>,
+): Promise<T> {
+  const headers: Record<string, string> = { Accept: 'application/json, application/problem+json' }
+  if (body !== undefined) headers['Content-Type'] = 'application/json'
+
+  // Một controller riêng gom cả hai nguồn huỷ (user và hết giờ), để còn phân biệt được nguồn nào khi fetch reject.
+  const controller = new AbortController()
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, timeoutMs)
+  const forwardAbort = () => controller.abort()
+  if (signal?.aborted) controller.abort()
+  else signal?.addEventListener('abort', forwardAbort, { once: true })
+
   let response: Response
-  let body: string
+  let text: string
   try {
     response = await fetch(path, {
-      headers: { Accept: 'application/json, application/problem+json' },
-      signal,
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
     })
-    body = await response.text()
+    text = await response.text()
   } catch (error) {
-    // fetch chỉ reject khi bị huỷ hoặc không tới được máy chủ; lỗi HTTP vẫn resolve.
-    throw new ApiError({ kind: signal?.aborted || isAbortError(error) ? 'aborted' : 'network' })
+    // fetch chỉ reject khi bị huỷ, hết giờ, hoặc không tới được máy chủ; lỗi HTTP vẫn resolve.
+    const kind = timedOut ? 'timeout' : signal?.aborted || isAbortError(error) ? 'aborted' : 'network'
+    throw new ApiError({ kind })
+  } finally {
+    clearTimeout(timer)
+    signal?.removeEventListener('abort', forwardAbort)
   }
 
   if (!response.ok) {
-    throw errorFromHttpResponse(response.status, response.headers.get('Content-Type'), body)
+    throw errorFromHttpResponse(response.status, response.headers.get('Content-Type'), text)
   }
 
-  const value = parseJson(body)
+  const value = parseJson(text)
   if (value === undefined || !validate(value)) {
     throw new ApiError({ kind: 'http', status: response.status, code: 'INVALID_RESPONSE' })
   }

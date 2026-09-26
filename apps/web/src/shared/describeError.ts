@@ -15,6 +15,7 @@ export interface ErrorText {
 export function describeApiError(error: ApiError): ErrorText | null {
   if (error.kind === 'aborted') return null
   if (error.kind === 'network') return { headline: messages.network }
+  if (error.kind === 'timeout') return { headline: messages.timeout }
 
   const code = error.code ?? undefined
   // hasOwn: code như "constructor" không được lấy nhầm thuộc tính kế thừa của object.

@@ -1,0 +1,172 @@
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  /* Tiêu đề nhận focus khi đổi bước (design D14): viền focus ôm theo chữ, không kéo hết chiều ngang. */
+  align-self: flex-start;
+}
+
+.intro {
+  color: var(--color-muted);
+}
+
+/* Khung bọc danh sách field và nút "Thêm field" để khoá cả cụm trong lúc lưu; không vẽ gì thêm. */
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Bảng field theo hướng C: khung viền mực 2 px, dòng tiêu đề nền mực, các dòng kẻ 1 px. */
+.table {
+  border: var(--border);
+  background: var(--color-surface);
+}
+
+.head,
+.fieldset {
+  display: grid;
+  grid-template-columns: 40px minmax(220px, 1fr) 150px 96px 132px;
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.head {
+  padding: 10px var(--space-4);
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
+.fields {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row + .row {
+  border-top: 1px solid var(--color-ink);
+}
+
+.row[data-invalid] {
+  background: var(--color-danger-bg);
+}
+
+.fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+}
+
+.position {
+  padding-top: 10px;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  text-align: right;
+}
+
+.nameCell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.name,
+.type {
+  height: 40px;
+  padding: 0 var(--space-3);
+  border: var(--border);
+  background: var(--color-surface);
+}
+
+.name[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.error {
+  color: var(--color-danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.type {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.required {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  cursor: pointer;
+}
+
+.required input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--color-ink);
+  cursor: pointer;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.iconButton {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: var(--border);
+  background: var(--color-surface);
+}
+
+.iconButton:disabled {
+  border-color: var(--color-locked);
+  color: var(--color-locked);
+  background: var(--color-surface-subtle);
+}
+
+.add {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: var(--space-2);
+  height: 44px;
+  padding: 0 var(--space-5);
+  border: var(--border);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.add:active {
+  box-shadow: none;
+  transform: translate(4px, 4px);
+}

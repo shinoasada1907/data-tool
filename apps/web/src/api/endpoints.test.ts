@@ -1,8 +1,8 @@
 import { http, HttpResponse } from 'msw'
 import { describe, expect, test } from 'vitest'
-import { csvPreviewFixture } from '../mocks/fixtures'
+import { configUpdateFixture, csvPreviewFixture, problemFixture } from '../mocks/fixtures'
 import { server } from '../mocks/node'
-import { getPreview } from './endpoints'
+import { getPreview, putSchema } from './endpoints'
 
 describe('getPreview', () => {
   test('gọi GET /api/import-sessions/{id}/preview?limit=50 và trả về SourcePreviewDto', async () => {
@@ -32,5 +32,39 @@ describe('getPreview', () => {
     server.use(http.get('/api/import-sessions/:id/preview', () => HttpResponse.json(body)))
 
     await expect(getPreview('s-1')).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
+  })
+})
+
+describe('putSchema', () => {
+  const schema = { fields: [{ name: 'email', type: 'email' as const, required: true, order: 0 }] }
+
+  test('gửi PUT /api/import-sessions/{id}/schema với body là TargetSchemaDto; 200 {session, warnings} thì resolve', async () => {
+    let received: { path: string; body: unknown } | null = null
+    server.use(
+      http.put('/api/import-sessions/:id/schema', async ({ request }) => {
+        received = { path: new URL(request.url).pathname, body: await request.json() }
+        return HttpResponse.json(configUpdateFixture({ warnings: [{ field: 'x', code: 'CONFIG_PRUNED', message: 'm' }] }))
+      }),
+    )
+
+    await expect(putSchema('s-1', schema)).resolves.toBeUndefined()
+    expect(received).toEqual({ path: '/api/import-sessions/s-1/schema', body: schema })
+  })
+
+  test('422 SCHEMA_INVALID thành ApiError có errors[] theo field', async () => {
+    const problem = problemFixture(422, 'SCHEMA_INVALID', 'Schema is invalid.', {
+      errors: [{ field: 'email', code: 'SCHEMA_INVALID', message: 'Duplicate field name.' }],
+    })
+    server.use(
+      http.put('/api/import-sessions/:id/schema', () =>
+        HttpResponse.json(problem, { status: 422, headers: { 'Content-Type': 'application/problem+json' } }),
+      ),
+    )
+
+    await expect(putSchema('s-1', schema)).rejects.toMatchObject({
+      status: 422,
+      code: 'SCHEMA_INVALID',
+      fieldErrors: [{ field: 'email', code: 'SCHEMA_INVALID', message: 'Duplicate field name.' }],
+    })
   })
 })

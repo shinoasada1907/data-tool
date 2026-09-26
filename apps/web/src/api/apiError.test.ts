@@ -59,6 +59,7 @@ describe('isRetryable', () => {
   test.each([
     ['lỗi mạng', true, new ApiError({ kind: 'network' })],
     ['502 từ proxy', true, new ApiError({ kind: 'http', status: 502 })],
+    ['hết thời gian chờ', true, new ApiError({ kind: 'timeout' })],
     ['500 INTERNAL_ERROR', true, new ApiError({ kind: 'http', status: 500, code: 'INTERNAL_ERROR' })],
     ['422 FILE_PARSE_ERROR', false, new ApiError({ kind: 'http', status: 422, code: 'FILE_PARSE_ERROR' })],
     ['404 SESSION_NOT_FOUND', false, new ApiError({ kind: 'http', status: 404, code: 'SESSION_NOT_FOUND' })],

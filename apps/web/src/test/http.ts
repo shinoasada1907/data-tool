@@ -4,6 +4,7 @@ import { server } from '../mocks/node'
 
 export const UPLOAD_URL = '/api/import-sessions'
 export const PREVIEW_URL = '/api/import-sessions/:id/preview'
+export const SCHEMA_URL = '/api/import-sessions/:id/schema'
 
 type Responder = () => Response | Promise<Response>
 
@@ -38,6 +39,18 @@ export function mockUpload(...responders: Responder[]) {
 /** GET /api/import-sessions/{id}/preview. */
 export function mockPreview(...responders: Responder[]) {
   return mockSequence(http.get, PREVIEW_URL, responders)
+}
+
+/** PUT /api/import-sessions/{id}/schema; `bodies` giữ body JSON của từng lần gửi, theo thứ tự. */
+export function mockSaveSchema(...responders: Responder[]) {
+  const bodies: unknown[] = []
+  server.use(
+    http.put(SCHEMA_URL, async ({ request }) => {
+      bodies.push(await request.json())
+      return responders[Math.min(bodies.length - 1, responders.length - 1)]()
+    }),
+  )
+  return { calls: () => bodies.length, bodies }
 }
 
 /** Promise do test tự mở, để giữ request ở trạng thái đang chạy. */

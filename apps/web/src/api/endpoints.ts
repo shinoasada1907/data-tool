@@ -1,5 +1,5 @@
 import { request } from './client'
-import type { SourcePreviewDto } from './dto'
+import type { SourcePreviewDto, TargetSchemaDto } from './dto'
 
 // Các endpoint FE dùng (design → API contract V0.1). Upload nằm riêng ở upload.ts vì cần XHR.
 
@@ -13,6 +13,20 @@ export function getPreview(sessionId: string, { signal }: { signal?: AbortSignal
     validate: isSourcePreviewDto,
     signal,
   })
+}
+
+/** Ghi đè toàn bộ schema. Body `{ session, warnings }` của BE được bỏ qua (design D6). */
+export async function putSchema(sessionId: string, schema: TargetSchemaDto): Promise<void> {
+  await request(`${SESSIONS}/${encodeURIComponent(sessionId)}/schema`, {
+    method: 'PUT',
+    body: schema,
+    validate: isConfigUpdateResponse,
+  })
+}
+
+/** Chỉ kiểm đó là body của PUT cấu hình (không phải trang HTML từ proxy); nội dung không dùng tới. */
+function isConfigUpdateResponse(value: unknown): value is { session: unknown } {
+  return isRecord(value) && isRecord(value.session)
 }
 
 /** Kiểm những gì bảng preview đọc tới; lệch contract thì báo lỗi thay vì vỡ lúc render. */

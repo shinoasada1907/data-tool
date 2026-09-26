@@ -70,6 +70,10 @@ interface WizardState {
 }
 ```
 - Bảng chuyển về chưa lưu / đánh dấu cũ: xem spec `import-wizard`. Reducer là nơi duy nhất áp các quy tắc đó.
+- Sửa schema đi qua một action `schemaEdited { edit }` với `edit` là `add` / `update` / `remove` / `move` (FE-F04). Reducer sinh key cho field mới, nên component không phải đoán key.
+- Trong lúc PUT cấu hình đang chạy, phần sửa của bước đó bị khoá (`<fieldset disabled>`), cùng lúc với stepper và nút điều hướng.
+  - *Vì sao* (review FE-F04): bản đầu cho sửa trong lúc lưu. Sửa xen vào thì lưu xong mà đứng im không báo gì, lỗi 422 gắn theo bản đã gửi nên hiện sai field, và lưu lỗi thì focus bị giật khỏi ô đang gõ.
+- `sectionSaved` mang đúng bản draft đã gửi đi; reducer chỉ đánh dấu đã lưu khi draft hiện tại vẫn là bản đó (so tham chiếu, vì draft là mảng bất biến). Đây là lớp phòng thủ thứ hai sau việc khoá phần sửa.
 - **Trạng thái "đang bận" là một bộ đếm, không phải boolean.**
   - Mọi request làm đổi state đều chạy qua hook `useBusyRequest()`: hook dispatch `requestStarted` trước khi chạy và `requestSettled` trong `finally`. `isBusy(state)` là `pendingRequests > 0`.
   - `sessionCreated` và `reset` giữ nguyên bộ đếm, vì các request đang chạy vẫn sẽ báo kết thúc sau đó.
@@ -78,7 +82,7 @@ interface WizardState {
     - Tiêu chí không phải "đọc hay ghi": `GET result` cũng là request đọc mà spec vẫn khoá điều hướng. Tiêu chí là: response chỉ bước đang mở dùng tới, request bị huỷ khi bước unmount, và không state nào khác phụ thuộc vào nó trong lúc nó chạy. GET preview thoả cả ba; `GET result` thì không, vì nó đi sau `process` trong cùng một trình tự.
     - Lớp bảo vệ: rời bước thì request bị huỷ (có test). Thêm một lớp: `previewLoaded` mang id mà FE đã dùng để gửi request, và reducer bỏ qua nếu id đó khác session hiện tại. **Không** so với `sessionId` BE gửi lại, vì nếu lệch (viết hoa, alias…) reducer sẽ lặng lẽ bỏ response và spinner quay mãi mà không báo lỗi (review FE-F02).
     - Nút "Tiếp" vẫn khoá, vì guard của bước Schema đòi preview đã tải.
-    - **Phụ thuộc cần nhớ:** `request()` không có timeout (xem D6), nên khi BE hoặc proxy treo, việc không khoá stepper là lối thoát duy nhất của user. Muốn chuyển preview sang khoá điều hướng thì phải thêm timeout trước.
+    - ~~**Phụ thuộc cần nhớ:** `request()` không có timeout (xem D6), nên khi BE hoặc proxy treo, việc không khoá stepper là lối thoát duy nhất của user.~~ Từ FE-F04, `request()` có timeout 30 giây (D6), nên request nào treo cũng kết thúc bằng lỗi.
 - `canEnter(step, state) → { allowed: boolean; reason?: string }` là hàm thuần, test được mà không cần render.
 - *Vì sao*: Notion dặn chưa dùng global state library. Reducer thuần dễ test các quy tắc stale và cascade.
 - *Phương án khác*: `useState` rải theo từng bước. Loại, vì quy tắc cascade (sửa schema kéo theo mapping và rules) sẽ nằm rải rác ở nhiều nơi.
@@ -106,7 +110,9 @@ interface WizardState {
 - `api/client.ts`: hàm `request<T>()` gửi header `Accept: application/json, application/problem+json`, và chuẩn hoá mọi lỗi thành `ApiError` (xem bảng **Xử lý lỗi**).
   - Mỗi lệnh gọi truyền `validate` kiểm tối thiểu body 2xx theo contract (ví dụ `getPreview` kiểm `columns`, `rows`, `totalRows`). Body sai dạng hoặc không phải JSON thì báo `INVALID_RESPONSE`, giống upload, thay vì để bảng vỡ lúc render.
   - `isRetryable(error)` (lỗi mạng hoặc 5xx) và `isSessionUnusable(error)` (theo `code`, D12) nằm cạnh `ApiError` trong `api/apiError.ts`, để mọi bước chọn nút hành động ("Thử lại" / "Upload lại") theo cùng một luật.
-  - Không đặt timeout cho `request()`. Review FE-F02 đề xuất 30 giây; không làm, vì timeout chung sẽ áp cả lên các lệnh PUT sau này, và PUT hết giờ trong khi BE đã ghi thì FE báo lỗi sai. Hệ quả: request GET treo thì spinner quay mãi; user thoát bằng cách rời bước (D2). Xem lại khi có số liệu thật về thời gian đọc file lớn.
+  - **Timeout 30 giây** cho mọi lệnh `request()` (`DEFAULT_TIMEOUT_MS`, chỉnh được qua `timeoutMs`). Hết giờ là lỗi riêng `kind: 'timeout'` ("Máy chủ không phản hồi"), không lẫn với huỷ; GET có nút "Thử lại" như lỗi mạng.
+    - ~~Không đặt timeout (FE-F02): timeout chung áp lên PUT, mà PUT hết giờ trong khi BE đã ghi thì FE báo lỗi sai.~~ **LÝ DO đổi (review FE-F04):** các PUT cấu hình ghi đè toàn bộ, nên gửi lại sau khi hết giờ là vô hại. Còn không có timeout thì PUT treo làm wizard kẹt hẳn, vì stepper và nút điều hướng đang khoá; user chỉ còn cách tải lại trang và mất cấu hình (D12).
+    - `POST /process` (FE-F08) sẽ tự đặt `timeoutMs` riêng, vì pipeline chạy đồng bộ và có thể lâu hơn 30 giây.
   - Lỗi không phải `ApiError` (lỗi lập trình trong mapper, reducer…) hiện câu chung "Đã xảy ra lỗi không mong đợi" và được `console.error`, để còn stack mà tìm.
 - `api/upload.ts`: dùng XHR, vì `fetch` không báo được tiến độ upload. Có `onProgress`, huỷ qua `AbortSignal`. Multipart part tên `file`.
 - `api/download.ts`: kiểm `response.ok` trước; nếu lỗi thì parse ProblemDetail và ném `ApiError`, không trả blob. Nếu thành công thì trả `{ blob, filename }`, với tên file lấy từ `api/contentDisposition.ts`. `saveBlob()` tạo object URL, click một thẻ `<a download>`, rồi revoke URL.
@@ -168,6 +174,9 @@ FE chỉ kiểm **cấu hình**: tên field, field required chưa map, hằng r�
   - Huỷ hoặc lỗi: focus về ô chọn file.
   - Đổi bước mà focus rơi về đầu trang (nút "Tiếp"/"Quay lại"/"Upload lại" hoặc ô chọn file biến mất cùng bước cũ): `WizardShell` focus tiêu đề `h2` của bước mới (`tabIndex={-1}`). Đổi bước bằng stepper thì nút stepper vẫn còn, nên focus giữ nguyên ở đó (FE-F02).
   - Bấm "Thử lại" ở bước Xem trước: khối lỗi biến mất, focus về tiêu đề bước (FE-F02).
+  - Khi focus tới một control vừa được gắn lỗi, state lỗi được render xong trước (`flushSync`), rồi mới focus. Screen reader đọc ô lúc nó nhận focus; `aria-describedby` gắn sau đó không được đọc lại (review FE-F04).
+  - Bước Schema (FE-F04): "Thêm field" → ô tên của field mới; "Lên"/"Xuống" tới biên thì nút vừa bấm bị khoá → nút chiều ngược lại của cùng field; "Xoá" → ô tên của field kề bên, hết field thì nút "Thêm field"; lưu lỗi → ô tên của field lỗi đầu tiên, hoặc tiêu đề bước.
+  - Tiêu đề bước có `align-self: flex-start`, để viền focus ôm theo chữ thay vì kéo hết chiều ngang.
   - Vùng live của bước Xem trước là một `<p role="status">` luôn nằm trong DOM: "Đang tải…" rồi "Xem trước x / y dòng". `Spinner` chỉ để nhìn (`aria-hidden`) (FE-F02).
 - Thả file ra ngoài vùng upload: chặn ở `window` (`dragover`/`drop`, đặt `dropEffect = 'none'`), để trình duyệt không mở file và rời khỏi app. Input bị khoá có `pointer-events: none`, để sự kiện thả rơi vào vùng upload.
 - Sắp xếp bằng nút Lên/Xuống thay vì kéo-thả, vì dùng được bằng bàn phím và không cần thêm thư viện.

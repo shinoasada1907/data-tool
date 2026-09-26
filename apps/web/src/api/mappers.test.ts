@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { csvPreviewFixture, importSessionFixture, xlsxPreviewFixture } from '../mocks/fixtures'
-import { toSessionInfo, toSourcePreview } from './mappers'
+import { toSessionInfo, toSourcePreview, toTargetSchemaDto } from './mappers'
 
 test('toSessionInfo lấy đúng id của session (F02 dùng id này để gọi /preview) và thông tin file', () => {
   const dto = importSessionFixture({
@@ -33,5 +33,27 @@ describe('toSourcePreview', () => {
       totalRows: 2,
     })
     expect(toSourcePreview(csvPreviewFixture()).sheetName).toBeNull()
+  })
+})
+
+describe('toTargetSchemaDto', () => {
+  test('tên gửi lên ở dạng NFC, để BE không coi hai tên nhìn giống hệt nhau là hai field khác nhau', () => {
+    const dto = toTargetSchemaDto([{ key: 'f1', name: ' Họ tên '.normalize('NFD'), type: 'string', required: false }])
+
+    expect(dto.fields[0].name).toBe('Họ tên'.normalize('NFC'))
+  })
+
+  test('tên đã trim, order theo vị trí hiển thị từ 0, không gửi key nội bộ', () => {
+    const dto = toTargetSchemaDto([
+      { key: 'f3', name: ' email ', type: 'email', required: true },
+      { key: 'f1', name: 'Họ tên', type: 'string', required: false },
+    ])
+
+    expect(dto).toEqual({
+      fields: [
+        { name: 'email', type: 'email', required: true, order: 0 },
+        { name: 'Họ tên', type: 'string', required: false, order: 1 },
+      ],
+    })
   })
 })

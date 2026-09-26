@@ -33,6 +33,25 @@ describe('request', () => {
     expect(accept).toBe('application/json, application/problem+json')
   })
 
+  test('PUT gửi body dạng JSON kèm Content-Type application/json', async () => {
+    let received: { method: string; contentType: string | null; body: unknown } | null = null
+    server.use(
+      http.put(URL, async ({ request }) => {
+        received = {
+          method: request.method,
+          contentType: request.headers.get('Content-Type'),
+          body: await request.json(),
+        }
+        return HttpResponse.json({ name: 'An' })
+      }),
+    )
+
+    await expect(request(URL, { method: 'PUT', body: { fields: [] }, validate: isThing })).resolves.toEqual({
+      name: 'An',
+    })
+    expect(received).toEqual({ method: 'PUT', contentType: 'application/json', body: { fields: [] } })
+  })
+
   test.each([
     ['sai dạng so với contract', () => HttpResponse.json({ id: 1 })],
     ['không phải JSON', () => new HttpResponse('<!doctype html>', { headers: { 'Content-Type': 'text/html' } })],
@@ -99,6 +118,32 @@ describe('request', () => {
     )
     const controller = new AbortController()
     const promise = getThing(controller.signal)
+
+    controller.abort()
+
+    await expect(promise).rejects.toMatchObject({ kind: 'aborted' })
+  })
+
+  test('máy chủ không trả lời trong thời gian chờ thì kind=timeout, không lẫn với huỷ', async () => {
+    server.use(
+      http.get(URL, async () => {
+        await delay('infinite')
+        return HttpResponse.json({ name: 'An' })
+      }),
+    )
+
+    await expect(request(URL, { validate: isThing, timeoutMs: 20 })).rejects.toMatchObject({ kind: 'timeout' })
+  })
+
+  test('user huỷ trước khi hết giờ thì vẫn là kind=aborted', async () => {
+    server.use(
+      http.get(URL, async () => {
+        await delay('infinite')
+        return HttpResponse.json({ name: 'An' })
+      }),
+    )
+    const controller = new AbortController()
+    const promise = request(URL, { validate: isThing, signal: controller.signal, timeoutMs: 1000 })
 
     controller.abort()
 

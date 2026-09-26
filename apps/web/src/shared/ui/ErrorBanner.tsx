@@ -5,11 +5,13 @@ import { AlertCircleIcon } from './icons'
 
 interface ErrorBannerProps {
   text: ErrorText
+  /** Danh sách lỗi chi tiết (ví dụ `errors[]` không gắn được vào field nào). */
+  items?: string[]
   action?: { label: string; onClick: () => void }
 }
 
 /** Thành phần báo lỗi dùng chung cho mọi lỗi API và lỗi kiểm tra phía client (design D14). */
-export function ErrorBanner({ text, action }: ErrorBannerProps) {
+export function ErrorBanner({ text, items, action }: ErrorBannerProps) {
   return (
     <div role="alert" className={styles.banner}>
       <span className={styles.icon}>
@@ -18,6 +20,13 @@ export function ErrorBanner({ text, action }: ErrorBannerProps) {
       <div className={styles.body}>
         <p className={styles.headline}>{text.headline}</p>
         {text.detail && <p className={styles.detail}>{text.detail}</p>}
+        {items && items.length > 0 && (
+          <ul className={styles.items}>
+            {items.map((item, index) => (
+              <li key={index}>{item}</li>
+            ))}
+          </ul>
+        )}
         {text.code && (
           <p className={styles.code}>
             <span>{messages.errorCodeLabel}</span> <code className={styles.codeChip}>{text.code}</code>

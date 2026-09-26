@@ -1,5 +1,6 @@
-import type { SessionInfo, SourcePreview } from '../domain/types'
-import type { ImportSessionDto, SourcePreviewDto } from './dto'
+import { normalizeFieldName } from '../domain/schemaRules'
+import type { SessionInfo, SourcePreview, TargetField } from '../domain/types'
+import type { ImportSessionDto, SourcePreviewDto, TargetSchemaDto } from './dto'
 
 // Chuyển DTO ↔ model nội bộ (design D5). Mỗi feature thêm phần của mình.
 
@@ -19,5 +20,17 @@ export function toSourcePreview(dto: SourcePreviewDto): SourcePreview {
     columns: dto.columns.map((column) => column.name),
     rows: dto.rows.map((row) => ({ rowNumber: row.rowNumber, values: row.values })),
     totalRows: dto.totalRows,
+  }
+}
+
+/** Tên gửi lên đã chuẩn hoá NFC và trim; `order` là vị trí hiển thị, bắt đầu từ 0. Key nội bộ không rời khỏi FE (D3). */
+export function toTargetSchemaDto(fields: TargetField[]): TargetSchemaDto {
+  return {
+    fields: fields.map((field, order) => ({
+      name: normalizeFieldName(field.name),
+      type: field.type,
+      required: field.required,
+      order,
+    })),
   }
 }

@@ -1,4 +1,4 @@
-import type { ApiProblemDto, ImportSessionDto, SourcePreviewDto } from '../api/dto'
+import type { ApiProblemDto, ConfigUpdateResponseDto, ImportSessionDto, SourcePreviewDto } from '../api/dto'
 
 // Fixture theo đúng shape của contract V0.1 (đủ mọi field, không chỉ field test đọc).
 
@@ -62,6 +62,11 @@ export function xlsxPreviewFixture(overrides: Partial<SourcePreviewDto> = {}): S
     totalRows: 2,
     ...overrides,
   }
+}
+
+/** Body 200 của mọi PUT cấu hình; FE bỏ qua nội dung (design D6) nhưng fixture vẫn đúng shape. */
+export function configUpdateFixture(overrides: Partial<ConfigUpdateResponseDto> = {}): ConfigUpdateResponseDto {
+  return { session: importSessionFixture(), warnings: [], ...overrides }
 }
 
 const STATUS_TITLES: Record<number, string> = {

@@ -1,6 +1,6 @@
 import type { ProblemItemDto } from './dto'
 
-export type ApiErrorKind = 'http' | 'network' | 'aborted'
+export type ApiErrorKind = 'http' | 'network' | 'timeout' | 'aborted'
 
 interface ApiErrorInit {
   kind: ApiErrorKind
@@ -76,9 +76,10 @@ function stringOrNull(value: unknown): string | null {
   return typeof value === 'string' ? value : null
 }
 
-/** Gửi lại đúng request đó chỉ có ích khi lỗi mạng hoặc lỗi phía máy chủ; lỗi 4xx thì gửi lại vẫn lỗi y hệt. */
+/** Gửi lại đúng request đó chỉ có ích khi lỗi mạng, hết giờ, hoặc lỗi phía máy chủ; lỗi 4xx thì gửi lại vẫn lỗi y hệt. */
 export function isRetryable(error: ApiError): boolean {
-  return error.kind === 'network' || (error.kind === 'http' && error.status !== null && error.status >= 500)
+  if (error.kind === 'network' || error.kind === 'timeout') return true
+  return error.kind === 'http' && error.status !== null && error.status >= 500
 }
 
 /**

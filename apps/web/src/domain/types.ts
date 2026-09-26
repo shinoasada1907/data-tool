@@ -25,3 +25,19 @@ export interface SourcePreview {
   /** Tổng số dòng dữ liệu không trống của cả file. */
   totalRows: number
 }
+
+/** Thứ tự các lựa chọn kiểu trên màn Schema; `FieldType` suy ra từ đây để hai nơi không lệch nhau. */
+export const FIELD_TYPES = ['string', 'number', 'boolean', 'date', 'email'] as const
+
+export type FieldType = (typeof FIELD_TYPES)[number]
+
+/** Key nội bộ cố định của field (`f1`, `f2`, …), không phụ thuộc tên (design D3). */
+export type FieldKey = string
+
+export interface TargetField {
+  key: FieldKey
+  /** Tên đang nhập, chưa trim; chỉ trim khi kiểm và khi gửi lên BE. */
+  name: string
+  type: FieldType
+  required: boolean
+}

@@ -7,6 +7,10 @@ const session: SessionInfo = { id: 's-1', fileName: 'khach-hang.csv', fileType: 
 const withSession: WizardState = { ...initialWizardState, session, step: 'preview' }
 const preview: SourcePreview = { sheetName: null, columns: ['name'], rows: [], totalRows: 0 }
 const withPreview: WizardState = { ...withSession, preview }
+const withSavedSchema: WizardState = {
+  ...withPreview,
+  schema: { draft: [{ key: 'f1', name: 'email', type: 'email', required: true }], saved: true },
+}
 
 describe('isStepDone', () => {
   test('bước Upload xong khi đã có session', () => {
@@ -19,8 +23,13 @@ describe('isStepDone', () => {
     expect(isStepDone('preview', withPreview)).toBe(true)
   })
 
-  test('lát F02 chưa có bước nào sau Xem trước được coi là xong', () => {
+  test('bước Schema xong khi schema đã lưu', () => {
     expect(isStepDone('schema', withPreview)).toBe(false)
+    expect(isStepDone('schema', withSavedSchema)).toBe(true)
+  })
+
+  test('lát F04 chưa có bước nào sau Schema được coi là xong', () => {
+    expect(isStepDone('mapping', withSavedSchema)).toBe(false)
   })
 })
 
@@ -45,12 +54,22 @@ describe('canEnter', () => {
     expect(canEnter('schema', withPreview)).toEqual({ allowed: true })
   })
 
-  // Lát F02 chưa có schema, mapping, kết quả trong state nên các bước sau luôn khoá.
+  test('schema chưa lưu thì khoá bước Mapping, kèm lý do', () => {
+    const unsaved: WizardState = { ...withSavedSchema, schema: { ...withSavedSchema.schema, saved: false } }
+
+    expect(canEnter('mapping', withPreview)).toEqual({ allowed: false, reason: 'Cần lưu schema trước' })
+    expect(canEnter('mapping', unsaved)).toEqual({ allowed: false, reason: 'Cần lưu schema trước' })
+  })
+
+  test('schema đã lưu và có ít nhất một field thì vào được bước Mapping', () => {
+    expect(canEnter('mapping', withSavedSchema)).toEqual({ allowed: true })
+  })
+
+  // Lát F04 chưa có mapping và kết quả trong state nên các bước sau luôn khoá.
   test.each([
-    ['mapping', 'Cần lưu schema trước'],
     ['rules', 'Cần lưu mapping trước'],
     ['result', 'Cần chạy xử lý trước'],
-  ] as const)('bước %s vẫn khoá khi đã có preview, lý do "%s"', (step, reason) => {
-    expect(canEnter(step, withPreview)).toEqual({ allowed: false, reason })
+  ] as const)('bước %s vẫn khoá khi schema đã lưu, lý do "%s"', (step, reason) => {
+    expect(canEnter(step, withSavedSchema)).toEqual({ allowed: false, reason })
   })
 })

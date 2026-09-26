@@ -66,6 +66,7 @@ export const messages = {
   errorCodeLabel: 'Mã lỗi',
 
   network: 'Không kết nối được máy chủ',
+  timeout: 'Máy chủ không phản hồi',
   unexpected: 'Đã xảy ra lỗi không mong đợi',
   serverError: (status: number) => `Máy chủ đang lỗi (${status})`,
   requestFailed: (status: number) => `Yêu cầu không thành công (${status})`,
@@ -125,5 +126,30 @@ export const messages = {
     rowNumber: 'Dòng',
     noRows: 'File không có dòng dữ liệu',
     noRowsHint: 'Vẫn có thể khai báo schema và mapping dựa trên các cột ở trên.',
+  },
+
+  schema: {
+    intro: 'Khai báo các field của dữ liệu đích. Thứ tự ở đây là thứ tự cột khi xuất file.',
+    editorLabel: 'Danh sách field',
+    empty: 'Chưa có field nào',
+    emptyHint: 'Bấm “Thêm field” để bắt đầu.',
+    add: 'Thêm field',
+    group: (position: number) => `Field ${position}`,
+    columns: { name: 'Tên field', type: 'Kiểu', required: 'Bắt buộc' },
+    typeLabel: 'Kiểu',
+    requiredLabel: 'Bắt buộc',
+    moveUp: 'Lên',
+    moveDown: 'Xuống',
+    remove: 'Xoá',
+    nameErrors: {
+      blank: 'Tên field không được để trống',
+      tooLong: (max: number) => `Tên field tối đa ${max} ký tự`,
+      duplicate: 'Tên field bị trùng',
+    },
+    blocked: {
+      empty: 'Cần ít nhất một field',
+      unnamed: 'Còn field chưa đặt tên',
+      invalid: 'Còn lỗi ở tên field',
+    },
   },
 } as const
