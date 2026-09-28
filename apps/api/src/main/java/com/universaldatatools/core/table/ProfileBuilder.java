@@ -1,0 +1,138 @@
+package com.universaldatatools.core.table;
+
+import com.universaldatatools.core.validate.EmailAddresses;
+
+import java.time.DateTimeException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.ResolverStyle;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.regex.Pattern;
+
+/**
+ * Profiles columns cell by cell in one pass, in constant memory per column (core-02 IO7). Typed sources (JSON,
+ * XLSX) are profiled by cell kind; untyped ones (CSV) by what the text looks like, cautiously: no leading zeros, at
+ * most 15 integer digits, ISO dates only.
+ */
+public final class ProfileBuilder {
+
+    private static final Pattern NUMBER = Pattern.compile("-?(0|[1-9][0-9]{0,14})(\\.[0-9]+)?");
+    private static final Pattern ISO_DATE_SHAPE = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
+    private static final DateTimeFormatter ISO_DATE =
+            DateTimeFormatter.ofPattern("uuuu-MM-dd", Locale.ROOT).withResolverStyle(ResolverStyle.STRICT);
+
+    private static final int BOOLEAN = 1;
+    private static final int NUMERIC = 2;
+    private static final int DATE = 4;
+    private static final int EMAIL = 8;
+    private static final int ALL_TEXT_CANDIDATES = BOOLEAN | NUMERIC | DATE | EMAIL;
+
+    private final List<ColumnState> columns = new ArrayList<>();
+
+    public ProfileBuilder(int columnCount) {
+        for (int i = 0; i < columnCount; i++) {
+            columns.add(new ColumnState());
+        }
+    }
+
+    /** One cell; {@code kind} is {@code null} for an untyped source. */
+    public void accept(int column, String text, CellKind kind) {
+        columns.get(column).accept(text, kind);
+    }
+
+    public List<ColumnProfile> build() {
+        return columns.stream().map(ColumnState::profile).toList();
+    }
+
+    private static final class ColumnState {
+
+        private long empty;
+        private long nonEmpty;
+        private int maxLength;
+        private int textCandidates = ALL_TEXT_CANDIDATES;
+        /** Bit per {@link CellKind} seen; 0 while the source has shown no kind. */
+        private int kinds;
+
+        void accept(String text, CellKind kind) {
+            if (text == null || text.isBlank()) {
+                empty++;
+                if (text != null) {
+                    maxLength = Math.max(maxLength, text.codePointCount(0, text.length()));
+                }
+                return;
+            }
+            nonEmpty++;
+            maxLength = Math.max(maxLength, text.codePointCount(0, text.length()));
+            if (kind != null) {
+                kinds |= 1 << kind.ordinal();
+                // Text never becomes a number in a typed source: "123" stays a string.
+                textCandidates &= kind == CellKind.TEXT ? EMAIL : 0;
+            }
+            if (textCandidates != 0) {
+                textCandidates &= candidatesOf(text);
+            }
+        }
+
+        ColumnProfile profile() {
+            return new ColumnProfile(type(), empty, maxLength);
+        }
+
+        private InferredType type() {
+            if (nonEmpty == 0) {
+                return InferredType.EMPTY;
+            }
+            if (kinds != 0) {
+                return switch (Integer.bitCount(kinds) == 1 ? CellKind.values()[Integer.numberOfTrailingZeros(kinds)]
+                        : null) {
+                    case NUMBER -> InferredType.NUMBER;
+                    case BOOLEAN -> InferredType.BOOLEAN;
+                    case DATE -> InferredType.DATE;
+                    case TEXT -> (textCandidates & EMAIL) != 0 ? InferredType.EMAIL : InferredType.STRING;
+                    case null -> InferredType.STRING;
+                };
+            }
+            if ((textCandidates & BOOLEAN) != 0) {
+                return InferredType.BOOLEAN;
+            }
+            if ((textCandidates & NUMERIC) != 0) {
+                return InferredType.NUMBER;
+            }
+            if ((textCandidates & DATE) != 0) {
+                return InferredType.DATE;
+            }
+            return (textCandidates & EMAIL) != 0 ? InferredType.EMAIL : InferredType.STRING;
+        }
+
+        private int candidatesOf(String text) {
+            int result = 0;
+            String lower = text.toLowerCase(Locale.ROOT);
+            if (lower.equals("true") || lower.equals("false")) {
+                result |= BOOLEAN;
+            }
+            if ((textCandidates & NUMERIC) != 0 && NUMBER.matcher(text).matches()) {
+                result |= NUMERIC;
+            }
+            if ((textCandidates & DATE) != 0 && isIsoDate(text)) {
+                result |= DATE;
+            }
+            if ((textCandidates & EMAIL) != 0 && EmailAddresses.isValid(text)) {
+                result |= EMAIL;
+            }
+            return result;
+        }
+
+        private static boolean isIsoDate(String text) {
+            if (!ISO_DATE_SHAPE.matcher(text).matches()) {
+                return false;
+            }
+            try {
+                LocalDate.parse(text, ISO_DATE);
+                return true;
+            } catch (DateTimeException e) {
+                return false;
+            }
+        }
+    }
+}
