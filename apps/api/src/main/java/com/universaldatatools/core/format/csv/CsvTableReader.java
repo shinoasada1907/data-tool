@@ -88,7 +88,7 @@ public final class CsvTableReader implements TableReader {
     @Override
     public Stream<Row> read(InputStream in, TableInfo info) {
         Text text = Text.open(in, info.options().encoding(), new HashSet<>());
-        Reading reading = Reading.open(text, info.options(), info.columns());
+        Reading reading = Reading.open(text, info.options(), info.columns().isEmpty() ? null : info.columns());
         return reading.rows().onClose(reading::close);
     }
 

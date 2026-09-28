@@ -1,9 +1,9 @@
 package com.universaldatatools.tools.importer.infrastructure.persistence;
 
 import com.universaldatatools.core.table.Column;
-import com.universaldatatools.core.table.SourceSchema;
 import com.universaldatatools.core.transform.TransformationStep;
 import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import com.universaldatatools.tools.importer.domain.mapping.MappingConfig;
 import com.universaldatatools.tools.importer.domain.mapping.MappingSpec;
 import com.universaldatatools.tools.importer.domain.schema.FieldSpec;

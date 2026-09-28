@@ -1,12 +1,15 @@
-package com.universaldatatools.core.format.xlsx;
+package com.universaldatatools.tools.importer.infrastructure.parser;
 
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
+import com.universaldatatools.core.format.xlsx.XlsxLimits;
+import com.universaldatatools.core.format.xlsx.XlsxTableReader;
+import com.universaldatatools.core.format.xlsx.XlsxZipGuard;
 import com.universaldatatools.core.table.Column;
 import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.core.table.Row;
-import com.universaldatatools.core.table.SourceSchema;
 import com.universaldatatools.support.XlsxFixtures;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -31,8 +34,8 @@ class XlsxSourceParserTest {
 
     private static final Path FIXTURES = Path.of("src/test/resources/fixtures/xlsx");
 
-    private final XlsxSourceParser parser =
-            new XlsxSourceParser(new XlsxZipGuard(new XlsxLimits(200L * 1024 * 1024, 100, 10_000)));
+    private final TableSourceParser parser =
+            new TableSourceParser(new XlsxTableReader(new XlsxZipGuard(new XlsxLimits(200L * 1024 * 1024, 100, 10_000))));
 
     @TempDir
     Path dir;
@@ -160,7 +163,8 @@ class XlsxSourceParserTest {
 
     private List<Row> rows(Path file) {
         try (InputStream in = Files.newInputStream(file); Stream<Row> rows = parser.read(in)) {
-            return rows.toList();
+            // The importer reads text only: compare numbers and values, not cell kinds.
+            return rows.map(row -> new Row(row.rowNumber(), row.values())).toList();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

@@ -26,8 +26,8 @@ public record TableInfo(DataFormat format, ResolvedReadOptions options, Set<Stri
     }
 
     /**
-     * Enough to read a CSV or XLSX file again when its columns were stored after an earlier inspection, as the
-     * Importer does; no profiles or counts.
+     * Enough to read a CSV or XLSX file again with options already resolved; no profiles or counts. With no
+     * {@code columns}, the reader takes them from the file's header again.
      */
     public static TableInfo forRead(DataFormat format, ResolvedReadOptions options, List<Column> columns) {
         return new TableInfo(format, options, Set.of(), options.sheet(), List.of(), columns, null, List.of(), 0, 0);

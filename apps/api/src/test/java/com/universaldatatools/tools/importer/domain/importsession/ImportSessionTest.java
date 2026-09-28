@@ -4,7 +4,6 @@ import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.core.table.Column;
 import com.universaldatatools.core.table.DataFormat;
-import com.universaldatatools.core.table.SourceSchema;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;

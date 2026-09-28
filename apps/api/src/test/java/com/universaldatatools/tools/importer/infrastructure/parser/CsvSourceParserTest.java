@@ -2,11 +2,11 @@ package com.universaldatatools.tools.importer.infrastructure.parser;
 
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
-import com.universaldatatools.core.format.csv.CsvSourceParser;
+import com.universaldatatools.core.format.csv.CsvTableReader;
 import com.universaldatatools.core.table.Column;
 import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.core.table.Row;
-import com.universaldatatools.core.table.SourceSchema;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CsvSourceParserTest {
 
-    private final CsvSourceParser parser = new CsvSourceParser();
+    private final TableSourceParser parser = new TableSourceParser(new CsvTableReader());
 
     @Test
     void supports_only_csv() {

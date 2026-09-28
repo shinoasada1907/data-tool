@@ -1,7 +1,8 @@
 package com.universaldatatools.platform.config;
 
 import com.universaldatatools.core.format.xlsx.XlsxLimits;
-import com.universaldatatools.core.table.SourceParser;
+import com.universaldatatools.core.table.TableReader;
+import com.universaldatatools.core.table.TableWriter;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
@@ -27,7 +28,10 @@ class FormatConfigTest {
     }
 
     @Test
-    void both_parsers_are_beans() {
-        runner.run(context -> assertThat(context.getBeansOfType(SourceParser.class)).hasSize(2));
+    void a_reader_and_a_writer_per_format_are_beans() {
+        runner.run(context -> {
+            assertThat(context.getBeansOfType(TableReader.class)).hasSize(3);
+            assertThat(context.getBeansOfType(TableWriter.class)).hasSize(3);
+        });
     }
 }

@@ -1,6 +1,6 @@
 package com.universaldatatools.tools.importer.domain.pipeline;
 
-import com.universaldatatools.core.table.SourceSchema;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import com.universaldatatools.tools.importer.domain.mapping.MappingConfig;
 import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
 import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;

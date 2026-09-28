@@ -5,8 +5,6 @@ import com.universaldatatools.tools.importer.domain.export.ExportFormat;
 import com.universaldatatools.tools.importer.domain.pipeline.RowResult;
 import com.universaldatatools.tools.importer.domain.schema.TargetField;
 import org.junit.jupiter.api.Test;
-import tools.jackson.core.StreamWriteFeature;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -30,8 +28,7 @@ class JsonValidRowsExporterTest {
 
     private static final String ROW_2_JSON = "{\"name\":\"An\",\"score\":10,\"active\":true,\"dob\":\"1990-12-25\",\"note\":null}";
 
-    private final JsonValidRowsExporter exporter = new JsonValidRowsExporter(
-            JsonMapper.builder().enable(StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN).build());
+    private final JsonValidRowsExporter exporter = new JsonValidRowsExporter();
 
     @Test
     void it_describes_a_json_download() {

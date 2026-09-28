@@ -68,9 +68,9 @@ public final class JsonTableWriter implements TableWriter {
                 json.close();
             }
 
+            /** Writes nothing more, not even what is buffered: an error can still be reported before any byte. */
             @Override
             public void abort() {
-                json.flush();
             }
         };
     }

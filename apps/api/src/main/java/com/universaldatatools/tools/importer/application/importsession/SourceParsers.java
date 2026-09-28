@@ -1,7 +1,7 @@
 package com.universaldatatools.tools.importer.application.importsession;
 
 import com.universaldatatools.core.table.DataFormat;
-import com.universaldatatools.core.table.SourceParser;
+import com.universaldatatools.tools.importer.domain.importsession.SourceParser;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

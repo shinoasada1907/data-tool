@@ -98,7 +98,8 @@ public final class XlsxTableReader implements TableReader {
     public Stream<com.universaldatatools.core.table.Row> read(InputStream in, TableInfo info) {
         Path file = spool(in);
         try {
-            Reading reading = Reading.open(file, info.options().sheet(), info.options().hasHeader(), info.columns());
+            Reading reading = Reading.open(file, info.options().sheet(), info.options().hasHeader(),
+                    info.columns().isEmpty() ? null : info.columns());
             return reading.rows().onClose(() -> {
                 reading.close();
                 delete(file);

@@ -2,7 +2,7 @@ package com.universaldatatools.tools.importer.domain.mapping;
 
 import com.universaldatatools.core.table.Column;
 import com.universaldatatools.core.table.Row;
-import com.universaldatatools.core.table.SourceSchema;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import com.universaldatatools.tools.importer.domain.schema.FieldSpec;
 import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
 import org.junit.jupiter.api.Test;

@@ -1,14 +1,18 @@
 package com.universaldatatools.platform.config;
 
-import com.universaldatatools.core.format.csv.CsvSourceParser;
+import com.universaldatatools.core.format.csv.CsvTableReader;
+import com.universaldatatools.core.format.csv.CsvTableWriter;
+import com.universaldatatools.core.format.json.JsonTableReader;
+import com.universaldatatools.core.format.json.JsonTableWriter;
 import com.universaldatatools.core.format.xlsx.XlsxLimits;
-import com.universaldatatools.core.format.xlsx.XlsxSourceParser;
+import com.universaldatatools.core.format.xlsx.XlsxTableReader;
+import com.universaldatatools.core.format.xlsx.XlsxTableWriter;
 import com.universaldatatools.core.format.xlsx.XlsxZipGuard;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/** The file-format readers of core.format as beans; core itself stays free of Spring (core-01 TD1). */
+/** The readers and writers of core.format as beans; core itself stays free of Spring (core-01 TD1). */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(XlsxLimitsProperties.class)
 public class FormatConfig {
@@ -24,12 +28,32 @@ public class FormatConfig {
     }
 
     @Bean
-    CsvSourceParser csvSourceParser() {
-        return new CsvSourceParser();
+    CsvTableReader csvTableReader() {
+        return new CsvTableReader();
     }
 
     @Bean
-    XlsxSourceParser xlsxSourceParser(XlsxZipGuard guard) {
-        return new XlsxSourceParser(guard);
+    XlsxTableReader xlsxTableReader(XlsxZipGuard guard) {
+        return new XlsxTableReader(guard);
+    }
+
+    @Bean
+    JsonTableReader jsonTableReader() {
+        return new JsonTableReader();
+    }
+
+    @Bean
+    CsvTableWriter csvTableWriter() {
+        return new CsvTableWriter();
+    }
+
+    @Bean
+    JsonTableWriter jsonTableWriter() {
+        return new JsonTableWriter();
+    }
+
+    @Bean
+    XlsxTableWriter xlsxTableWriter() {
+        return new XlsxTableWriter();
     }
 }

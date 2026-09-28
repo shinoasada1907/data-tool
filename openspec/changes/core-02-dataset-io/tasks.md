@@ -339,17 +339,22 @@
 - Modify: `platform.config.FormatConfig` (bean `CsvTableReader`, `XlsxTableReader`, `JsonTableReader`, 3 writer)
 - Test: sửa `FakeSourceParser` → `FakeTableReader` trong `support`
 
-- [ ] 13.1 Thêm case vào `ImportSessionApiIntegrationTest`: upload `data.json` (`[{"a":1}]`) → `415 FILE_UNSUPPORTED`. Chạy. Mong đợi: PASS ngay, vì Importer hiện chưa biết JSON. Đây là test canh hồi quy.
-- [ ] 13.2 Chuyển Importer sang `TableReader`:
+- [x] 13.1 Thêm case vào `ImportSessionApiIntegrationTest`: upload `data.json` (`[{"a":1}]`) → `415 FILE_UNSUPPORTED`. Chạy. Mong đợi: PASS ngay, vì Importer hiện chưa biết JSON. Đây là test canh hồi quy.
+- [x] 13.2 Chuyển Importer sang `TableReader`:
   - `ImporterReadOptions.V0_1` = `(null, COMMA, UTF_8, true, ReadLimits.NONE)`.
   - Upload gọi `inspect` rồi dựng `SourceSchema(columns, rowCount, sheetName)`.
   - Preview và process gọi `read(in, TableInfo.forRead(format, resolved, columns))`, trong đó `resolved` dựng từ `ImporterReadOptions` + `sheetName` đã lưu.
-- [ ] 13.3 Chạy `./mvnw -q test`. Mong đợi: PASS toàn bộ.
+- [x] 13.3 Chạy `./mvnw -q test`. Mong đợi: PASS toàn bộ.
   - Chỗ hay vỡ: `detail` của lỗi UTF-8 phải giữ chuỗi V0.1 (không có câu "Choose the file's encoding."), vì encoding được chỉ định rõ.
-- [ ] 13.4 Chuyển 3 exporter sang adapter trên `TableWriter` (IO10).
-- [ ] 13.5 Chạy `./mvnw -q test -Dtest=ExportGoldenIntegrationTest` rồi toàn bộ test. Mong đợi: PASS. Golden giống từng byte.
-- [ ] 13.6 Xoá các lớp cũ không còn ai dùng. `grep -rn "SourceParser" src` → không còn.
-- [ ] 13.7 Commit: `refactor(importer): read and export through core TableReader/TableWriter`
+- [x] 13.4 Chuyển 3 exporter sang adapter trên `TableWriter` (IO10).
+- [x] 13.5 Chạy `./mvnw -q test -Dtest=ExportGoldenIntegrationTest` rồi toàn bộ test. Mong đợi: PASS. Golden giống từng byte.
+- [x] 13.6 Xoá các lớp cũ không còn ai dùng. `grep -rn "SourceParser" src` → không còn.
+- [x] 13.7 Commit: `refactor(importer): read and export through core TableReader/TableWriter`
+  - Làm khác: ~~`TableReaders` thay `SourceParsers`, xoá `SourceParser`~~. **LÝ DO:** ít xáo trộn hơn mà vẫn đạt mục tiêu. `SourceParser` và `SourceSchema` chuyển thành **port riêng của Importer** (`tools.importer.domain.importsession`), được cài bằng adapter `TableSourceParser` trên `TableReader` với tuỳ chọn V0.1 cố định. Service, `FakeSourceParser` và test parser V0.1 giữ nguyên hình dạng; test parser V0.1 nay chạy qua adapter, tức kiểm luôn reader mới. `CsvSourceParser`/`XlsxSourceParser` bị xoá.
+  - `TableInfo.forRead` cho phép `columns` rỗng: reader đọc lại header từ file, như V0.1 (Importer không truyền cột khi process).
+  - `FileTypeDetector` chưa nhận tham số định dạng cho phép: nó vẫn chỉ biết CSV/XLSX, nên `.json` vào Importer đã là 415. Nhận JSON ở upload để lại cho core-04 (upload dataset).
+  - Sửa lỗi tìm ra nhờ test V0.1: `JsonTableWriter.abort()` từng `flush()` phần đã đệm, làm response bị commit trước khi báo `EXPORT_FAILED`. Giờ `abort()` không ghi gì.
+  - Exporter tự tạo writer (writer không giữ trạng thái); `JsonValidRowsExporter` không còn cần `JsonMapper`. Golden test của task 2 xanh: output giống từng byte.
 
 ## 14. `KeyHasher` và `KeyIndex`
 

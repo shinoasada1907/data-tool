@@ -28,8 +28,6 @@ import com.universaldatatools.tools.importer.infrastructure.export.CsvValidRowsE
 import com.universaldatatools.tools.importer.infrastructure.export.JsonValidRowsExporter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import tools.jackson.core.StreamWriteFeature;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -57,7 +55,7 @@ class ExportServiceTest {
     private final SessionLocks locks = new SessionLocks();
     private final ExportService service = new ExportService(sessions,
             new ResultQueryService(sessions, configurations, HASHER, results, locks),
-            List.of(new JsonValidRowsExporter(JsonMapper.builder().enable(StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN).build()),
+            List.of(new JsonValidRowsExporter(),
                     new CsvValidRowsExporter()),
             new CsvErrorReportExporter());
 
