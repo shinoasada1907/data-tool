@@ -33,6 +33,11 @@ public class OpenApiConfig {
     }
 
     @Bean
+    GroupedOpenApi converterApi() {
+        return GroupedOpenApi.builder().group("converter").pathsToMatch("/api/converter/**").build();
+    }
+
+    @Bean
     GroupedOpenApi datasetsApi() {
         return GroupedOpenApi.builder().group("datasets").pathsToMatch("/api/datasets/**").build();
     }

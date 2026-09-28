@@ -30,6 +30,8 @@
         <java.version>21</java.version>
         <!-- Extra JVM flags for tests, e.g. -Dsurefire.extraArgLine=-Xmx256m for memory checks. -->
         <surefire.extraArgLine></surefire.extraArgLine>
+        <!-- Perf smoke tests (@Tag("perf")) are left out unless run with -DexcludedGroups=none. -->
+        <excludedGroups>perf</excludedGroups>
     </properties>
     <dependencies>
         <dependency>

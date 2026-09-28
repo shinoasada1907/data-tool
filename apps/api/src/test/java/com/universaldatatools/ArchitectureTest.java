@@ -30,7 +30,7 @@ class ArchitectureTest {
     private static final String TOOLS = ROOT + ".tools..";
 
     /** Tools that exist so far; each new tool adds its name. */
-    private static final List<String> TOOL_NAMES = List.of("importer");
+    private static final List<String> TOOL_NAMES = List.of("importer", "converter");
 
     private static final JavaClasses PRODUCTION_CLASSES = new ClassFileImporter()
             .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
@@ -87,8 +87,10 @@ class ArchitectureTest {
                     .whereLayer("infrastructure").mayNotBeAccessedByAnyLayer()
                     .whereLayer("domain").mayOnlyBeAccessedByLayers("api", "application", "infrastructure")
                     .check(PRODUCTION_CLASSES);
+            // A tool without rules of its own (the converter) has no domain package.
             classes().that().resideInAPackage(base + ".domain..")
                     .should().onlyDependOnClassesThat().resideInAnyPackage("java..", CORE, base + "..")
+                    .allowEmptyShould(true)
                     .check(PRODUCTION_CLASSES);
         }
     }
