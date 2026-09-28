@@ -37,6 +37,13 @@ public final class ProfileBuilder {
         }
     }
 
+    /** A column first seen after {@code emptyBefore} rows, which count as empty cells of it (JSON keys). */
+    public void addColumn(long emptyBefore) {
+        ColumnState column = new ColumnState();
+        column.empty = emptyBefore;
+        columns.add(column);
+    }
+
     /** One cell; {@code kind} is {@code null} for an untyped source. */
     public void accept(int column, String text, CellKind kind) {
         columns.get(column).accept(text, kind);

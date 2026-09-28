@@ -3,6 +3,7 @@ package com.universaldatatools.core.table;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -19,13 +20,28 @@ public final class TableScan {
 
     /** @throws DomainException {@code LIMIT_EXCEEDED} when there are too many columns */
     public TableScan(List<Column> columns, ReadLimits limits) {
-        if (limits.maxColumns() > 0 && columns.size() > limits.maxColumns()) {
+        this.limits = limits;
+        checkColumns(columns.size());
+        this.columns = new ArrayList<>(columns);
+        this.profiles = new ProfileBuilder(columns.size());
+    }
+
+    /**
+     * A column found after some rows were accepted, as JSON keys are; those rows count as empty cells of it.
+     *
+     * @throws DomainException {@code LIMIT_EXCEEDED} when there are now too many columns
+     */
+    public void addColumn(Column column) {
+        checkColumns(columns.size() + 1);
+        columns.add(column);
+        profiles.addColumn(rows);
+    }
+
+    private void checkColumns(int count) {
+        if (limits.maxColumns() > 0 && count > limits.maxColumns()) {
             throw new DomainException(ErrorCode.LIMIT_EXCEEDED,
                     "File has more than " + limits.maxColumns() + " columns.");
         }
-        this.columns = List.copyOf(columns);
-        this.limits = limits;
-        this.profiles = new ProfileBuilder(columns.size());
     }
 
     public void blank() {

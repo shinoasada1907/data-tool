@@ -75,7 +75,7 @@
 
 **Interfaces:** như design IO1. Ở task này `ColumnProfile` chỉ là record; việc tính profile làm ở task 7.
 
-- [ ] 3.1 Viết `CsvTableReaderEncodingTest`. `info = inspect(bytes, options)`, `rows = read(bytes, info)` gom thành list.
+- [x] 3.1 Viết `CsvTableReaderEncodingTest`. `info = inspect(bytes, options)`, `rows = read(bytes, info)` gom thành list.
 
   | Input (byte) | `encoding` | Mong đợi |
   |---|---|---|
@@ -88,10 +88,12 @@
   | `a,b\n1,2\n` + dòng 3 có `C3 28` | null | `FILE_PARSE_ERROR`, detail `File is not valid UTF-8 (near row 3). Choose the file's encoding.` |
   | như trên | `UTF_8` | `FILE_PARSE_ERROR`, detail `File is not valid UTF-8 (near row 3).` (giữ chuỗi V0.1) |
   | `café\n` windows-1252 (`63 61 66 E9`) | `WINDOWS_1252` | cột `café` |
-- [ ] 3.2 Chạy test. Mong đợi: FAIL.
-- [ ] 3.3 Cài đặt contract và phần encoding của `CsvTableReader`. Delimiter tạm thời cố định COMMA; `hasHeader` luôn true (task 4 làm tiếp).
-- [ ] 3.4 Chạy test. Mong đợi: PASS.
-- [ ] 3.5 Commit: `feat(core): TableReader contract; CSV encodings (auto BOM/UTF-8, UTF-16, windows-1258/1252)`
+- [x] 3.2 Chạy test. Mong đợi: FAIL.
+- [x] 3.3 Cài đặt contract và phần encoding của `CsvTableReader`. Delimiter tạm thời cố định COMMA; `hasHeader` luôn true (task 4 làm tiếp).
+- [x] 3.4 Chạy test. Mong đợi: PASS.
+- [x] 3.5 Commit: `feat(core): TableReader contract; CSV encodings (auto BOM/UTF-8, UTF-16, windows-1258/1252)`
+  - Làm khác: gộp task 3, 4, 7, 8 (và 15) thành một vòng cho CSV. Profile và giới hạn là phần dùng chung của cả ba reader, nên dựng một lần: `TableScan` (đếm row/row trống, giới hạn, profile) + `ProfileBuilder`, rồi các reader gọi vào. Test tương ứng nằm trong `CsvTableReaderTest`, `DelimiterDetectorTest`, `ProfileBuilderTest`.
+  - Fixture windows-1258: file thật lưu `ễ` thành `ê` + dấu ngã kết hợp (U+0303), vì bảng mã này không có `ễ` dựng sẵn.
 
 ## 4. CSV: tự nhận delimiter và `hasHeader`
 
@@ -100,7 +102,7 @@
 - Create: `MAIN/core/format/csv/DelimiterDetector.java`
 - Test: `TEST/core/format/csv/DelimiterDetectorTest.java`, `TEST/core/format/csv/CsvTableReaderOptionsTest.java`
 
-- [ ] 4.1 Viết `DelimiterDetectorTest`, gọi `detect(String sample)`:
+- [x] 4.1 Viết `DelimiterDetectorTest`, gọi `detect(String sample)`:
 
   | Sample | Mong đợi | Vì sao |
   |---|---|---|
@@ -113,15 +115,15 @@
   | `a;b\n1;2\nx,y,z,w\n` | `SEMICOLON` | COMMA có `mode` 1 nên không hợp lệ; SEMICOLON `mode` 2, consistency 2/3 |
   | `"a,b";c\n"1,2";3\n` | `SEMICOLON` | dấu phẩy nằm trong quote |
   | 60 record `x;y`, record thứ 55 là `p,q,r,s` | `SEMICOLON` | chỉ xét 50 record đầu |
-- [ ] 4.2 Viết `CsvTableReaderOptionsTest`:
+- [x] 4.2 Viết `CsvTableReaderOptionsTest`:
   - delimiter bỏ trống với `ma;ten\n1;A\n` → `options.delimiter=SEMICOLON`, `autoDetected` ⊇ `{"delimiter"}`;
   - delimiter `SEMICOLON` chỉ định với `a,b\n1,2\n` → một cột `a,b`, `autoDetected` không có `delimiter`;
   - `hasHeader=false` với `1,An\n2,Binh\n` → cột `Column A`, `Column B`; row đầu có số dòng `1`, giá trị `["1","An"]`;
   - `hasHeader=false`, dòng 1 trống, dòng 2 là `x,y,z` → 3 cột; row đầu có số dòng `2`.
-- [ ] 4.3 Chạy 2 test. Mong đợi: FAIL.
-- [ ] 4.4 Cài `DelimiterDetector` theo IO3. Sample lấy tối đa 64 KB đã decode. Cài `hasHeader` theo IO4.
-- [ ] 4.5 Chạy lại. Mong đợi: PASS. Chạy thêm `CsvSourceParserTest` (vẫn còn): PASS.
-- [ ] 4.6 Commit: `feat(core): CSV delimiter detection and header-less files`
+- [x] 4.3 Chạy 2 test. Mong đợi: FAIL.
+- [x] 4.4 Cài `DelimiterDetector` theo IO3. Sample lấy tối đa 64 KB đã decode. Cài `hasHeader` theo IO4.
+- [x] 4.5 Chạy lại. Mong đợi: PASS. Chạy thêm `CsvSourceParserTest` (vẫn còn): PASS.
+- [x] 4.6 Commit: `feat(core): CSV delimiter detection and header-less files`
 
 ## 5. `XlsxTableReader`: danh sách sheet, chọn sheet, kiểu ô
 
@@ -130,7 +132,7 @@
 - Modify: `MAIN/core/format/xlsx/XlsxCellValues.java` (trả thêm `CellKind`)
 - Test: `TEST/core/format/xlsx/XlsxTableReaderTest.java`
 
-- [ ] 5.1 Viết `XlsxTableReaderTest`, workbook sinh bằng `XlsxFixtures`:
+- [x] 5.1 Viết `XlsxTableReaderTest`, workbook sinh bằng `XlsxFixtures`:
   - `sheets()` của workbook `[Hidden(hidden), Data, Prices]` → `[{Hidden,false},{Data,true},{Prices,true}]`;
   - không chọn sheet → đọc `Data`;
   - `sheet="Prices"` → cột của `Prices`, `sheetName="Prices"`;
@@ -139,10 +141,11 @@
   - kiểu ô, dòng 2 là `"00123"` (chuỗi), `42`, ngày 2024-02-29 (`dd/mm/yyyy`), TRUE, `=B2*2`, 13:30 (`h:mm`) → chữ `00123`,`42`,`2024-02-29`,`TRUE`,`84`,`13:30:00`; kiểu `TEXT`,`NUMBER`,`DATE`,`BOOLEAN`,`NUMBER`,`TEXT`;
   - `hasHeader=false` → cột `Column A`…; row đầu có số dòng 1;
   - zip bomb (fixture của V0.1) → `FILE_PARSE_ERROR`, như cũ.
-- [ ] 5.2 Chạy. Mong đợi: FAIL.
-- [ ] 5.3 Cài đặt theo IO5.
-- [ ] 5.4 Chạy lại, cùng `XlsxSourceParserTest`. Mong đợi: PASS.
-- [ ] 5.5 Commit: `feat(core): XLSX sheet listing/selection and cell kinds`
+- [x] 5.2 Chạy. Mong đợi: FAIL.
+- [x] 5.3 Cài đặt theo IO5.
+- [x] 5.4 Chạy lại, cùng `XlsxSourceParserTest`. Mong đợi: PASS.
+- [x] 5.5 Commit: `feat(core): XLSX sheet listing/selection and cell kinds`
+  - Làm thêm: XLSX đếm cả dòng **vắng mặt** trong sheet XML (khoảng trống giữa hai số dòng) vào `blankRowsSkipped`, cho nghĩa "dòng trống" giống CSV. Kiểu ô kiểm trên fixture thật `types.xlsx`.
 
 ## 6. `JsonTableReader`
 
@@ -150,7 +153,7 @@
 - Create: `MAIN/core/format/json/JsonTableReader.java`
 - Test: `TEST/core/format/json/JsonTableReaderTest.java`
 
-- [ ] 6.1 Viết `JsonTableReaderTest`:
+- [x] 6.1 Viết `JsonTableReaderTest`:
 
   | Input | Mong đợi |
   |---|---|
@@ -170,10 +173,11 @@
   | `[{"a":"x"}] trailing` | `FILE_PARSE_ERROR`, detail `Invalid JSON near row 1.` |
 
   Thêm một kiểm: với input sai cú pháp chứa chuỗi `SECRET`, `detail` không chứa `SECRET`.
-- [ ] 6.2 Chạy. Mong đợi: FAIL.
-- [ ] 6.3 Cài đặt theo IO6. `JsonFactory` có `StreamReadConstraints` như design. `inspect` gom key; map key → index lưu trong `TableInfo` (trường package-private `jsonKeyIndex`, hoặc record phụ `JsonLayout`; ghi lựa chọn vào ghi chú).
-- [ ] 6.4 Chạy lại. Mong đợi: PASS.
-- [ ] 6.5 Commit: `feat(core): JSON reader for arrays of flat objects`
+- [x] 6.2 Chạy. Mong đợi: FAIL.
+- [x] 6.3 Cài đặt theo IO6. `JsonFactory` có `StreamReadConstraints` như design. `inspect` gom key; map key → index lưu trong `TableInfo` (trường package-private `jsonKeyIndex`, hoặc record phụ `JsonLayout`; ghi lựa chọn vào ghi chú).
+- [x] 6.4 Chạy lại. Mong đợi: PASS.
+- [x] 6.5 Commit: `feat(core): JSON reader for arrays of flat objects`
+  - Làm khác: `TableInfo` có thêm `sourceKeys` (key JSON gốc theo thứ tự cột) để `read` map key sang cột. JSON biết tập cột dần dần, nên `TableScan.addColumn` / `ProfileBuilder.addColumn` cho thêm cột giữa chừng; các row trước đó tính là ô rỗng. Không phải đọc file hai lần trong `inspect`.
 
 ## 7. Profile cột
 
@@ -182,7 +186,7 @@
 - Modify: 3 reader (gọi `ProfileBuilder` trong `inspect`)
 - Test: `TEST/core/table/ProfileBuilderTest.java`, thêm case vào test của 3 reader
 
-- [ ] 7.1 Viết `ProfileBuilderTest`. Nạp từng ô bằng `accept(col, text, kind)`, rồi gọi `build()`:
+- [x] 7.1 Viết `ProfileBuilderTest`. Nạp từng ô bằng `accept(col, text, kind)`, rồi gọi `build()`:
 
   | Cột (nguồn CSV, `kind` null) | `inferredType` | `emptyCount` | `maxLength` |
   |---|---|---|---|
@@ -203,11 +207,11 @@
   | `2024-01-01`/DATE | `date` |
   | `a@x.com`/TEXT, `b@y.vn`/TEXT | `email` |
   | `123`/TEXT | `string` (chữ không bao giờ thành số) |
-- [ ] 7.2 Thêm case vào test reader: CSV `id,code,active,joined,mail,note` (xem scenario spec) → đúng 6 `inferredType`.
-- [ ] 7.3 Chạy. Mong đợi: FAIL.
-- [ ] 7.4 Cài `ProfileBuilder` theo IO7 và gọi nó từ 3 reader.
-- [ ] 7.5 Chạy lại. Mong đợi: PASS.
-- [ ] 7.6 Commit: `feat(core): column profiles (inferred type, empty count, max length)`
+- [x] 7.2 Thêm case vào test reader: CSV `id,code,active,joined,mail,note` (xem scenario spec) → đúng 6 `inferredType`.
+- [x] 7.3 Chạy. Mong đợi: FAIL.
+- [x] 7.4 Cài `ProfileBuilder` theo IO7 và gọi nó từ 3 reader.
+- [x] 7.5 Chạy lại. Mong đợi: PASS.
+- [x] 7.6 Commit: `feat(core): column profiles (inferred type, empty count, max length)`
 
 ## 8. Giới hạn đọc và `blankRowsSkipped`
 
@@ -215,7 +219,7 @@
 - Modify: 3 reader
 - Test: `TEST/core/format/ReadLimitsTest.java` (chạy tham số hoá trên cả 3 reader)
 
-- [ ] 8.1 Viết `ReadLimitsTest` với `ReadLimits(3, 2, 5)`:
+- [x] 8.1 Viết `ReadLimitsTest` với `ReadLimits(3, 2, 5)`:
   - 4 row dữ liệu → `LIMIT_EXCEEDED`, detail `File has more than 3 rows.`;
   - 3 cột → `LIMIT_EXCEEDED`, detail `File has more than 2 columns.`;
   - ô ở row 2, cột `b` dài 6 → `LIMIT_EXCEEDED`, detail `Value at row 2, column "b" is longer than 5 characters.`;
@@ -226,10 +230,10 @@
   - CSV `a,b\n1,2\n\n , \n3,4\n` → 2;
   - XLSX có dòng 3 trống → 1;
   - JSON `[{},{}]` → 0.
-- [ ] 8.2 Chạy. Mong đợi: FAIL.
-- [ ] 8.3 Cài đặt theo IO8 và IO4. Detail dùng số thật của giới hạn (500 000 trong spec là giá trị mặc định).
-- [ ] 8.4 Chạy lại. Mong đợi: PASS.
-- [ ] 8.5 Commit: `feat(core): read limits (rows, columns, cell length) and blank row count`
+- [x] 8.2 Chạy. Mong đợi: FAIL.
+- [x] 8.3 Cài đặt theo IO8 và IO4. Detail dùng số thật của giới hạn (500 000 trong spec là giá trị mặc định).
+- [x] 8.4 Chạy lại. Mong đợi: PASS.
+- [x] 8.5 Commit: `feat(core): read limits (rows, columns, cell length) and blank row count`
 
 ## 9. Contract ghi, `CellTyping` và `CsvTableWriter`
 
@@ -369,10 +373,11 @@
 - Modify: `MAIN/core/common/ErrorCode.java`, `MAIN/platform/web/ErrorHttpStatus.java`
 - Test: `TEST/platform/web/ErrorHttpStatusTest.java` (có sẵn thì thêm case)
 
-- [ ] 15.1 Thêm case: `JSON_NOT_FLAT` → 422; `LIMIT_EXCEEDED` → 422. Chạy. Mong đợi: FAIL.
+- [x] 15.1 Thêm case: `JSON_NOT_FLAT` → 422; `LIMIT_EXCEEDED` → 422. Chạy. Mong đợi: FAIL.
   - Nếu hai mã đã được thêm vào enum từ task 6 và 8 (để test reader compile) thì phần còn lại là ánh xạ HTTP.
-- [ ] 15.2 Thêm hai mã và ánh xạ. Chạy. Mong đợi: PASS.
-- [ ] 15.3 Commit: `feat(errors): JSON_NOT_FLAT and LIMIT_EXCEEDED codes`
+- [x] 15.2 Thêm hai mã và ánh xạ. Chạy. Mong đợi: PASS.
+- [x] 15.3 Commit: `feat(errors): JSON_NOT_FLAT and LIMIT_EXCEEDED codes`
+  - Làm khác: hai mã được thêm ngay ở task 3 (reader cần chúng để compile), không commit riêng.
 
 ## 16. Hoàn tất
 
