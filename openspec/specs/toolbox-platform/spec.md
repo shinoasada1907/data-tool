@@ -1,7 +1,7 @@
 # toolbox-platform Specification
 
 ## Purpose
-TBD - created by archiving change core-01-toolbox-restructure. Update Purpose after archive.
+Các cam kết chung của Universal Data Tools mà người vận hành và dev thấy được: tên cấu hình `toolbox.*` (biến môi trường `IMPORTER_*` cũ vẫn chạy), ranh giới module được kiểm tự động (core thuần Java, tool không phụ thuộc nhau), và việc tái cấu trúc không đổi hành vi API của Importer. Tạo bởi change `core-01-toolbox-restructure` (2026-09-28); các change core sau thêm requirement vào đây.
 ## Requirements
 ### Requirement: Tên cấu hình của toolbox và biến môi trường cũ
 Hệ thống SHALL đọc cấu hình dưới prefix `toolbox.*` như bảng dưới. Mỗi giá trị lấy từ biến môi trường mới (`TOOLBOX_*`) nếu có. Nếu không có, hệ thống SHALL lấy từ biến môi trường cũ (`IMPORTER_*`). Nếu cả hai đều không có, dùng giá trị mặc định.
