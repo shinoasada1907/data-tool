@@ -35,14 +35,15 @@
 - Modify: `MAIN/core/common/DomainException.java` (`Map<String,Object> extensions`, hằng `RETRY_AFTER`), `MAIN/platform/web/GlobalExceptionHandler.java`
 - Test: `TEST/platform/web/ProblemExtensionsTest.java`
 
-- [ ] 2.1 Viết test, dùng controller giả trong test:
+- [x] 2.1 Viết test, dùng controller giả trong test:
   - ném `DomainException(SERVER_BUSY, "Busy", extensions {retryAfterSeconds: 5})` → status `503`, header `Retry-After: 5`, body không có `retryAfterSeconds`;
   - ném với extension `{keyProblems: [...]}` → body có `keyProblems` ở top-level;
   - `RATE_LIMITED` không có `retryAfterSeconds` → vẫn có `Retry-After: 1` (mặc định tối thiểu).
-- [ ] 2.2 Chạy. Mong đợi: FAIL.
-- [ ] 2.3 Cài đặt.
-- [ ] 2.4 Chạy lại. Mong đợi: PASS.
-- [ ] 2.5 Commit: `feat(errors): problem extensions and Retry-After`
+- [x] 2.2 Chạy. Mong đợi: FAIL.
+- [x] 2.3 Cài đặt.
+- [x] 2.4 Chạy lại. Mong đợi: PASS.
+- [x] 2.5 Commit: `feat(errors): problem extensions and Retry-After`
+  - Làm khác: test gọi thẳng `GlobalExceptionHandler.handleDomain` (unit test `ProblemExtensionsTest`), không dựng controller giả. `ErrorCode` vẫn là enum (interface chuyển sang core-05); thêm luôn `DATASET_NOT_FOUND` (404) và `SERVER_BUSY` (503), vì dataset cần chúng.
 
 ~~3. `ClientKeyResolver`~~
 
@@ -79,14 +80,14 @@
 - Create: `MAIN/platform/dataset/{Dataset, DatasetRepository, JpaDatasetRepository, DatasetEntity, DatasetJpaRepository, RetentionProperties}.java`
 - Test: `TEST/platform/dataset/JpaDatasetRepositoryTest.java`
 
-- [ ] 8.1 Viết test (Testcontainers):
+- [x] 8.1 Viết test (Testcontainers):
   - `save` rồi `findLive(id, now)` → có;
   - `lastUsedAt` cách đây 25 giờ, TTL 24 giờ → `findLive` rỗng;
   - `touch(id, now)` khi `lastUsedAt` cách đây 5 phút → không đổi; cách đây 11 phút → đổi thành `now`;
   - `listExpired(now, 10)` chỉ trả dataset hết hạn;
   - `deleteIfExpired(id, cutoff)` là một lệnh có điều kiện: dataset vừa được touch thì không bị xoá.
-- [ ] 8.2 FAIL → migration và cài đặt → PASS.
-- [ ] 8.3 Commit: `feat(dataset): dataset table (V12) with sliding 24h retention`
+- [x] 8.2 FAIL → migration và cài đặt → PASS.
+- [x] 8.3 Commit: `feat(dataset): dataset table (V12) with sliding 24h retention`
 
 ## 9. Upload dataset
 
@@ -95,14 +96,14 @@
 - Create: `MAIN/platform/dataset/{DatasetService, DatasetController, DatasetDto}.java`
 - Test: `TEST/core/table/FileTypeDetectorTest.java` (thêm case), `TEST/platform/dataset/DatasetUploadIntegrationTest.java`
 
-- [ ] 9.1 Thêm case cho `FileTypeDetectorTest` với `allowed = {CSV, XLSX, JSON}`:
+- [x] 9.1 Thêm case cho `FileTypeDetectorTest` với `allowed = {CSV, XLSX, JSON}`:
   - `data.JSON` + `  [{"a":1}]` → JSON;
   - `data.json` + BOM + `[` → JSON;
   - `data.json` + `{"a":1}` → `FILE_PARSE_ERROR`, detail `JSON must be an array of objects.`;
   - `x.csv` bắt đầu `FF FE` và có `00` → CSV;
   - `x.csv` có `00` mà không có BOM → `FILE_UNSUPPORTED`;
   - `x.json` với `allowed={CSV,XLSX}` → `FILE_UNSUPPORTED`.
-- [ ] 9.2 Viết `DatasetUploadIntegrationTest` theo spec `dataset-api` "Upload dataset":
+- [x] 9.2 Viết `DatasetUploadIntegrationTest` theo spec `dataset-api` "Upload dataset":
   - CSV tên tiếng Việt → `201`, `Location`, `format=CSV`, `sheets=null`, `expiresAt - createdAt = 24h`;
   - XLSX có sheet ẩn → `sheets` đúng thứ tự và `visible`;
   - `{"a":1}` → `422 FILE_PARSE_ERROR`; không có row và không có thư mục storage mới;
@@ -110,8 +111,9 @@
   - file 0 byte → `422 FILE_EMPTY`;
   - XLSX bomb → `422 FILE_PARSE_ERROR`;
   - quá 20MB → `413 FILE_TOO_LARGE`.
-- [ ] 9.3 FAIL → cài đặt theo PL5 (upload) → PASS.
-- [ ] 9.4 Commit: `feat(dataset): POST /api/datasets for CSV, XLSX and flat JSON`
+- [x] 9.3 FAIL → cài đặt theo PL5 (upload) → PASS.
+- [x] 9.4 Commit: `feat(dataset): POST /api/datasets for CSV, XLSX and flat JSON`
+  - Làm khác: `FileTypeDetector` có hàm riêng `detectDataset` cho toolbox (nhận `.json`, cho phép CSV UTF-16 có BOM); `detect` cũ giữ nguyên cho Importer, nên upload V0.1 không đổi. Upload **không** qua rate limit, `DiskSpaceGuard` hay gate: các guard đó thuộc core-05. Test dataset: `DatasetRepositoryTest`, `DatasetApiIntegrationTest`.
 
 ## 10. Preview, cache inspect, khoá, `DatasetSources`
 
@@ -119,25 +121,26 @@
 - Create: `MAIN/platform/dataset/{DatasetInspections, DatasetLocks, DatasetSources, DefaultDatasetSources, OpenedSource, SourceRef, DatasetPreviewDto, ReadOptionsParams}.java`
 - Test: `TEST/platform/dataset/DatasetPreviewIntegrationTest.java`, `TEST/platform/dataset/DatasetInspectionsTest.java`, `TEST/platform/dataset/DatasetLocksTest.java`
 
-- [ ] 10.1 Viết `DatasetPreviewIntegrationTest`, theo mọi scenario của requirement preview trong spec:
+- [x] 10.1 Viết `DatasetPreviewIntegrationTest`, theo mọi scenario của requirement preview trong spec:
   - `ma;ten\n1;An\n2;Bình\n` không tham số → `SEMICOLON`, `autoDetected=["delimiter","encoding"]`, `totalRows=2`, `rows[0]={rowNumber:2, values:["1","An"]}`, `columns[0].inferredType="number"`;
   - `delimiter=comma` (chữ thường) → một cột `ma;ten`;
   - `limit=500` → `400`; `delimiter=COLON` → `400`;
   - JSON lồng nhau → `422 JSON_NOT_FLAT`; XLSX `sheet=Khong co` → `422 CONFIG_INVALID`;
   - dataset hết hạn (chỉnh `last_used_at` trong DB) → `404 DATASET_NOT_FOUND`;
   - response có `Cache-Control: no-store`.
-- [ ] 10.2 Viết `DatasetInspectionsTest`:
+- [x] 10.2 Viết `DatasetInspectionsTest`:
   - hai lần `get` cùng khoá → `inspect` chỉ chạy 1 lần (đếm bằng reader giả);
   - khác `delimiter` → chạy lại;
   - lỗi `FILE_PARSE_ERROR` được cache (lần 2 không đọc file); `UncheckedIOException` **không** được cache;
   - vượt 256 mục → mục cũ nhất bị bỏ;
   - `evict(id)` bỏ mọi mục của id.
-- [ ] 10.3 Viết `DatasetLocksTest`:
+- [x] 10.3 Viết `DatasetLocksTest`:
   - đang có read lock thì `tryWrite(5s)` chờ, rồi được ngay khi read lock nhả;
   - hai read lock song song được;
   - sau khi nhả hết, map không còn mục của id đó.
-- [ ] 10.4 FAIL → cài đặt theo PL5 → PASS.
-- [ ] 10.5 Commit: `feat(dataset): preview with read options, inspection cache, read/write locks and DatasetSources`
+- [x] 10.4 FAIL → cài đặt theo PL5 → PASS.
+- [x] 10.5 Commit: `feat(dataset): preview with read options, inspection cache, read/write locks and DatasetSources`
+  - Làm khác: `DatasetSources` là class (không phải interface + impl). Test cache và khoá gộp vào `DatasetInspectionsAndLocksTest`. Test tham số preview và case hết hạn nằm trong `DatasetApiIntegrationTest`.
 
 ## 11. GET và DELETE dataset
 
@@ -145,14 +148,15 @@
 - Modify: `DatasetController`, `DatasetService`
 - Test: `TEST/platform/dataset/DatasetLifecycleIntegrationTest.java`
 
-- [ ] 11.1 Viết test:
+- [x] 11.1 Viết test:
   - `GET` → `DatasetDto` kèm `Cache-Control: no-store`;
   - `DELETE` → `204`; sau đó `GET` và preview → `404 DATASET_NOT_FOUND`; thư mục storage không còn; cache đã bị xoá;
   - `DELETE` trong lúc đang giữ read lock (giữ bằng `DatasetSources.open` trong test) → `503 SERVER_BUSY` sau khoảng 5 giây (test đặt timeout ngắn qua property);
   - `GET /api/datasets/not-a-uuid` → `400 REQUEST_INVALID`;
   - touch: gọi preview lúc T+12h thì `expiresAt` thành T+36h (dùng `Clock` giả).
-- [ ] 11.2 FAIL → cài đặt → PASS.
-- [ ] 11.3 Commit: `feat(dataset): read and delete datasets`
+- [x] 11.2 FAIL → cài đặt → PASS.
+- [x] 11.3 Commit: `feat(dataset): read and delete datasets`
+  - Làm khác: case touch (xem lúc T+12h thì `expiresAt` thành T+36h) kiểm ở tầng repository (`DatasetRepositoryTest`), không qua API với `Clock` giả. Không có preview hay touch nào đi qua API.
 
 ~~12. Run store~~
 
