@@ -34,6 +34,15 @@ public final class HttpTestClient {
 
     /** Multipart upload under any part name, to send a request without the {@code file} part. */
     public Response upload(String partName, String fileName, byte[] content) {
+        return uploadTo("/api/import-sessions", partName, fileName, content);
+    }
+
+    /** Multipart upload of part {@code file} to any endpoint, such as {@code /api/datasets}. */
+    public Response uploadTo(String path, String fileName, byte[] content) {
+        return uploadTo(path, "file", fileName, content);
+    }
+
+    private Response uploadTo(String path, String partName, String fileName, byte[] content) {
         MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
         parts.add(partName, new ByteArrayResource(content) {
             @Override
@@ -41,7 +50,7 @@ public final class HttpTestClient {
                 return fileName;
             }
         });
-        return toResponse(client.post().uri("/api/import-sessions")
+        return toResponse(client.post().uri(path)
                 .contentType(MediaType.MULTIPART_FORM_DATA)
                 .body(parts)
                 .retrieve()
@@ -56,6 +65,27 @@ public final class HttpTestClient {
                 .retrieve()
                 .onStatus(status -> true, (request, response) -> { })
                 .toEntity(String.class));
+    }
+
+    public Response postJson(String path, String json) {
+        return toResponse(client.post().uri(path)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(json)
+                .retrieve()
+                .onStatus(status -> true, (request, response) -> { })
+                .toEntity(String.class));
+    }
+
+    /** A POST whose answer is a file, as the toolbox exports are. */
+    public Download downloadPost(String path, String json) {
+        ResponseEntity<byte[]> entity = client.post().uri(path)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(json)
+                .retrieve()
+                .onStatus(status -> true, (request, response) -> { })
+                .toEntity(byte[].class);
+        return new Download(entity.getStatusCode().value(), entity.getHeaders(),
+                entity.getBody() == null ? new byte[0] : entity.getBody());
     }
 
     public Response post(String path) {

@@ -4,12 +4,10 @@
 Mỗi lần dọn dẹp, hệ thống SHALL xoá những thư mục con của storage root thoả đồng thời:
 - có tên là một UUID ở dạng chuẩn;
 - là thư mục thật, không phải link hay junction;
-- không thuộc tài nguyên nào mà database biết: session Importer, dataset, run, hoặc mọi loại tài nguyên có lưu trữ về sau;
+- không thuộc tài nguyên nào mà database biết: session Importer, dataset, hoặc mọi loại tài nguyên có lưu trữ về sau;
 - có thời điểm sửa cuối cũ hơn TTL nhỏ nhất của các loại tài nguyên, và cũ hơn ít nhất 1 giờ.
 
-Ngoài ra, thư mục có tên dạng `{UUID}.staging-{nonce}` (kết quả đang ghi dở) cũ hơn 1 giờ SHALL bị xoá.
-
-Thư mục hay file có tên không theo hai dạng trên MUST NOT bị xoá. Thư mục mồ côi còn mới MUST NOT bị xoá, vì có thể là upload đang dở. Việc xoá MUST NOT đi xuyên link hay junction ra ngoài thư mục đang xoá.
+Thư mục hay file có tên không phải UUID MUST NOT bị xoá. Thư mục mồ côi còn mới MUST NOT bị xoá, vì có thể là upload đang dở. Việc xoá MUST NOT đi xuyên link hay junction ra ngoài thư mục đang xoá.
 
 Storage root thuộc về một database duy nhất:
 - Lần dọn đầu tiên SHALL ghi id của database (bảng `installation`) vào `{storageRoot}/.owner`, nếu storage còn trống hoặc có chứa ít nhất một tài nguyên mà database biết.
@@ -17,7 +15,7 @@ Storage root thuộc về một database duy nhất:
 - Một lượt thấy hơn 10 mồ côi, và số mồ côi nhiều hơn một nửa tổng số thư mục mà database biết, SHALL không xoá mồ côi nào và ghi log lỗi.
 
 #### Scenario: Mồ côi quá hạn bị xoá
-- **WHEN** storage root có thư mục `{X}` (X là UUID), không session, dataset hay run nào có id X, và thư mục được sửa lần cuối cách đây 25 giờ
+- **WHEN** storage root có thư mục `{X}` (X là UUID), không session hay dataset nào có id X, và thư mục được sửa lần cuối cách đây 25 giờ
 - **THEN** cleanup xoá thư mục `{X}`, và report ghi `deletedOrphans` là `1`
 
 #### Scenario: Thư mục của dataset không bị coi là mồ côi
@@ -28,9 +26,9 @@ Storage root thuộc về một database duy nhất:
 - **WHEN** storage root có thư mục `{Y}` (Y là UUID), không tài nguyên nào có id Y, và thư mục được sửa lần cuối cách đây 1 giờ
 - **THEN** thư mục `{Y}` vẫn còn sau cleanup
 
-#### Scenario: Thư mục ghi dở bị dọn
-- **WHEN** storage root có thư mục `{R}.staging-a1b2` sửa lần cuối cách đây 2 giờ
-- **THEN** cleanup xoá thư mục đó
+#### Scenario: Thư mục không phải UUID không bị đụng tới
+- **WHEN** storage root có thư mục `backup` được sửa lần cuối cách đây 30 ngày
+- **THEN** thư mục `backup` vẫn còn sau cleanup
 
 #### Scenario: Storage của database khác
 - **WHEN** `{storageRoot}/.owner` ghi id của một database khác, và storage có thư mục `{X}` cũ 3 ngày mà database hiện tại không biết

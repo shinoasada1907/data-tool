@@ -33,6 +33,11 @@ public class OpenApiConfig {
     }
 
     @Bean
+    GroupedOpenApi datasetsApi() {
+        return GroupedOpenApi.builder().group("datasets").pathsToMatch("/api/datasets/**").build();
+    }
+
+    @Bean
     GroupedOpenApi importerApi() {
         return GroupedOpenApi.builder().group("importer").pathsToMatch("/api/import-sessions/**").build();
     }

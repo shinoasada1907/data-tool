@@ -1,3 +1,5 @@
+> **Tách phạm vi (2026-09-28):** PL1, PL2, PL3, PL4, PL6, PL8, PL11 và phần giới hạn body của PL10 được **cài ở change `core-05-platform-guard`**. Chúng vẫn được ghi ở đây làm nguồn quyết định. Chỗ nào design này nhắc tới gate hay rate limit trong luồng dataset hay download, thì core-05 là nơi gắn vào.
+
 ## Context
 
 - Thiết kế nền: `openspec/changes/core-01-toolbox-restructure/design.md`, các mục TD3 (5 kiểu tương tác), TD4 (quy ước API), TD12 (dataset), TD13 (run), TD14 (guest), TD15 (guard), TD16 (mã lỗi), TD17 (dọn dẹp), TD18 (bảo mật), TD19 (quan sát), và mục **API contract Toolbox v1**. File này ghi chi tiết cài đặt. Quyết định mang mã `PL1`…`PL13`.

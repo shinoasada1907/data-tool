@@ -20,8 +20,21 @@ public final class FileTypeDetector {
     private FileTypeDetector() {
     }
 
+    /** The Importer's upload (V0.1): {@code .csv} or {@code .xlsx} only. */
     public static DataFormat detect(String sanitizedName, byte[] head) {
-        DataFormat type = byExtension(sanitizedName);
+        return detect(sanitizedName, head, false);
+    }
+
+    /**
+     * A toolbox dataset (core-01 TD6): also {@code .json}, whose first character other than whitespace must be
+     * {@code [}, and CSV in UTF-16, recognised by its byte order mark.
+     */
+    public static DataFormat detectDataset(String sanitizedName, byte[] head) {
+        return detect(sanitizedName, head, true);
+    }
+
+    private static DataFormat detect(String sanitizedName, byte[] head, boolean dataset) {
+        DataFormat type = byExtension(sanitizedName, dataset);
         if (head.length == 0) {
             throw new DomainException(ErrorCode.FILE_EMPTY, "File is empty.");
         }
@@ -32,15 +45,20 @@ public final class FileTypeDetector {
                 }
             }
             case CSV -> {
-                if (containsNulByte(head)) {
+                if (containsNulByte(head) && !(dataset && startsWithUtf16Bom(head))) {
                     throw unsupported("File content is not a text CSV.");
+                }
+            }
+            case JSON -> {
+                if (firstNonBlank(head) != '[') {
+                    throw new DomainException(ErrorCode.FILE_PARSE_ERROR, "JSON must be an array of objects.");
                 }
             }
         }
         return type;
     }
 
-    private static DataFormat byExtension(String name) {
+    private static DataFormat byExtension(String name, boolean dataset) {
         String lower = name.toLowerCase(Locale.ROOT);
         if (lower.endsWith(".csv")) {
             return DataFormat.CSV;
@@ -48,7 +66,29 @@ public final class FileTypeDetector {
         if (lower.endsWith(".xlsx")) {
             return DataFormat.XLSX;
         }
-        throw unsupported("Only .csv and .xlsx files are supported.");
+        if (dataset && lower.endsWith(".json")) {
+            return DataFormat.JSON;
+        }
+        throw unsupported(dataset ? "Only .csv, .xlsx and .json files are supported."
+                : "Only .csv and .xlsx files are supported.");
+    }
+
+    private static boolean startsWithUtf16Bom(byte[] head) {
+        return head.length >= 2 && (head[0] == (byte) 0xFF && head[1] == (byte) 0xFE
+                || head[0] == (byte) 0xFE && head[1] == (byte) 0xFF);
+    }
+
+    /** The first character after a UTF-8 byte order mark and whitespace; 0 when the head holds none. */
+    private static char firstNonBlank(byte[] head) {
+        int start = head.length >= 3 && head[0] == (byte) 0xEF && head[1] == (byte) 0xBB && head[2] == (byte) 0xBF
+                ? 3 : 0;
+        for (int i = start; i < head.length; i++) {
+            char c = (char) (head[i] & 0xFF);
+            if (!Character.isWhitespace(c)) {
+                return c;
+            }
+        }
+        return 0;
     }
 
     private static boolean startsWith(byte[] bytes, byte[] prefix) {

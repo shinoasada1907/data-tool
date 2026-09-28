@@ -1,6 +1,7 @@
 package com.universaldatatools.tools.importer.application.importsession;
 
 import com.universaldatatools.core.table.DataFormat;
+import com.universaldatatools.platform.storage.StorageOwner;
 import com.universaldatatools.support.InMemoryFileStorage;
 import com.universaldatatools.support.InMemoryImportSessionRepository;
 import com.universaldatatools.tools.importer.application.common.SessionLocks;
@@ -13,6 +14,8 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -34,6 +37,7 @@ class SessionCleanupServiceTest {
     private final InMemoryImportSessionRepository sessions = new InMemoryImportSessionRepository();
     private final InMemoryFileStorage storage = new InMemoryFileStorage();
     private final SessionLocks locks = new SessionLocks();
+    private final List<StorageOwner> owners = new ArrayList<>();
 
     private SessionCleanupService service() {
         return service(Duration.ofHours(24));
@@ -41,7 +45,7 @@ class SessionCleanupServiceTest {
 
     private SessionCleanupService service(Duration ttl) {
         return new SessionCleanupService(sessions, storage, () -> INSTALLATION, locks,
-                new CleanupProperties(true, ttl, Duration.ofHours(1)), Clock.fixed(T0, ZoneOffset.UTC));
+                new CleanupProperties(true, ttl, Duration.ofHours(1)), Clock.fixed(T0, ZoneOffset.UTC), owners);
     }
 
     // ---- expired sessions ----
@@ -168,6 +172,29 @@ class SessionCleanupServiceTest {
 
         assertThat(report).isEqualTo(new CleanupReport(0, 1, 0, 0));
         assertThat(storage.holds(orphan)).isFalse();
+    }
+
+    @Test
+    void a_directory_another_resource_owns_is_not_an_orphan() {
+        givenSession(B, hoursAgo(1));
+        UUID dataset = UUID.randomUUID();
+        storage.directory(dataset, hoursAgo(30));
+        owners.add(dataset::equals);
+
+        CleanupReport report = service().cleanupExpired(T0);
+
+        assertThat(report).isEqualTo(new CleanupReport(0, 0, 0, 0));
+        assertThat(storage.holds(dataset)).isTrue();
+    }
+
+    @Test
+    void a_storage_holding_only_another_resource_can_still_be_claimed() {
+        UUID dataset = UUID.randomUUID();
+        storage.directory(dataset, hoursAgo(30));
+        owners.add(dataset::equals);
+
+        assertThat(service().cleanupExpired(T0).failures()).isZero();
+        assertThat(storage.owner()).contains(INSTALLATION);
     }
 
     @Test

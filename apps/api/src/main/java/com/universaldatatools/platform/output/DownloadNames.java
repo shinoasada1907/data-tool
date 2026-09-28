@@ -1,15 +1,15 @@
-package com.universaldatatools.tools.importer.domain.export;
+package com.universaldatatools.platform.output;
 
 import java.util.regex.Pattern;
 
 /** The name of a downloaded file (design F10-D6): the original name without its last extension, plus a suffix. */
-public final class ExportFileName {
+public final class DownloadNames {
 
     /** Quotes, slashes, every control character, and invisible format characters such as a bidi override. */
     private static final Pattern UNSAFE = Pattern.compile("[\"\\\\/\\p{Cc}\\p{Cf}]");
     private static final String FALLBACK = "export";
 
-    private ExportFileName() {
+    private DownloadNames() {
     }
 
     /** {@code customers.csv} and {@code -valid.json} give {@code customers-valid.json}. */

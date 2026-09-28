@@ -7,6 +7,7 @@ package com.universaldatatools.core.common;
 public enum ErrorCode {
     REQUEST_INVALID,
     SESSION_NOT_FOUND,
+    DATASET_NOT_FOUND,
     SESSION_NOT_READY,
     SESSION_STATE_INVALID,
     RESULT_NOT_AVAILABLE,
@@ -21,5 +22,6 @@ public enum ErrorCode {
     SOURCE_COLUMN_NOT_FOUND,
     CONFIG_INVALID,
     EXPORT_FAILED,
-    INTERNAL_ERROR
+    INTERNAL_ERROR,
+    SERVER_BUSY
 }
