@@ -36,7 +36,7 @@ class ApiContractSnapshotTest {
 
     @Test
     void importer_contract_matches_the_snapshot() throws IOException {
-        String body = new HttpTestClient(port).get("/v3/api-docs").body();
+        String body = new HttpTestClient(port).get("/v3/api-docs/importer").body();
         String actual = JSON.writeValueAsString(importerContract(JSON.readValue(body, Map.class)));
 
         if (Boolean.getBoolean("snapshot.write")) {

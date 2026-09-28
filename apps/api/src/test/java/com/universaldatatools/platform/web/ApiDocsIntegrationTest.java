@@ -58,6 +58,18 @@ class ApiDocsIntegrationTest {
     }
 
     @Test
+    void datasets_group_documents_the_dataset_api() {
+        Response docs = http.get("/v3/api-docs/datasets");
+
+        assertThat(docs.status()).isEqualTo(200);
+        Map<String, Object> paths = JsonPath.read(docs.body(), "$.paths");
+        assertThat(paths).containsOnlyKeys("/api/datasets", "/api/datasets/{id}", "/api/datasets/{id}/preview");
+        Map<String, Object> file = JsonPath.read(docs.body(),
+                "$.paths['/api/datasets'].post.requestBody.content['multipart/form-data'].schema.properties.file");
+        assertThat(file).containsEntry("type", "string").containsEntry("format", "binary");
+    }
+
+    @Test
     void all_group_holds_every_endpoint() {
         Response docs = http.get("/v3/api-docs/all");
 
