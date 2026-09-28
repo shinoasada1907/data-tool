@@ -389,12 +389,13 @@
 
 ## 16. Hoàn tất
 
-- [ ] 16.1 `./mvnw -q verify`. Mong đợi: PASS.
-- [ ] 16.2 `openspec validate core-02-dataset-io --strict`, rồi `openspec archive core-02-dataset-io -y`. Commit: `docs(openspec): archive core-02-dataset-io`.
-- [ ] 16.3 Kiểm thư mục chính sạch trong `apps/api/src` (xem Global Constraints của core-01). Rồi `git -C D:/Code/Product/universal-importer merge --no-ff feature/core-02-dataset-io`.
-- [ ] 16.4 Báo người dùng:
+- [x] 16.1 `./mvnw -q verify`. Mong đợi: PASS.
+  - Ghi chú: `Tests run: 1017`, pass hết.
+- [x] 16.2 `openspec validate core-02-dataset-io --strict`, rồi `openspec archive core-02-dataset-io -y`. Commit: `docs(openspec): archive core-02-dataset-io`.
+- [x] 16.3 Kiểm thư mục chính sạch trong `apps/api/src` (xem Global Constraints của core-01). Rồi `git -C D:/Code/Product/universal-importer merge --no-ff feature/core-02-dataset-io`.
+- [x] 16.4 Báo người dùng:
   - `pom.xml` đổi scope fastexcel, nên IntelliJ cần reload Maven;
   - API không đổi.
 
   Báo phiên FE: không có gì mới cho FE.
-- [ ] 16.5 `git branch -d feature/core-02-dataset-io`.
+- [x] 16.5 `git branch -d feature/core-02-dataset-io`.
