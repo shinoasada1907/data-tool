@@ -2,6 +2,7 @@ package com.universaldatatools.tools.importer.application.importsession;
 
 import com.universaldatatools.platform.storage.FileStorage;
 import com.universaldatatools.platform.storage.InstallationRepository;
+import com.universaldatatools.platform.storage.StorageOwner;
 import com.universaldatatools.platform.storage.StoredEntry;
 import com.universaldatatools.tools.importer.application.common.SessionLocks;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSessionRepository;
@@ -48,16 +49,19 @@ public class SessionCleanupService {
     private final SessionLocks locks;
     private final CleanupProperties properties;
     private final Clock clock;
+    /** Other resources with files in the same storage (toolbox datasets…): never orphans. */
+    private final List<StorageOwner> otherOwners;
 
     public SessionCleanupService(ImportSessionRepository sessions, FileStorage storage,
                                  InstallationRepository installation, SessionLocks locks,
-                                 CleanupProperties properties, Clock clock) {
+                                 CleanupProperties properties, Clock clock, List<StorageOwner> otherOwners) {
         this.sessions = sessions;
         this.storage = storage;
         this.installation = installation;
         this.locks = locks;
         this.properties = properties;
         this.clock = clock;
+        this.otherOwners = List.copyOf(otherOwners);
     }
 
     public CleanupReport cleanupExpired() {
@@ -93,7 +97,7 @@ public class SessionCleanupService {
             return false;
         }
         List<StoredEntry> entries = storage.listEntries();
-        if (entries.isEmpty() || entries.stream().anyMatch(entry -> sessions.existsById(entry.sessionId()))) {
+        if (entries.isEmpty() || entries.stream().anyMatch(entry -> known(entry.sessionId()))) {
             storage.claim(self);
             log.info("Storage folder claimed by installation {}", self);
             return true;
@@ -133,13 +137,18 @@ public class SessionCleanupService {
         }
     }
 
+    /** A directory of a session, or of any other resource sharing the storage (core-04 PL9). */
+    private boolean known(UUID id) {
+        return sessions.existsById(id) || otherOwners.stream().anyMatch(owner -> owner.owns(id));
+    }
+
     private void deleteOrphans(Instant cutoff, Run run) {
         List<StoredEntry> entries = storage.listEntries();
         List<UUID> orphans = entries.stream()
                 .filter(entry -> entry.lastModified().isBefore(cutoff))
                 .map(StoredEntry::sessionId)
                 .filter(id -> !run.failedThisRun.contains(id))
-                .filter(id -> !sessions.existsById(id))
+                .filter(id -> !known(id))
                 .toList();
         if (orphans.size() > ORPHAN_BREAKER && orphans.size() * 2 > entries.size()) {
             run.failures++;

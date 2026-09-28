@@ -8,3 +8,6 @@ toolbox:
   importer:
     cleanup:
       enabled: false
+  dataset:
+    cleanup:
+      enabled: false

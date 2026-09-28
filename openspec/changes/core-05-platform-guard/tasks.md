@@ -136,6 +136,7 @@
   - `size=0` → `400`;
   - xoá dataset nguồn, rồi `rows` vẫn `200`.
 - [ ] 12.4 FAIL → cài đặt theo PL6 → PASS.
+- [ ] 12.4b Dọn thư mục `{UUID}.staging-{nonce}` cũ hơn 1 giờ, cùng lượt dọn mồ côi. `RunStore` cài `StorageOwner` (có từ core-04), để thư mục run không bao giờ bị coi là mồ côi. Viết delta **MODIFIED** cho requirement "Dọn thư mục lưu trữ mồ côi" (spec `import-session`) để thêm thư mục staging và run. Phần này bị gỡ khỏi core-04, vì lúc đó chưa có run.
 - [ ] 12.5 Commit: `feat(run): atomic run store with NDJSON sections and sliding retention (V13)`
 
 ## 14. Guest identity

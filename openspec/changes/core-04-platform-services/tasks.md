@@ -197,8 +197,8 @@
 - Delete/Modify: `SessionCleanupService`, `SessionCleanupScheduler` của Importer (logic chuyển vào catalog và platform)
 - Test: chuyển `SessionCleanupServiceTest` và `SessionCleanupScheduler*Test` sang `TEST/platform/cleanup/…`. **Giữ mọi case V0.1.** Thêm `TEST/platform/cleanup/MultiCatalogCleanupTest.java`.
 
-- [ ] 15.1 Chạy test cleanup V0.1 hiện có, ghi baseline. PASS.
-- [ ] 15.2 Viết `MultiCatalogCleanupTest`:
+- [x] 15.1 Chạy test cleanup V0.1 hiện có, ghi baseline. PASS.
+- [x] 15.2 Viết `MultiCatalogCleanupTest`:
   - thư mục `{D}` của dataset còn hạn (tạo 30 giờ trước, dùng 1 giờ trước) → **không** bị xoá;
   - thư mục `{R}` của run còn hạn → không bị xoá;
   - thư mục UUID không ai nhận, cũ 25 giờ → bị xoá;
@@ -206,10 +206,11 @@
   - dataset hết hạn → row và thư mục bị xoá; dataset đang bị đọc (giữ read lock) → `skipped`;
   - van an toàn: 12 mồ côi và 10 thư mục đã biết → không xoá gì, có log ERROR;
   - lỗi xoá ở catalog dataset không chặn catalog run.
-- [ ] 15.3 Chạy. FAIL.
-- [ ] 15.4 Cài đặt theo PL9. Report của Importer (`deletedSessions`, `failures`, `skipped`, `deletedOrphans`) dựng từ report chung.
-- [ ] 15.5 Chạy test cleanup V0.1 (đã chuyển chỗ) và `MultiCatalogCleanupTest`. PASS. Không case V0.1 nào đổi kỳ vọng.
-- [ ] 15.6 Commit: `feat(cleanup): one cleanup over all catalogs; orphans only when nobody owns them`
+- [x] 15.3 Chạy. FAIL.
+- [x] 15.4 Cài đặt theo PL9. Report của Importer (`deletedSessions`, `failures`, `skipped`, `deletedOrphans`) dựng từ report chung.
+- [x] 15.5 Chạy test cleanup V0.1 (đã chuyển chỗ) và `MultiCatalogCleanupTest`. PASS. Không case V0.1 nào đổi kỳ vọng.
+- [x] 15.6 Commit: `feat(cleanup): one cleanup over all catalogs; orphans only when nobody owns them`
+  - Làm khác: ~~gộp mọi catalog vào `platform.cleanup.CleanupService` với SPI `ExpiringCatalog`~~. **LÝ DO:** hiện chỉ có hai loại tài nguyên, nên làm tối thiểu mà vẫn đúng: SPI `StorageOwner` (`platform.storage`); `SessionCleanupService` của Importer hỏi mọi `StorageOwner` trước khi coi một thư mục là mồ côi, và trước khi claim storage. `DatasetCleanup` cài `StorageOwner` và tự dọn dataset hết hạn (scheduler riêng, tắt trong test bằng `toolbox.dataset.cleanup.enabled=false`). Gộp chung để lúc có run (core-05). Dọn `*.staging-*` cũng chuyển sang core-05 (task 12.4b), spec `import-session` của change này đã bỏ phần staging. Test: `SessionCleanupServiceTest` (2 case mới), `DatasetCleanupIntegrationTest`.
 
 ~~16. Metrics~~
 
