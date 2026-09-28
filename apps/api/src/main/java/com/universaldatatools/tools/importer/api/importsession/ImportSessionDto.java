@@ -1,9 +1,10 @@
 package com.universaldatatools.tools.importer.api.importsession;
 
-import com.universaldatatools.core.table.SourceFileType;
+import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.tools.importer.application.importsession.SessionDetails;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
 import com.universaldatatools.tools.importer.domain.importsession.SessionStatus;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -13,7 +14,7 @@ public record ImportSessionDto(
         UUID id,
         SessionStatus status,
         String originalFileName,
-        SourceFileType fileType,
+        @Schema(allowableValues = {"CSV", "XLSX"}) DataFormat fileType,
         long sizeBytes,
         Instant createdAt,
         Instant updatedAt,

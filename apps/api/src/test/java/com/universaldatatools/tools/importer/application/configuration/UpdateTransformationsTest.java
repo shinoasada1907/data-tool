@@ -1,24 +1,24 @@
 package com.universaldatatools.tools.importer.application.configuration;
 
-import com.universaldatatools.core.table.SourceFileType;
-import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
-import com.universaldatatools.tools.importer.domain.transformation.TransformationConfigValidator;
-import com.universaldatatools.tools.importer.domain.validation.ValidationConfigValidator;
-import com.universaldatatools.tools.importer.application.common.SessionLocks;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
-import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
-import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
-import com.universaldatatools.tools.importer.domain.importsession.SessionStatus;
-import com.universaldatatools.tools.importer.domain.importsession.SourceFile;
-import com.universaldatatools.tools.importer.domain.schema.FieldSpec;
-import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
-import com.universaldatatools.core.table.SourceColumn;
-import com.universaldatatools.core.table.SourceSchema;
+import com.universaldatatools.core.table.Column;
+import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.core.transform.TransformationRegistry;
 import com.universaldatatools.core.transform.TransformationStep;
 import com.universaldatatools.support.InMemoryImportConfigurationRepository;
 import com.universaldatatools.support.InMemoryImportSessionRepository;
+import com.universaldatatools.tools.importer.application.common.SessionLocks;
+import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
+import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
+import com.universaldatatools.tools.importer.domain.importsession.SessionStatus;
+import com.universaldatatools.tools.importer.domain.importsession.SourceFile;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
+import com.universaldatatools.tools.importer.domain.schema.FieldSpec;
+import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
+import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
+import com.universaldatatools.tools.importer.domain.transformation.TransformationConfigValidator;
+import com.universaldatatools.tools.importer.domain.validation.ValidationConfigValidator;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -113,8 +113,8 @@ class UpdateTransformationsTest {
     }
 
     private void given(SessionStatus status) {
-        sessions.save(ImportSession.restore(ID, new SourceFile("customers.csv", SourceFileType.CSV, 20), status,
-                T0, T0, 0L, new SourceSchema(List.of(new SourceColumn(0, "name"), new SourceColumn(1, "dob")), 1, null)));
+        sessions.save(ImportSession.restore(ID, new SourceFile("customers.csv", DataFormat.CSV, 20), status,
+                T0, T0, 0L, new SourceSchema(List.of(new Column(0, "name"), new Column(1, "dob")), 1, null)));
         configurations.save(ImportConfiguration.empty(ID).withSchema(SCHEMA).configuration(), T0);
     }
 

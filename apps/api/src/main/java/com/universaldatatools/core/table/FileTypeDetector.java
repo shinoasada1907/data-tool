@@ -1,6 +1,5 @@
 package com.universaldatatools.core.table;
 
-import com.universaldatatools.core.table.SourceFileType;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
 
@@ -21,8 +20,8 @@ public final class FileTypeDetector {
     private FileTypeDetector() {
     }
 
-    public static SourceFileType detect(String sanitizedName, byte[] head) {
-        SourceFileType type = byExtension(sanitizedName);
+    public static DataFormat detect(String sanitizedName, byte[] head) {
+        DataFormat type = byExtension(sanitizedName);
         if (head.length == 0) {
             throw new DomainException(ErrorCode.FILE_EMPTY, "File is empty.");
         }
@@ -41,13 +40,13 @@ public final class FileTypeDetector {
         return type;
     }
 
-    private static SourceFileType byExtension(String name) {
+    private static DataFormat byExtension(String name) {
         String lower = name.toLowerCase(Locale.ROOT);
         if (lower.endsWith(".csv")) {
-            return SourceFileType.CSV;
+            return DataFormat.CSV;
         }
         if (lower.endsWith(".xlsx")) {
-            return SourceFileType.XLSX;
+            return DataFormat.XLSX;
         }
         throw unsupported("Only .csv and .xlsx files are supported.");
     }

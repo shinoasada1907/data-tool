@@ -1,31 +1,29 @@
 package com.universaldatatools.tools.importer.infrastructure.export;
 
+import com.universaldatatools.core.format.json.JsonTableWriter;
+import com.universaldatatools.core.table.RowSink;
+import com.universaldatatools.core.table.TypedCell;
+import com.universaldatatools.core.table.WriteOptions;
 import com.universaldatatools.tools.importer.domain.export.ExportFormat;
 import com.universaldatatools.tools.importer.domain.export.ValidRowsExporter;
 import com.universaldatatools.tools.importer.domain.pipeline.RowResult;
 import com.universaldatatools.tools.importer.domain.schema.TargetField;
 import org.springframework.stereotype.Component;
-import tools.jackson.core.JsonGenerator;
-import tools.jackson.databind.json.JsonMapper;
 
+import java.io.IOException;
 import java.io.OutputStream;
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Stream;
 
 /**
- * Valid rows as a JSON array (design F10-D3), with the application's mapper, so numbers are plain as in every
- * response. Keys follow the schema, whatever the order of the stored values; JSON is never escaped against formulas.
+ * Valid rows as a JSON array (design F10-D3), written by the shared {@link JsonTableWriter} (core-02 IO10): numbers
+ * are plain, keys follow the schema whatever the order of the stored values, and JSON is never escaped against
+ * formulas.
  */
 @Component
 public class JsonValidRowsExporter implements ValidRowsExporter {
 
-    private final JsonMapper mapper;
-
-    public JsonValidRowsExporter(JsonMapper mapper) {
-        this.mapper = mapper;
-    }
+    private final JsonTableWriter writer = new JsonTableWriter();
 
     @Override
     public ExportFormat format() {
@@ -42,34 +40,13 @@ public class JsonValidRowsExporter implements ValidRowsExporter {
         return "-valid.json";
     }
 
-    /**
-     * Closes the generator only on success: closing also ends the open array, which would turn a failed export
-     * into a well-formed file with rows missing.
-     */
+    /** Ends the array only on success: a failed export must not become a well-formed file with rows missing. */
     @Override
-    public void write(List<TargetField> fields, Stream<RowResult> rows, OutputStream out) {
-        JsonGenerator json = mapper.createGenerator(ExportStreams.keepOpen(out));
-        json.writeStartArray();
-        rows.filter(ExportStreams::isValid).forEach(row -> {
-            json.writeStartObject();
-            for (TargetField field : fields) {
-                json.writeName(field.name());
-                writeValue(json, row.values().get(field.name()));
-            }
-            json.writeEndObject();
-        });
-        json.writeEndArray();
-        json.close();
-    }
-
-    private static void writeValue(JsonGenerator json, Object value) {
-        switch (value) {
-            case null -> json.writeNull();
-            case BigDecimal number -> json.writeNumber(number);
-            case Number number -> json.writeNumber(new BigDecimal(number.toString()));
-            case Boolean bool -> json.writeBoolean(bool);
-            case LocalDate date -> json.writeString(date.toString());
-            default -> json.writeString(value.toString());
-        }
+    public void write(List<TargetField> fields, Stream<RowResult> rows, OutputStream out) throws IOException {
+        RowSink sink = writer.open(out, ExportCells.columns(fields.stream().map(TargetField::name).toList()),
+                WriteOptions.jsonDefaults());
+        Stream<List<TypedCell>> cells = rows.filter(ExportStreams::isValid)
+                .map(row -> fields.stream().map(field -> ExportCells.of(row.values().get(field.name()))).toList());
+        ExportCells.writeAll(sink, cells::iterator);
     }
 }

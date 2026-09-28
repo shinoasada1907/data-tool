@@ -1,16 +1,16 @@
 package com.universaldatatools.tools.importer.infrastructure.persistence;
 
-import com.universaldatatools.core.table.SourceFileType;
+import com.universaldatatools.core.table.Column;
+import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.platform.storage.JpaInstallationRepository;
+import com.universaldatatools.support.TestcontainersConfiguration;
 import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
-import com.universaldatatools.tools.importer.domain.schema.FieldSpec;
-import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
 import com.universaldatatools.tools.importer.domain.importsession.SessionStatus;
 import com.universaldatatools.tools.importer.domain.importsession.SourceFile;
-import com.universaldatatools.core.table.SourceColumn;
-import com.universaldatatools.core.table.SourceSchema;
-import com.universaldatatools.support.TestcontainersConfiguration;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
+import com.universaldatatools.tools.importer.domain.schema.FieldSpec;
+import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -36,7 +36,7 @@ class JpaImportSessionRepositoryTest {
     private static final Instant T1 = Instant.parse("2026-09-25T10:01:00.654321Z");
     private static final Instant T2 = Instant.parse("2026-09-25T10:02:00Z");
     private static final UUID ID = UUID.fromString("0b6f0c52-8a8e-4d5c-9a55-2f3c1c3f7e11");
-    private static final SourceFile FILE = new SourceFile("khách hàng.csv", SourceFileType.CSV, 7);
+    private static final SourceFile FILE = new SourceFile("khách hàng.csv", DataFormat.CSV, 7);
 
     @Autowired
     JpaImportSessionRepository repository;
@@ -176,7 +176,7 @@ class JpaImportSessionRepositoryTest {
     @Test
     void source_schema_is_stored_as_a_json_object_and_read_back() {
         SourceSchema schema = new SourceSchema(
-                List.of(new SourceColumn(0, "name"), new SourceColumn(1, "email")), 2, null);
+                List.of(new Column(0, "name"), new Column(1, "email")), 2, null);
         ImportSession session = ImportSession.create(ID, FILE, T0);
         session.markInspected(schema, T1);
         repository.save(session);

@@ -1,10 +1,10 @@
 package com.universaldatatools.tools.importer.domain.mapping;
 
+import com.universaldatatools.core.table.Column;
+import com.universaldatatools.core.table.Row;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import com.universaldatatools.tools.importer.domain.schema.TargetField;
 import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
-import com.universaldatatools.core.table.ImportRow;
-import com.universaldatatools.core.table.SourceColumn;
-import com.universaldatatools.core.table.SourceSchema;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -37,7 +37,7 @@ public final class RowMapper {
     public static RowMapper of(TargetSchema schema, MappingConfig mapping, SourceSchema source,
                                MappingStrategies strategies) {
         Map<String, Integer> indexes = source.columns().stream()
-                .collect(Collectors.toMap(SourceColumn::name, SourceColumn::index));
+                .collect(Collectors.toMap(Column::name, Column::index));
         List<Slot> slots = new ArrayList<>(schema.fields().size());
         for (TargetField field : schema.fields()) {
             slots.add(mapping.forField(field.name())
@@ -49,7 +49,7 @@ public final class RowMapper {
     }
 
     /** Raw values keyed by target field, in schema order; an unmapped field is {@code null}. */
-    public LinkedHashMap<String, String> map(ImportRow row) {
+    public LinkedHashMap<String, String> map(Row row) {
         LinkedHashMap<String, String> values = new LinkedHashMap<>();
         for (int i = 0; i < slots.size(); i++) {
             values.put(slots.get(i).targetField(), mapField(row, i));
@@ -61,7 +61,7 @@ public final class RowMapper {
      * The raw value of the schema's {@code fieldIndex}-th field, so a caller can handle one field's failure on its
      * own. A strategy with a bug throws here.
      */
-    public String mapField(ImportRow row, int fieldIndex) {
+    public String mapField(Row row, int fieldIndex) {
         Slot slot = slots.get(fieldIndex);
         return slot.strategy() == null ? null : slot.strategy().map(row, slot.mapping());
     }

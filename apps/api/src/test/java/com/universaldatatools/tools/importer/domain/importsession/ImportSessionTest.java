@@ -1,10 +1,9 @@
 package com.universaldatatools.tools.importer.domain.importsession;
 
-import com.universaldatatools.core.table.SourceFileType;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
-import com.universaldatatools.core.table.SourceColumn;
-import com.universaldatatools.core.table.SourceSchema;
+import com.universaldatatools.core.table.Column;
+import com.universaldatatools.core.table.DataFormat;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -19,9 +18,9 @@ class ImportSessionTest {
     private static final Instant T0 = Instant.parse("2026-09-25T10:00:00Z");
     private static final Instant T1 = Instant.parse("2026-09-25T10:01:00Z");
     private static final UUID ID = UUID.fromString("0b6f0c52-8a8e-4d5c-9a55-2f3c1c3f7e11");
-    private static final SourceFile FILE = new SourceFile("customers.csv", SourceFileType.CSV, 7);
+    private static final SourceFile FILE = new SourceFile("customers.csv", DataFormat.CSV, 7);
     private static final SourceSchema SCHEMA =
-            new SourceSchema(List.of(new SourceColumn(0, "name"), new SourceColumn(1, "email")), 2, null);
+            new SourceSchema(List.of(new Column(0, "name"), new Column(1, "email")), 2, null);
 
     @Test
     void new_session_starts_uploaded_with_equal_timestamps() {

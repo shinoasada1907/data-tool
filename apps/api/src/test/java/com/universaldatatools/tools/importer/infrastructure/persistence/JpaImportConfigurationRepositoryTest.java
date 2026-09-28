@@ -1,20 +1,20 @@
 package com.universaldatatools.tools.importer.infrastructure.persistence;
 
-import com.universaldatatools.core.table.SourceFileType;
+import com.universaldatatools.core.table.Column;
+import com.universaldatatools.core.table.DataFormat;
+import com.universaldatatools.core.transform.TransformationStep;
+import com.universaldatatools.support.TestcontainersConfiguration;
+import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
+import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
+import com.universaldatatools.tools.importer.domain.importsession.SourceFile;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
+import com.universaldatatools.tools.importer.domain.mapping.MappingConfig;
+import com.universaldatatools.tools.importer.domain.mapping.MappingSpec;
+import com.universaldatatools.tools.importer.domain.schema.FieldSpec;
+import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
 import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
 import com.universaldatatools.tools.importer.domain.validation.ValidationConfig;
 import com.universaldatatools.tools.importer.domain.validation.ValidationRuleConfig;
-import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
-import com.universaldatatools.tools.importer.domain.mapping.MappingConfig;
-import com.universaldatatools.tools.importer.domain.mapping.MappingSpec;
-import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
-import com.universaldatatools.tools.importer.domain.importsession.SourceFile;
-import com.universaldatatools.tools.importer.domain.schema.FieldSpec;
-import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
-import com.universaldatatools.core.table.SourceColumn;
-import com.universaldatatools.core.table.SourceSchema;
-import com.universaldatatools.core.transform.TransformationStep;
-import com.universaldatatools.support.TestcontainersConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,7 +53,7 @@ class JpaImportConfigurationRepositoryTest {
 
     @BeforeEach
     void storeTheSession() {
-        sessions.save(ImportSession.create(ID, new SourceFile("customers.csv", SourceFileType.CSV, 7), T0));
+        sessions.save(ImportSession.create(ID, new SourceFile("customers.csv", DataFormat.CSV, 7), T0));
     }
 
     @Test
@@ -84,7 +84,7 @@ class JpaImportConfigurationRepositoryTest {
     void reads_back_the_saved_mapping() {
         TargetSchema schema = TargetSchema.define(List.of(
                 new FieldSpec("name", "string", true, 0), new FieldSpec("country", "string", false, 1)));
-        SourceSchema source = new SourceSchema(List.of(new SourceColumn(0, "Họ tên")), 1, null);
+        SourceSchema source = new SourceSchema(List.of(new Column(0, "Họ tên")), 1, null);
         MappingConfig mapping = MappingConfig.define(List.of(
                 new MappingSpec("name", "SOURCE_COLUMN", "Họ tên", null),
                 new MappingSpec("country", "CONSTANT", null, "VN")), schema, source);

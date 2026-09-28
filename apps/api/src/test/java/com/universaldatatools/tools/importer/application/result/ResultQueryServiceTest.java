@@ -1,10 +1,13 @@
 package com.universaldatatools.tools.importer.application.result;
 
-import com.universaldatatools.core.table.SourceFileType;
-import com.universaldatatools.tools.importer.application.common.SessionLocks;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.core.common.RowErrorCode;
+import com.universaldatatools.core.table.DataFormat;
+import com.universaldatatools.support.InMemoryImportConfigurationRepository;
+import com.universaldatatools.support.InMemoryImportSessionRepository;
+import com.universaldatatools.support.InMemoryResultStore;
+import com.universaldatatools.tools.importer.application.common.SessionLocks;
 import com.universaldatatools.tools.importer.domain.config.ConfigHasher;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
 import com.universaldatatools.tools.importer.domain.importsession.SessionStatus;
@@ -15,22 +18,19 @@ import com.universaldatatools.tools.importer.domain.pipeline.ResultSummary;
 import com.universaldatatools.tools.importer.domain.pipeline.ResultView;
 import com.universaldatatools.tools.importer.domain.pipeline.RowResult;
 import com.universaldatatools.tools.importer.domain.pipeline.SampleDataset;
-import com.universaldatatools.support.InMemoryImportConfigurationRepository;
-import com.universaldatatools.support.InMemoryImportSessionRepository;
-import com.universaldatatools.support.InMemoryResultStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
@@ -309,7 +309,7 @@ class ResultQueryServiceTest {
     }
 
     private void givenSession(SessionStatus status) {
-        sessions.save(ImportSession.restore(ID, new SourceFile("customers.csv", SourceFileType.CSV, 100), status,
+        sessions.save(ImportSession.restore(ID, new SourceFile("customers.csv", DataFormat.CSV, 100), status,
                 T0, T0, 0L, SampleDataset.SOURCE));
     }
 

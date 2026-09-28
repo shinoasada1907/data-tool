@@ -1,22 +1,22 @@
 package com.universaldatatools.tools.importer.api.schema;
 
-import com.universaldatatools.core.table.SourceFileType;
-import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
-import com.universaldatatools.tools.importer.domain.validation.ValidationConfig;
-import com.universaldatatools.platform.web.StrictJsonConfig;
-import com.universaldatatools.tools.importer.application.configuration.ConfigUpdateResult;
-import com.universaldatatools.tools.importer.application.configuration.ConfigurationService;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.core.common.ProblemItem;
+import com.universaldatatools.core.table.DataFormat;
+import com.universaldatatools.platform.web.StrictJsonConfig;
+import com.universaldatatools.tools.importer.application.configuration.ConfigUpdateResult;
+import com.universaldatatools.tools.importer.application.configuration.ConfigurationService;
 import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
 import com.universaldatatools.tools.importer.domain.config.Readiness;
-import com.universaldatatools.tools.importer.domain.mapping.MappingConfig;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
 import com.universaldatatools.tools.importer.domain.importsession.SessionStatus;
 import com.universaldatatools.tools.importer.domain.importsession.SourceFile;
+import com.universaldatatools.tools.importer.domain.mapping.MappingConfig;
 import com.universaldatatools.tools.importer.domain.schema.FieldSpec;
 import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
+import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
+import com.universaldatatools.tools.importer.domain.validation.ValidationConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -173,7 +173,7 @@ class SchemaControllerTest {
     }
 
     private static ConfigUpdateResult readyWithEmail() {
-        ImportSession session = ImportSession.restore(ID, new SourceFile("customers.csv", SourceFileType.CSV, 7),
+        ImportSession session = ImportSession.restore(ID, new SourceFile("customers.csv", DataFormat.CSV, 7),
                 SessionStatus.READY, T0, T0, 1L, null);
         TargetSchema schema = TargetSchema.define(List.of(new FieldSpec("email", "email", true, 0)));
         return new ConfigUpdateResult(session, new ImportConfiguration(ID, schema, MappingConfig.empty(), TransformationConfig.empty(),

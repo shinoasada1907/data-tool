@@ -1,12 +1,12 @@
 package com.universaldatatools.tools.importer.api.importsession;
 
-import com.universaldatatools.core.table.SourceFileType;
-import com.universaldatatools.tools.importer.application.importsession.SourcePreview;
-import com.universaldatatools.tools.importer.application.importsession.SourcePreviewService;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
-import com.universaldatatools.core.table.ImportRow;
-import com.universaldatatools.core.table.SourceColumn;
+import com.universaldatatools.core.table.Column;
+import com.universaldatatools.core.table.DataFormat;
+import com.universaldatatools.core.table.Row;
+import com.universaldatatools.tools.importer.application.importsession.SourcePreview;
+import com.universaldatatools.tools.importer.application.importsession.SourcePreviewService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -28,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class SourcePreviewControllerTest {
 
     private static final UUID ID = UUID.fromString("0b6f0c52-8a8e-4d5c-9a55-2f3c1c3f7e11");
-    private static final List<SourceColumn> COLUMNS = List.of(new SourceColumn(0, "name"), new SourceColumn(1, "email"));
+    private static final List<Column> COLUMNS = List.of(new Column(0, "name"), new Column(1, "email"));
 
     @Autowired
     MockMvc mockMvc;
@@ -39,8 +39,8 @@ class SourcePreviewControllerTest {
     @Test
     void preview_uses_limit_50_by_default_and_answers_the_contract_shape() throws Exception {
         // Stubbed for limit 50 only: any other limit returns null and fails the request.
-        when(service.preview(ID, 50)).thenReturn(new SourcePreview(ID, SourceFileType.CSV, null, COLUMNS,
-                List.of(new ImportRow(2, List.of("An", "an@x.com"))), 50, 2));
+        when(service.preview(ID, 50)).thenReturn(new SourcePreview(ID, DataFormat.CSV, null, COLUMNS,
+                List.of(new Row(2, List.of("An", "an@x.com"))), 50, 2));
 
         mockMvc.perform(get("/api/import-sessions/{id}/preview", ID))
                 .andExpect(status().isOk())
@@ -57,8 +57,8 @@ class SourcePreviewControllerTest {
 
     @Test
     void null_cells_keep_their_position_in_values() throws Exception {
-        when(service.preview(ID, 50)).thenReturn(new SourcePreview(ID, SourceFileType.CSV, null, COLUMNS,
-                List.of(new ImportRow(2, Arrays.asList("x", null))), 50, 1));
+        when(service.preview(ID, 50)).thenReturn(new SourcePreview(ID, DataFormat.CSV, null, COLUMNS,
+                List.of(new Row(2, Arrays.asList("x", null))), 50, 1));
 
         mockMvc.perform(get("/api/import-sessions/{id}/preview", ID))
                 .andExpect(status().isOk())

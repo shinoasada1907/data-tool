@@ -1,16 +1,16 @@
 package com.universaldatatools.tools.importer.domain.pipeline;
 
-import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
-import com.universaldatatools.tools.importer.domain.validation.ValidationConfig;
-import com.universaldatatools.tools.importer.domain.validation.ValidationRuleConfig;
+import com.universaldatatools.core.table.Column;
+import com.universaldatatools.core.table.Row;
+import com.universaldatatools.core.transform.TransformationStep;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import com.universaldatatools.tools.importer.domain.mapping.MappingConfig;
 import com.universaldatatools.tools.importer.domain.mapping.MappingSpec;
 import com.universaldatatools.tools.importer.domain.schema.FieldSpec;
 import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
-import com.universaldatatools.core.table.ImportRow;
-import com.universaldatatools.core.table.SourceColumn;
-import com.universaldatatools.core.table.SourceSchema;
-import com.universaldatatools.core.transform.TransformationStep;
+import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
+import com.universaldatatools.tools.importer.domain.validation.ValidationConfig;
+import com.universaldatatools.tools.importer.domain.validation.ValidationRuleConfig;
 
 import java.util.Arrays;
 import java.util.List;
@@ -19,8 +19,8 @@ import java.util.Map;
 /** The sample data set of the import-pipeline spec, built in memory; empty cells are null. */
 public final class SampleDataset {
 
-    public static final SourceSchema SOURCE = new SourceSchema(List.of(new SourceColumn(0, "Họ tên"),
-            new SourceColumn(1, "Email"), new SourceColumn(2, "Tuổi"), new SourceColumn(3, "Ngày sinh")), 6, null);
+    public static final SourceSchema SOURCE = new SourceSchema(List.of(new Column(0, "Họ tên"),
+            new Column(1, "Email"), new Column(2, "Tuổi"), new Column(3, "Ngày sinh")), 6, null);
 
     public static final TargetSchema SCHEMA = TargetSchema.define(List.of(
             new FieldSpec("name", "string", true, 0),
@@ -48,7 +48,7 @@ public final class SampleDataset {
     private SampleDataset() {
     }
 
-    public static List<ImportRow> rows() {
+    public static List<Row> rows() {
         return List.of(
                 row(2, "  An ", "AN@X.COM", "30", "25/12/1990"),
                 row(3, "Bình", "binh@x", "abc", "31/02/1990"),
@@ -58,7 +58,7 @@ public final class SampleDataset {
                 row(7, "Dũng 2", "dung@x.com", "40", null));
     }
 
-    private static ImportRow row(long number, String... values) {
-        return new ImportRow(number, Arrays.asList(values));
+    private static Row row(long number, String... values) {
+        return new Row(number, Arrays.asList(values));
     }
 }

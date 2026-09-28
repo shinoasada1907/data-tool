@@ -1,9 +1,9 @@
 package com.universaldatatools.support;
 
-import com.universaldatatools.core.table.SourceFileType;
-import com.universaldatatools.core.table.ImportRow;
-import com.universaldatatools.core.table.SourceParser;
-import com.universaldatatools.core.table.SourceSchema;
+import com.universaldatatools.core.table.DataFormat;
+import com.universaldatatools.core.table.Row;
+import com.universaldatatools.tools.importer.domain.importsession.SourceParser;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,21 +14,21 @@ import java.util.stream.Stream;
 /** Test double for a parser of one file type: returns a fixed schema and rows, or fails. */
 public class FakeSourceParser implements SourceParser {
 
-    private final SourceFileType type;
+    private final DataFormat type;
     private SourceSchema schema;
     private RuntimeException failure;
-    private List<ImportRow> rows = List.of();
+    private List<Row> rows = List.of();
     private byte[] inspectedContent;
     private boolean readStreamClosed;
     private long failAtRow = -1;
     private RuntimeException closeFailure;
     private RuntimeException readFailure;
 
-    private FakeSourceParser(SourceFileType type) {
+    private FakeSourceParser(DataFormat type) {
         this.type = type;
     }
 
-    public static FakeSourceParser forType(SourceFileType type) {
+    public static FakeSourceParser forType(DataFormat type) {
         return new FakeSourceParser(type);
     }
 
@@ -42,7 +42,7 @@ public class FakeSourceParser implements SourceParser {
         return this;
     }
 
-    public FakeSourceParser withRows(List<ImportRow> rows) {
+    public FakeSourceParser withRows(List<Row> rows) {
         this.rows = List.copyOf(rows);
         return this;
     }
@@ -70,7 +70,7 @@ public class FakeSourceParser implements SourceParser {
     }
 
     @Override
-    public boolean supports(SourceFileType type) {
+    public boolean supports(DataFormat type) {
         return this.type == type;
     }
 
@@ -88,7 +88,7 @@ public class FakeSourceParser implements SourceParser {
     }
 
     @Override
-    public Stream<ImportRow> read(InputStream input) {
+    public Stream<Row> read(InputStream input) {
         return rows.stream()
                 .peek(row -> {
                     if (row.rowNumber() == failAtRow) {

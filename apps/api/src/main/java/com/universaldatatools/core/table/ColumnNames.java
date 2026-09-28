@@ -16,8 +16,8 @@ public final class ColumnNames {
      * Trims each header; a blank header becomes {@code Column <letters>}; a name already taken
      * (case-insensitively) gets the smallest free {@code " (k)"} suffix, k ≥ 2.
      */
-    public static List<SourceColumn> normalize(List<String> rawHeaders) {
-        List<SourceColumn> columns = new ArrayList<>(rawHeaders.size());
+    public static List<Column> normalize(List<String> rawHeaders) {
+        List<Column> columns = new ArrayList<>(rawHeaders.size());
         Set<String> taken = new HashSet<>();
         for (int index = 0; index < rawHeaders.size(); index++) {
             String raw = rawHeaders.get(index);
@@ -27,7 +27,7 @@ public final class ColumnNames {
                 name = base + " (" + k + ")";
             }
             taken.add(key(name));
-            columns.add(new SourceColumn(index, name));
+            columns.add(new Column(index, name));
         }
         return columns;
     }

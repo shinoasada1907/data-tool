@@ -1,9 +1,8 @@
 package com.universaldatatools.core.table;
 
-import com.universaldatatools.core.table.FileTypeDetector;
-import com.universaldatatools.core.table.SourceFileType;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
+import com.universaldatatools.core.table.FileTypeDetector;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -24,15 +23,15 @@ class FileTypeDetectorTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource
-    void accepts_supported_files(String name, byte[] head, SourceFileType expected) {
+    void accepts_supported_files(String name, byte[] head, DataFormat expected) {
         assertThat(FileTypeDetector.detect(name, head)).isEqualTo(expected);
     }
 
     static Stream<Arguments> accepts_supported_files() {
         return Stream.of(
-                arguments("data.csv", utf8("a,b\n1,2"), SourceFileType.CSV),
-                arguments("DATA.CSV", utf8("a,b"), SourceFileType.CSV),
-                arguments("data.xlsx", ZIP, SourceFileType.XLSX)
+                arguments("data.csv", utf8("a,b\n1,2"), DataFormat.CSV),
+                arguments("DATA.CSV", utf8("a,b"), DataFormat.CSV),
+                arguments("data.xlsx", ZIP, DataFormat.XLSX)
         );
     }
 

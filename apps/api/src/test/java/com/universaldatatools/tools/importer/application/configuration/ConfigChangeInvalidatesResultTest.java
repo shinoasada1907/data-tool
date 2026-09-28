@@ -1,24 +1,24 @@
 package com.universaldatatools.tools.importer.application.configuration;
 
-import com.universaldatatools.core.table.SourceFileType;
-import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
-import com.universaldatatools.tools.importer.domain.transformation.TransformationConfigValidator;
-import com.universaldatatools.tools.importer.domain.validation.ValidationConfigValidator;
-import com.universaldatatools.tools.importer.application.common.SessionLocks;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
+import com.universaldatatools.core.table.DataFormat;
+import com.universaldatatools.core.transform.TransformationRegistry;
+import com.universaldatatools.core.transform.TransformationStep;
+import com.universaldatatools.support.InMemoryImportConfigurationRepository;
+import com.universaldatatools.support.InMemoryImportSessionRepository;
+import com.universaldatatools.support.InMemoryResultStore;
+import com.universaldatatools.tools.importer.application.common.SessionLocks;
 import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
 import com.universaldatatools.tools.importer.domain.importsession.SessionStatus;
 import com.universaldatatools.tools.importer.domain.importsession.SourceFile;
 import com.universaldatatools.tools.importer.domain.mapping.MappingSpec;
 import com.universaldatatools.tools.importer.domain.pipeline.SampleDataset;
-import com.universaldatatools.core.transform.TransformationRegistry;
-import com.universaldatatools.core.transform.TransformationStep;
+import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
+import com.universaldatatools.tools.importer.domain.transformation.TransformationConfigValidator;
+import com.universaldatatools.tools.importer.domain.validation.ValidationConfigValidator;
 import com.universaldatatools.tools.importer.infrastructure.persistence.JsonConfigHasher;
-import com.universaldatatools.support.InMemoryImportConfigurationRepository;
-import com.universaldatatools.support.InMemoryImportSessionRepository;
-import com.universaldatatools.support.InMemoryResultStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -132,7 +132,7 @@ class ConfigChangeInvalidatesResultTest {
     }
 
     private void givenSample(SessionStatus status) {
-        sessions.save(ImportSession.restore(ID, new SourceFile("customers.csv", SourceFileType.CSV, 100), status,
+        sessions.save(ImportSession.restore(ID, new SourceFile("customers.csv", DataFormat.CSV, 100), status,
                 T0, T0, 0L, SampleDataset.SOURCE));
         configurations.save(ImportConfiguration.empty(ID).withSchema(SampleDataset.SCHEMA).configuration()
                 .withMapping(SampleDataset.MAPPING).configuration()

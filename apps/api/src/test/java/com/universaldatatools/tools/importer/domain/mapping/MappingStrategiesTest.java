@@ -1,6 +1,6 @@
 package com.universaldatatools.tools.importer.domain.mapping;
 
-import com.universaldatatools.core.table.ImportRow;
+import com.universaldatatools.core.table.Row;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -9,7 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class MappingStrategiesTest {
 
-    private static final ImportRow ROW = new ImportRow(2, Arrays.asList("An", null));
+    private static final Row ROW = new Row(2, Arrays.asList("An", null));
 
     private final SourceColumnMappingStrategy sourceColumn = new SourceColumnMappingStrategy();
     private final ConstantMappingStrategy constant = new ConstantMappingStrategy();

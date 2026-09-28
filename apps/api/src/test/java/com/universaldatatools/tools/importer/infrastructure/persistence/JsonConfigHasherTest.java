@@ -1,16 +1,16 @@
 package com.universaldatatools.tools.importer.infrastructure.persistence;
 
-import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
-import com.universaldatatools.tools.importer.domain.validation.ValidationConfig;
-import com.universaldatatools.tools.importer.domain.validation.ValidationRuleConfig;
+import com.universaldatatools.core.table.Column;
+import com.universaldatatools.core.transform.TransformationStep;
 import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import com.universaldatatools.tools.importer.domain.mapping.MappingConfig;
 import com.universaldatatools.tools.importer.domain.mapping.MappingSpec;
 import com.universaldatatools.tools.importer.domain.schema.FieldSpec;
 import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
-import com.universaldatatools.core.table.SourceColumn;
-import com.universaldatatools.core.table.SourceSchema;
-import com.universaldatatools.core.transform.TransformationStep;
+import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
+import com.universaldatatools.tools.importer.domain.validation.ValidationConfig;
+import com.universaldatatools.tools.importer.domain.validation.ValidationRuleConfig;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -126,7 +126,7 @@ class JsonConfigHasherTest {
 
     private static ImportConfiguration mapped(MappingSpec... specs) {
         ImportConfiguration configuration = configuration(ID, null, true);
-        SourceSchema source = new SourceSchema(List.of(new SourceColumn(0, "Họ tên"), new SourceColumn(1, "email")), 1, null);
+        SourceSchema source = new SourceSchema(List.of(new Column(0, "Họ tên"), new Column(1, "email")), 1, null);
         return configuration.withMapping(MappingConfig.define(List.of(specs), configuration.schema(), source))
                 .configuration();
     }

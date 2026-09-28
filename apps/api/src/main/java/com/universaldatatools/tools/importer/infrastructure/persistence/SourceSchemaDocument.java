@@ -1,7 +1,7 @@
 package com.universaldatatools.tools.importer.infrastructure.persistence;
 
-import com.universaldatatools.core.table.SourceColumn;
-import com.universaldatatools.core.table.SourceSchema;
+import com.universaldatatools.core.table.Column;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 
 import java.util.List;
 
@@ -23,7 +23,7 @@ record SourceSchemaDocument(List<ColumnDocument> columns, long totalRows, String
 
     SourceSchema toDomain() {
         return new SourceSchema(
-                columns.stream().map(column -> new SourceColumn(column.index(), column.name())).toList(),
+                columns.stream().map(column -> new Column(column.index(), column.name())).toList(),
                 totalRows,
                 sheetName);
     }

@@ -1,18 +1,18 @@
 package com.universaldatatools.tools.importer.domain.pipeline;
 
-import com.universaldatatools.tools.importer.domain.validation.FieldValidator;
-import com.universaldatatools.tools.importer.domain.validation.ValidationRuleConfig;
 import com.universaldatatools.core.common.RowErrorCode;
 import com.universaldatatools.core.common.ThrottledWarnings;
-import com.universaldatatools.tools.importer.domain.mapping.MappingStrategies;
-import com.universaldatatools.tools.importer.domain.mapping.RowMapper;
-import com.universaldatatools.tools.importer.domain.schema.TargetField;
-import com.universaldatatools.core.table.ImportRow;
+import com.universaldatatools.core.table.Row;
 import com.universaldatatools.core.transform.FieldTransformResult;
 import com.universaldatatools.core.transform.TransformationEngine;
 import com.universaldatatools.core.transform.TransformationStep;
 import com.universaldatatools.core.validate.FieldValidation;
 import com.universaldatatools.core.validate.UniqueTracker;
+import com.universaldatatools.tools.importer.domain.mapping.MappingStrategies;
+import com.universaldatatools.tools.importer.domain.mapping.RowMapper;
+import com.universaldatatools.tools.importer.domain.schema.TargetField;
+import com.universaldatatools.tools.importer.domain.validation.FieldValidator;
+import com.universaldatatools.tools.importer.domain.validation.ValidationRuleConfig;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -43,7 +43,7 @@ public final class DefaultImportPipeline implements ImportPipeline {
     }
 
     @Override
-    public PipelineSummary execute(Stream<ImportRow> rows, PipelineConfig config, RowResultSink sink) {
+    public PipelineSummary execute(Stream<Row> rows, PipelineConfig config, RowResultSink sink) {
         Run run = new Run(config);
         rows.forEachOrdered(row -> sink.accept(run.process(row)));
         return run.summary();
@@ -72,7 +72,7 @@ public final class DefaultImportPipeline implements ImportPipeline {
             this.byField = new long[fields.size()];
         }
 
-        RowResult process(ImportRow row) {
+        RowResult process(Row row) {
             int rowNumber = Math.toIntExact(row.rowNumber());
             tracker.beginRow(rowNumber);
             Map<String, Object> converted = new LinkedHashMap<>();

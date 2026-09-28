@@ -1,14 +1,14 @@
 package com.universaldatatools.tools.importer.application.importsession;
 
-import com.universaldatatools.core.table.SourceFileType;
-import com.universaldatatools.platform.storage.FileStorage;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
+import com.universaldatatools.core.table.DataFormat;
+import com.universaldatatools.core.table.Row;
+import com.universaldatatools.platform.storage.FileStorage;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSessionRepository;
-import com.universaldatatools.core.table.ImportRow;
-import com.universaldatatools.core.table.SourceParser;
-import com.universaldatatools.core.table.SourceSchema;
+import com.universaldatatools.tools.importer.domain.importsession.SourceParser;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -38,12 +38,12 @@ public class SourcePreviewService {
         SourceSchema schema = session.sourceSchema()
                 .orElseThrow(() -> new DomainException(ErrorCode.SESSION_STATE_INVALID,
                         "Source file has not been inspected."));
-        SourceFileType type = session.sourceFile().fileType();
+        DataFormat type = session.sourceFile().fileType();
         // Inspected at upload, so a parser existed then; its absence now is a deployment bug, not a client error.
         SourceParser parser = parsers.find(type)
                 .orElseThrow(() -> new IllegalStateException("No parser for inspected file type " + type));
-        List<ImportRow> rows;
-        try (InputStream in = storage.open(sessionId); Stream<ImportRow> all = parser.read(in)) {
+        List<Row> rows;
+        try (InputStream in = storage.open(sessionId); Stream<Row> all = parser.read(in)) {
             rows = all.limit(limit).toList();
         } catch (IOException e) {
             throw new UncheckedIOException("Cannot read the stored file", e);

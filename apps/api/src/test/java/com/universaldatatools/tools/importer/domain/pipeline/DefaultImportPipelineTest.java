@@ -1,14 +1,7 @@
 package com.universaldatatools.tools.importer.domain.pipeline;
 
-import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
-import com.universaldatatools.tools.importer.domain.validation.FieldValidator;
 import com.universaldatatools.core.common.RowErrorCode;
-import com.universaldatatools.tools.importer.domain.mapping.MappingStrategies;
-import com.universaldatatools.tools.importer.domain.mapping.MappingStrategy;
-import com.universaldatatools.tools.importer.domain.mapping.MappingType;
-import com.universaldatatools.tools.importer.domain.mapping.ResolvedMapping;
-import com.universaldatatools.tools.importer.domain.mapping.ConstantMappingStrategy;
-import com.universaldatatools.core.table.ImportRow;
+import com.universaldatatools.core.table.Row;
 import com.universaldatatools.core.transform.DateFormatTransformation;
 import com.universaldatatools.core.transform.DefaultValueTransformation;
 import com.universaldatatools.core.transform.LowercaseTransformation;
@@ -20,6 +13,13 @@ import com.universaldatatools.core.transform.TransformationStep;
 import com.universaldatatools.core.transform.TrimTransformation;
 import com.universaldatatools.core.transform.UppercaseTransformation;
 import com.universaldatatools.core.validate.ValidationRegistry;
+import com.universaldatatools.tools.importer.domain.mapping.ConstantMappingStrategy;
+import com.universaldatatools.tools.importer.domain.mapping.MappingStrategies;
+import com.universaldatatools.tools.importer.domain.mapping.MappingStrategy;
+import com.universaldatatools.tools.importer.domain.mapping.MappingType;
+import com.universaldatatools.tools.importer.domain.mapping.ResolvedMapping;
+import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
+import com.universaldatatools.tools.importer.domain.validation.FieldValidator;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -130,7 +130,7 @@ class DefaultImportPipelineTest {
         PipelineConfig config = new PipelineConfig(SampleDataset.SOURCE, SampleDataset.SCHEMA, SampleDataset.MAPPING,
                 new TransformationConfig(List.of(new TransformationStep("name", 0, "explode", null))),
                 SampleDataset.VALIDATIONS);
-        List<ImportRow> five = List.of(row(2, "A", "a@x.com"), row(3, "boom", "b@x.com"), row(4, "C", "c@x.com"),
+        List<Row> five = List.of(row(2, "A", "a@x.com"), row(3, "boom", "b@x.com"), row(4, "C", "c@x.com"),
                 row(5, "D", "d@x.com"), row(6, "E", "e@x.com"));
 
         PipelineSummary summary = withBug.execute(five.stream(), config, rows::add);
@@ -154,7 +154,7 @@ class DefaultImportPipelineTest {
             }
 
             @Override
-            public String map(ImportRow row, ResolvedMapping mapping) {
+            public String map(Row row, ResolvedMapping mapping) {
                 if (row.rowNumber() == 2) {
                     throw new IllegalStateException("mapping bug");
                 }
@@ -176,8 +176,8 @@ class DefaultImportPipelineTest {
         return pipeline.execute(SampleDataset.rows().stream(), SampleDataset.CONFIG, rows::add);
     }
 
-    private static ImportRow row(long number, String... values) {
-        return new ImportRow(number, Arrays.asList(values));
+    private static Row row(long number, String... values) {
+        return new Row(number, Arrays.asList(values));
     }
 
     /** A transformation with a bug that shows only on the value "boom". */
