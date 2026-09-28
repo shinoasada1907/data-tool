@@ -17,7 +17,7 @@
 
 ## 0. Đối chiếu với core đã merge
 
-- [ ] 0.1 Kiểm các API sẽ dùng còn đúng chữ ký: `DatasetSources.open(SourceRef)`, `OpenedSource.info()/rows()`, `OutputSpec.from(OutputDto, String)`, `Downloads.send(...)`, `DownloadNames.of(...)`, `TableWriter.open(...)`. Lệch thì sửa tasks này trước.
+- [x] 0.1 Kiểm các API sẽ dùng còn đúng chữ ký: `DatasetSources.open(SourceRef)`, `OpenedSource.info()/rows()`, `OutputSpec.from(OutputDto, String)`, `Downloads.send(...)`, `DownloadNames.of(...)`, `TableWriter.open(...)`. Lệch thì sửa tasks này trước.
 
 ## 1. `SourceDto` dùng chung
 
@@ -25,13 +25,13 @@
 - Create: `MAIN/platform/dataset/SourceDto.java`
 - Test: `TEST/platform/dataset/SourceDtoTest.java`
 
-- [ ] 1.1 Viết test:
+- [x] 1.1 Viết test:
   - `{datasetId, options: {sheet:"S", delimiter:"semicolon", encoding:"windows-1258", hasHeader:false}}` → `SourceRef` với `SEMICOLON`, `WINDOWS_1258`, `false`;
   - `options` null → `ReadOptions.defaults()`;
   - `delimiter:"COLON"` → `CONFIG_INVALID`, message nêu `source.options.delimiter`;
   - `datasetId` null → `REQUEST_INVALID`.
-- [ ] 1.2 FAIL → cài đặt → PASS.
-- [ ] 1.3 Commit: `feat(dataset): shared SourceDto for tools`
+- [x] 1.2 FAIL → cài đặt → PASS.
+- [x] 1.3 Commit: `feat(dataset): shared SourceDto for tools`
 
 ## 2. `ConverterService`
 
@@ -46,7 +46,7 @@
   public record Prepared(String fileName, String contentType, Downloads.BodyWriter body, OpenedSource source) implements AutoCloseable
   ```
 
-- [ ] 2.1 Viết test:
+- [x] 2.1 Viết test:
   - CSV `id;ten\n1;An\n2;Bình\n` → JSON: đúng byte `[{"id":"1","ten":"An"},{"id":"2","ten":"Bình"}]`; tên file `khách hàng.json`;
   - JSON `[{"price":12.50,"code":"00123","ok":true}]` → JSON mặc định: giữ nguyên;
   - CSV `id,code\n1,00123\n2,00456\n` → JSON `INFER` → `[{"id":1,"code":"00123"},{"id":2,"code":"00456"}]`;
@@ -54,8 +54,9 @@
   - CSV có ô 40 000 ký tự ở cột `note` → XLSX: `LIMIT_EXCEEDED` với detail đúng spec (dataset upload với giới hạn ô > 40 000: đặt `toolbox.limits.max-cell-length=50000` trong test);
   - `output` `{"format":"JSON","csv":{…}}` → `CONFIG_INVALID`;
   - XLSX chọn sheet `Prices` → XLSX: tên sheet đích là `Prices`; CSV → XLSX: tên sheet `Sheet1`.
-- [ ] 2.2 FAIL → cài đặt theo CV2–CV4 → PASS.
-- [ ] 2.3 Commit: `feat(converter): convert a dataset between CSV, XLSX and JSON`
+- [x] 2.2 FAIL → cài đặt theo CV2–CV4 → PASS.
+- [x] 2.3 Commit: `feat(converter): convert a dataset between CSV, XLSX and JSON`
+  - Làm khác: ~~`ConverterServiceTest` riêng~~. **LÝ DO:** mọi case của 2.1 được kiểm qua HTTP thật trong `ConverterApiIntegrationTest` (task 3), vừa đủ vừa đỡ trùng. Task 2 và 3 commit chung. `ArchitectureTest` cho luật "domain của tool" chấp nhận rỗng, vì Converter không có package `domain`.
 
 ## 3. Endpoint
 
@@ -64,7 +65,7 @@
 - Modify: `TEST/ArchitectureTest.java` (`TOOL_NAMES` thêm `converter`), `MAIN/platform/web/OpenApiConfig.java` (nhóm `converter`)
 - Test: `TEST/tools/converter/api/ConverterApiIntegrationTest.java`
 
-- [ ] 3.1 Viết test qua HTTP thật, theo mọi scenario của spec:
+- [x] 3.1 Viết test qua HTTP thật, theo mọi scenario của spec:
   - CSV→JSON: header `Content-Disposition` chứa `filename*=UTF-8''kh%C3%A1ch%20h%C3%A0ng.json`, có `Cache-Control: no-store`;
   - CSV→XLSX: workbook đọc lại có 3 dòng dữ liệu;
   - XLSX sheet `Prices`→CSV có BOM;
@@ -74,8 +75,8 @@
   - `{"source":` → `400 REQUEST_INVALID`;
   - lỗi không kèm `Content-Disposition`;
   - `/v3/api-docs/converter` có `/api/converter/convert`.
-- [ ] 3.2 FAIL → cài đặt → PASS. `ArchitectureTest` PASS.
-- [ ] 3.3 Commit: `feat(converter): POST /api/converter/convert`
+- [x] 3.2 FAIL → cài đặt → PASS. `ArchitectureTest` PASS.
+- [x] 3.3 Commit: `feat(converter): POST /api/converter/convert`
 
 ## 4. Perf smoke
 
