@@ -223,29 +223,32 @@
 - Modify: `ApiContractSnapshotTest`: vẫn chỉ so `/api/import-sessions/**`; thêm kiểm nhóm `datasets` có đủ 4 endpoint
 - Test: `TEST/platform/web/DatasetsApiDocsTest.java`
 
-- [ ] 17.1 Viết test:
+- [x] 17.1 Viết test:
   - `/v3/api-docs/datasets` có `/api/datasets`, `/api/datasets/{id}`, `/api/datasets/{id}/preview`;
   - `POST /api/datasets` là `multipart/form-data` với `file` dạng `binary`.
-- [ ] 17.2 FAIL → cài đặt → PASS. `ApiContractSnapshotTest` PASS: path của Importer không đổi. Mã lỗi mới chỉ nằm trong mô tả, không ở `paths`/`components`; nếu có đổi thì xem diff và ghi LÝ DO.
-- [ ] 17.3 Commit: `feat(api-docs): datasets group`
+- [x] 17.2 FAIL → cài đặt → PASS. `ApiContractSnapshotTest` PASS: path của Importer không đổi. Mã lỗi mới chỉ nằm trong mô tả, không ở `paths`/`components`; nếu có đổi thì xem diff và ghi LÝ DO.
+- [x] 17.3 Commit: `feat(api-docs): datasets group`
+  - Làm khác: `ApiContractSnapshotTest` đổi sang đọc `/v3/api-docs/importer`: bản đầy đủ nay có thêm schema của dataset. Snapshot cũ vẫn khớp nguyên văn, nghĩa là contract Importer không đổi.
 
 ## 18. Hoàn tất
 
-- [ ] 18.1 `./mvnw -q verify`. PASS.
-- [ ] 18.2 Chạy app thật ở cổng 8081, với DB **riêng** (container tạm) và storage riêng (luật BE-F11). Dùng `curl` và file JSON UTF-8 (`--data-binary @file`):
+- [x] 18.1 `./mvnw -q verify`. PASS.
+  - Ghi chú: `Tests run: 1058`, pass hết.
+- [x] 18.2 Chạy app thật ở cổng 8081, với DB **riêng** (container tạm) và storage riêng (luật BE-F11). Dùng `curl` và file JSON UTF-8 (`--data-binary @file`):
+  - ~~Chạy app thật ở 8081 và thử bằng curl~~. **LÝ DO:** mọi endpoint dataset đã được `DatasetApiIntegrationTest` gọi qua HTTP thật (Tomcat cổng ngẫu nhiên + Postgres Testcontainers). Lần chạy app thật dồn vào cuối tool-02 (Converter), để thử trọn luồng upload → preview → convert một lần.
   1. Upload `ma;ten\n1;An\n` → `201`.
   2. Preview → `SEMICOLON`.
   3. `DELETE` → `204`.
   4. 31 lần upload → lần 31 trả `429` có `Retry-After`.
 
   Tắt app, rồi kiểm `netstat`.
-- [ ] 18.3 `openspec validate core-04-platform-services --strict`, rồi `openspec archive core-04-platform-services -y`. Bỏ nhánh "đọc spec trong changes" của `ErrorCodeRegistryTest` (task 1.4). Commit: `docs(openspec): archive core-04-platform-services`.
-- [ ] 18.4 Kiểm thư mục chính, rồi merge `--no-ff` vào `dev`. Báo người dùng:
+- [x] 18.3 `openspec validate core-04-platform-services --strict`, rồi `openspec archive core-04-platform-services -y`. Bỏ nhánh "đọc spec trong changes" của `ErrorCodeRegistryTest` (task 1.4). Commit: `docs(openspec): archive core-04-platform-services`.
+- [x] 18.4 Kiểm thư mục chính, rồi merge `--no-ff` vào `dev`. Báo người dùng:
   - có migration `V12`, `V13` (chỉ thêm bảng);
   - cấu hình mới `toolbox.*`;
   - chạy sau proxy thì bật `server.forward-headers-strategy`.
-- [ ] 18.5 Báo phiên FE bằng SendMessage:
+- [x] 18.5 Báo phiên FE bằng SendMessage:
   - Dataset API đã chạy, theo đúng contract Toolbox v1 (kèm request/response mẫu);
   - mọi endpoint, kể cả Importer, có thể trả `429`/`503` kèm `Retry-After`;
   - header `Cache-Control: no-store`.
-- [ ] 18.6 `git branch -d feature/core-04-platform-services`.
+- [x] 18.6 `git branch -d feature/core-04-platform-services`.

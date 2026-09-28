@@ -26,6 +26,10 @@ Storage root thuộc về một database duy nhất:
 - **WHEN** storage root có thư mục `{Y}` (Y là UUID), không tài nguyên nào có id Y, và thư mục được sửa lần cuối cách đây 1 giờ
 - **THEN** thư mục `{Y}` vẫn còn sau cleanup
 
+#### Scenario: Thư mục không phải UUID không bị đụng tới
+- **WHEN** storage root có thư mục `backup` được sửa lần cuối cách đây 30 ngày
+- **THEN** thư mục `backup` vẫn còn sau cleanup
+
 #### Scenario: Storage của database khác
 - **WHEN** `{storageRoot}/.owner` ghi id của một database khác, và storage có thư mục `{X}` cũ 3 ngày mà database hiện tại không biết
 - **THEN** thư mục `{X}` vẫn còn sau cleanup
