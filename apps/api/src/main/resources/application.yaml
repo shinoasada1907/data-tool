@@ -1,6 +1,6 @@
 spring:
   application:
-    name: api
+    name: universal-data-tools
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/universal_importer}
     username: ${DB_USERNAME:importer}
@@ -14,26 +14,29 @@ spring:
     locations: classpath:db/migration
   servlet:
     multipart:
-      max-file-size: ${IMPORTER_MAX_FILE_SIZE:20MB}
+      max-file-size: ${TOOLBOX_MAX_FILE_SIZE:${IMPORTER_MAX_FILE_SIZE:20MB}}
       # Room for the multipart envelope around a file that is exactly at the limit.
-      max-request-size: ${IMPORTER_MAX_REQUEST_SIZE:21MB}
+      max-request-size: ${TOOLBOX_MAX_REQUEST_SIZE:${IMPORTER_MAX_REQUEST_SIZE:21MB}}
 
 server:
   tomcat:
     # Read oversized uploads to the end so the client receives the 413 instead of a connection reset.
     max-swallow-size: -1
 
-importer:
+# Every value takes the TOOLBOX_* environment variable first, then the IMPORTER_* one of V0.1 (core-01 TD2).
+toolbox:
   storage:
-    dir: ${IMPORTER_STORAGE_DIR:${java.io.tmpdir}/universal-importer}
-  cleanup:
-    # Deletes sessions not changed for session-ttl, with their files, and storage directories no session owns
-    # (BE-F11). Every instance needs its own storage directory: a directory another database knows is an orphan here.
-    enabled: true
-    session-ttl: ${IMPORTER_SESSION_TTL:24h}
-    interval: PT1H
-  xlsx:
-    # Zip bomb guard for uploaded workbooks (BE-F03 design X4).
-    max-uncompressed-size: ${IMPORTER_XLSX_MAX_UNCOMPRESSED_SIZE:200MB}
-    max-inflate-ratio: ${IMPORTER_XLSX_MAX_INFLATE_RATIO:100}
-    max-entries: ${IMPORTER_XLSX_MAX_ENTRIES:10000}
+    dir: ${TOOLBOX_STORAGE_DIR:${IMPORTER_STORAGE_DIR:${java.io.tmpdir}/universal-importer}}
+  importer:
+    cleanup:
+      # Deletes sessions not changed for session-ttl, with their files, and storage directories no session owns
+      # (BE-F11). Every instance needs its own storage directory: a directory another database knows is an orphan here.
+      enabled: true
+      session-ttl: ${TOOLBOX_IMPORTER_SESSION_TTL:${IMPORTER_SESSION_TTL:24h}}
+      interval: PT1H
+  format:
+    xlsx:
+      # Zip bomb guard for uploaded workbooks (BE-F03 design X4). IMPORTER_* names are still honoured.
+      max-uncompressed-size: ${TOOLBOX_XLSX_MAX_UNCOMPRESSED_SIZE:${IMPORTER_XLSX_MAX_UNCOMPRESSED_SIZE:200MB}}
+      max-inflate-ratio: ${TOOLBOX_XLSX_MAX_INFLATE_RATIO:${IMPORTER_XLSX_MAX_INFLATE_RATIO:100}}
+      max-entries: ${TOOLBOX_XLSX_MAX_ENTRIES:${IMPORTER_XLSX_MAX_ENTRIES:10000}}
