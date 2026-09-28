@@ -1,6 +1,6 @@
 package com.universaldatatools.tools.importer.infrastructure.export;
 
-import com.universaldatatools.tools.importer.domain.export.CsvFormulaGuard;
+import com.universaldatatools.core.format.csv.CsvFormulaGuard;
 import com.universaldatatools.tools.importer.domain.export.ErrorReportExporter;
 import com.universaldatatools.tools.importer.domain.pipeline.ImportError;
 import com.universaldatatools.tools.importer.domain.pipeline.RowResult;

@@ -241,7 +241,7 @@
 - Create: `MAIN/core/table/{Typing, TypedCell, OutputColumn, WriteOptions, TableWriter, RowSink, CellTyping}.java`, `MAIN/core/format/csv/CsvTableWriter.java`
 - Test: `TEST/core/table/CellTypingTest.java`, `TEST/core/format/csv/CsvTableWriterTest.java`
 
-- [ ] 9.1 Viết `CellTypingTest` với `resolve(cell, typing, profile)`:
+- [x] 9.1 Viết `CellTypingTest` với `resolve(cell, typing, profile)`:
 
   | Ô (text, kind) | typing | profile.inferredType | Kiểu thật |
   |---|---|---|---|
@@ -254,7 +254,7 @@
   | `2024-01-01`, null | INFER | date | DATE |
   | `a@x.com`, null | INFER | email | TEXT |
   | null, NUMBER | PRESERVE | — | null (ô rỗng) |
-- [ ] 9.2 Viết `CsvTableWriterTest` (đọc lại bằng commons-csv khi cần):
+- [x] 9.2 Viết `CsvTableWriterTest` (đọc lại bằng commons-csv khi cần):
   - mặc định, cột `a,b`, row `["x","1"]` → byte `EF BB BF` + `a,b\r\nx,1\r\n`;
   - `delimiter=SEMICOLON`, `bom=false`, row `["x;y","1"]` → `a;b\r\n"x;y";1\r\n`;
   - `header=false` → không có dòng header;
@@ -264,10 +264,10 @@
   - `formulaGuard=false` → giữ nguyên `=SUM(A1)`;
   - ô null → trường rỗng; ô chứa `"` và xuống dòng → được quote đúng RFC 4180;
   - `abort()` sau row 1 → không ném lỗi, byte đã ghi dừng ở row 1.
-- [ ] 9.3 Chạy. Mong đợi: FAIL.
-- [ ] 9.4 Cài đặt theo IO9. Formula guard dùng lại `CsvFormulaGuard` (chuyển từ `tools.importer.domain.export` sang `core.format.csv`, vì đây là luật chung).
-- [ ] 9.5 Chạy lại. Mong đợi: PASS.
-- [ ] 9.6 Commit: `feat(core): TableWriter contract, cell typing and CSV writer`
+- [x] 9.3 Chạy. Mong đợi: FAIL.
+- [x] 9.4 Cài đặt theo IO9. Formula guard dùng lại `CsvFormulaGuard` (chuyển từ `tools.importer.domain.export` sang `core.format.csv`, vì đây là luật chung).
+- [x] 9.5 Chạy lại. Mong đợi: PASS.
+- [x] 9.6 Commit: `feat(core): TableWriter contract, cell typing and CSV writer`
 
 ## 10. `JsonTableWriter`
 
@@ -275,7 +275,7 @@
 - Create: `MAIN/core/format/json/JsonTableWriter.java`
 - Test: `TEST/core/format/json/JsonTableWriterTest.java`
 
-- [ ] 10.1 Viết test:
+- [x] 10.1 Viết test:
   - cột `p,ok,n,s`; row `[("12.50",NUMBER),("true",BOOLEAN),(null,null),("00123",TEXT)]`; PRESERVE → `[{"p":12.50,"ok":true,"n":null,"s":"00123"}]`;
   - `("TRUE",BOOLEAN)` → `true`; `("1",BOOLEAN)` → `true`; `("0",BOOLEAN)` → `false`;
   - `("12,5",NUMBER)` (không phải số JSON) → `"12,5"`;
@@ -285,10 +285,10 @@
   - 0 row → `[]`;
   - key `=cmd()` giữ nguyên; tiếng Việt ghi UTF-8 thật, không escape `\u`;
   - `abort()` sau row 1 → output không có `]` cuối.
-- [ ] 10.2 Chạy. Mong đợi: FAIL.
-- [ ] 10.3 Cài đặt bằng `JsonGenerator` của Jackson 3. Số ghi bằng `writeNumber(String)` sau khi kiểm chữ khớp grammar số JSON (`-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?`).
-- [ ] 10.4 Chạy lại. Mong đợi: PASS.
-- [ ] 10.5 Commit: `feat(core): JSON writer that keeps number literals`
+- [x] 10.2 Chạy. Mong đợi: FAIL.
+- [x] 10.3 Cài đặt bằng `JsonGenerator` của Jackson 3. Số ghi bằng `writeNumber(String)` sau khi kiểm chữ khớp grammar số JSON (`-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?`).
+- [x] 10.4 Chạy lại. Mong đợi: PASS.
+- [x] 10.5 Commit: `feat(core): JSON writer that keeps number literals`
 
 ## 11. `XlsxTableWriter`
 
@@ -297,7 +297,7 @@
 - Create: `MAIN/core/format/xlsx/XlsxTableWriter.java`
 - Test: `TEST/core/format/xlsx/XlsxTableWriterTest.java`
 
-- [ ] 11.1 Viết test, đọc lại bằng fastexcel-reader:
+- [x] 11.1 Viết test, đọc lại bằng fastexcel-reader:
   - header `a,b,c,d,e`; row `[("12.5",NUMBER),("TRUE",BOOLEAN),("2024-02-29",DATE),("=1+1",TEXT),(null,null)]` → ô số 12.5, ô boolean true, ô ngày 2024-02-29, ô chuỗi `=1+1` (không phải công thức), ô trống;
   - `("12345678901234567",NUMBER)` → ô **chuỗi** `12345678901234567`;
   - `("0.1",NUMBER)` → ô số 0.1;
@@ -305,10 +305,11 @@
   - typing STRING → `12.5` là ô chuỗi;
   - 2 500 row → đọc lại đủ 2 500 row (có qua `flush`);
   - `abort()` → output không mở được như workbook hợp lệ (reader ném lỗi).
-- [ ] 11.2 Chạy. Mong đợi: FAIL.
-- [ ] 11.3 Đổi scope trong pom. Kiểm bằng `./mvnw -q dependency:tree -Dincludes=org.dhatim:fastexcel`: mong đợi thấy `compile`. Cài đặt theo IO9.
-- [ ] 11.4 Chạy lại. Mong đợi: PASS. `ArchitectureTest` PASS (fastexcel nằm trong allowlist của `core.format`).
-- [ ] 11.5 Commit: `feat(core): streaming XLSX writer with typed cells`
+- [x] 11.2 Chạy. Mong đợi: FAIL.
+- [x] 11.3 Đổi scope trong pom. Kiểm bằng `./mvnw -q dependency:tree -Dincludes=org.dhatim:fastexcel`: mong đợi thấy `compile`. Cài đặt theo IO9.
+- [x] 11.4 Chạy lại. Mong đợi: PASS. `ArchitectureTest` PASS (fastexcel nằm trong allowlist của `core.format`).
+- [x] 11.5 Commit: `feat(core): streaming XLSX writer with typed cells`
+  - Làm khác: test ba writer và typing gộp vào một file `TableWritersTest`. `CsvFormulaGuard` chuyển hẳn sang `core.format.csv` (bản ở Importer bị xoá, test đi theo). Luật "trông giống số/boolean/ngày" gom vào `TextShapes`, để profile và `INFER` luôn khớp nhau. Có thêm `KeepOpenOutputStream`: writer không bao giờ đóng stream của người gọi.
 
 ## 12. Round-trip
 

@@ -1,7 +1,7 @@
 package com.universaldatatools.tools.importer.infrastructure.export;
 
+import com.universaldatatools.core.format.csv.CsvFormulaGuard;
 import com.universaldatatools.core.schema.FieldType;
-import com.universaldatatools.tools.importer.domain.export.CsvFormulaGuard;
 import com.universaldatatools.tools.importer.domain.export.ExportFormat;
 import com.universaldatatools.tools.importer.domain.export.ValidRowsExporter;
 import com.universaldatatools.tools.importer.domain.pipeline.RowResult;

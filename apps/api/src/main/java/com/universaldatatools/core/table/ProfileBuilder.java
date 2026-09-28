@@ -2,26 +2,14 @@ package com.universaldatatools.core.table;
 
 import com.universaldatatools.core.validate.EmailAddresses;
 
-import java.time.DateTimeException;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.format.ResolverStyle;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
-import java.util.regex.Pattern;
 
 /**
  * Profiles columns cell by cell in one pass, in constant memory per column (core-02 IO7). Typed sources (JSON,
- * XLSX) are profiled by cell kind; untyped ones (CSV) by what the text looks like, cautiously: no leading zeros, at
- * most 15 integer digits, ISO dates only.
+ * XLSX) are profiled by cell kind; untyped ones (CSV) by what the text looks like ({@link TextShapes}).
  */
 public final class ProfileBuilder {
-
-    private static final Pattern NUMBER = Pattern.compile("-?(0|[1-9][0-9]{0,14})(\\.[0-9]+)?");
-    private static final Pattern ISO_DATE_SHAPE = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
-    private static final DateTimeFormatter ISO_DATE =
-            DateTimeFormatter.ofPattern("uuuu-MM-dd", Locale.ROOT).withResolverStyle(ResolverStyle.STRICT);
 
     private static final int BOOLEAN = 1;
     private static final int NUMERIC = 2;
@@ -114,32 +102,19 @@ public final class ProfileBuilder {
 
         private int candidatesOf(String text) {
             int result = 0;
-            String lower = text.toLowerCase(Locale.ROOT);
-            if (lower.equals("true") || lower.equals("false")) {
+            if (TextShapes.isBoolean(text)) {
                 result |= BOOLEAN;
             }
-            if ((textCandidates & NUMERIC) != 0 && NUMBER.matcher(text).matches()) {
+            if ((textCandidates & NUMERIC) != 0 && TextShapes.isNumber(text)) {
                 result |= NUMERIC;
             }
-            if ((textCandidates & DATE) != 0 && isIsoDate(text)) {
+            if ((textCandidates & DATE) != 0 && TextShapes.isIsoDate(text)) {
                 result |= DATE;
             }
             if ((textCandidates & EMAIL) != 0 && EmailAddresses.isValid(text)) {
                 result |= EMAIL;
             }
             return result;
-        }
-
-        private static boolean isIsoDate(String text) {
-            if (!ISO_DATE_SHAPE.matcher(text).matches()) {
-                return false;
-            }
-            try {
-                LocalDate.parse(text, ISO_DATE);
-                return true;
-            } catch (DateTimeException e) {
-                return false;
-            }
         }
     }
 }
