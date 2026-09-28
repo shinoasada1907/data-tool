@@ -35,7 +35,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         if (!ex.items().isEmpty()) {
             problem.setProperty("errors", ex.items());
         }
-        return respond(problem, ex.code(), request);
+        ex.extensions().forEach((name, value) -> {
+            if (!DomainException.RETRY_AFTER.equals(name)) {
+                problem.setProperty(name, value);
+            }
+        });
+        ResponseEntity<ProblemDetail> response = respond(problem, ex.code(), request);
+        Object retryAfter = ex.extensions().get(DomainException.RETRY_AFTER);
+        if (retryAfter == null && ex.code() == ErrorCode.SERVER_BUSY) {
+            retryAfter = 1;
+        }
+        return retryAfter == null ? response
+                : ResponseEntity.status(response.getStatusCode()).headers(response.getHeaders())
+                        .header(HttpHeaders.RETRY_AFTER, String.valueOf(retryAfter)).body(response.getBody());
     }
 
     /**
