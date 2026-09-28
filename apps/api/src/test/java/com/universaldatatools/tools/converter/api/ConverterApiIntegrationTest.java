@@ -83,10 +83,22 @@ class ConverterApiIntegrationTest {
     }
 
     @Test
+    void an_xlsx_sheet_keeps_its_name_in_xlsx() throws IOException {
+        String id = idOf(http.uploadTo("/api/datasets", "book.xlsx", twoSheets()));
+
+        Download file = convert(id, "{\"sheet\":\"Prices\"}", "{\"format\":\"XLSX\"}");
+
+        try (ReadableWorkbook workbook = new ReadableWorkbook(new ByteArrayInputStream(file.body()))) {
+            assertThat(workbook.getFirstSheet().getName()).isEqualTo("Prices");
+        }
+    }
+
+    @Test
     void json_to_csv() {
         String id = upload("d.json", "[{\"a\":1,\"b\":\"x\"},{\"a\":2}]");
 
-        assertThat(text(convert(id, "{\"format\":\"CSV\",\"csv\":{\"bom\":false}}"))).isEqualTo("a,b\r\n1,x\r\n2,\r\n");
+        assertThat(text(convert(id, "{\"format\":\"CSV\",\"csv\":{\"bom\":false}}")))
+                .isEqualTo("a,b\r\n1,x\r\n2,\r\n");
     }
 
     @Test

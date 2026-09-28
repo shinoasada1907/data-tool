@@ -83,8 +83,9 @@
 **Files:**
 - Test: `TEST/tools/converter/ConverterPerfTest.java` (`@Tag("perf")`)
 
-- [ ] 4.1 CSV 200 000 row × 10 cột → JSON qua `ConverterService`. Thời gian đo phải dưới 15 giây, chạy bằng `./mvnw test -Dgroups=perf -Dtest=ConverterPerfTest`. Ghi số đo vào ghi chú.
-- [ ] 4.2 Commit: `test(converter): perf smoke for 200k rows`
+- [x] 4.1 CSV 200 000 row × 10 cột → JSON qua `ConverterService`. Thời gian đo phải dưới 15 giây, chạy bằng `./mvnw test -Dgroups=perf -Dtest=ConverterPerfTest`. Ghi số đo vào ghi chú.
+  - Ghi chú: đo được **1 791 ms** với `-Xmx512m`. Lệnh chạy thực tế: `./mvnw test -Dtest=ConverterPerfTest -DexcludedGroups=none` (thay cho `-Dgroups=perf`). `pom.xml` có property `excludedGroups=perf` để test perf không chạy mặc định. Thêm case "XLSX chọn sheet `Prices` → XLSX giữ tên sheet" vào test API.
+- [x] 4.2 Commit: `test(converter): perf smoke for 200k rows`
 
 ## 5. Hoàn tất
 
