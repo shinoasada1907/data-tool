@@ -89,8 +89,10 @@
 
 ## 5. Hoàn tất
 
-- [ ] 5.1 `./mvnw verify`. PASS.
-- [ ] 5.2 Chạy app thật ở cổng 8081 với Postgres tạm và storage tạm, rồi thử bằng curl: upload CSV → preview → convert sang XLSX và JSON. Tắt app, kiểm cổng.
-- [ ] 5.3 `openspec validate tool-02-data-converter --strict`, rồi `openspec archive tool-02-data-converter -y`. Viết Purpose cho spec mới. Commit.
-- [ ] 5.4 Merge `--no-ff` vào `dev`. Báo người dùng. Báo phiên FE contract thật và request/response mẫu.
-- [ ] 5.5 Xoá nhánh.
+- [x] 5.1 `./mvnw verify`. PASS.
+  - Ghi chú: `Tests run: 1070`, pass hết.
+- [x] 5.2 Chạy app thật ở cổng 8081 với Postgres tạm và storage tạm, rồi thử bằng curl: upload CSV → preview → convert sang XLSX và JSON. Tắt app, kiểm cổng.
+  - Ghi chú: Postgres tạm `udt-tool02-db` (cổng 55432) và storage tạm. Upload `demo.csv` (`;`, tiếng Việt) → preview tự nhận `SEMICOLON`/`UTF-8`, cột `giá` là `number` → convert JSON `INFER` ra `[{"ma":"A01","tên":"Bút bi","giá":5000},…]`, tên file `demo.json` → convert XLSX `200` (3 701 byte). Đã tắt app và DB, cổng 8081 trống.
+- [x] 5.3 `openspec validate tool-02-data-converter --strict`, rồi `openspec archive tool-02-data-converter -y`. Viết Purpose cho spec mới. Commit.
+- [x] 5.4 Merge `--no-ff` vào `dev`. Báo người dùng. Báo phiên FE contract thật và request/response mẫu.
+- [x] 5.5 Xoá nhánh.
