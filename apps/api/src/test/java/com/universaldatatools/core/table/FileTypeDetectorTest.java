@@ -2,7 +2,6 @@ package com.universaldatatools.core.table;
 
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
-import com.universaldatatools.core.table.FileTypeDetector;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -59,5 +58,46 @@ class FileTypeDetectorTest {
 
     private static byte[] utf8(String text) {
         return text.getBytes(StandardCharsets.UTF_8);
+    }
+
+    @ParameterizedTest(name = "dataset {0}")
+    @MethodSource
+    void datasets_also_accept_json_and_utf16_csv(String name, byte[] head, DataFormat expected) {
+        assertThat(FileTypeDetector.detectDataset(name, head)).isEqualTo(expected);
+    }
+
+    static Stream<Arguments> datasets_also_accept_json_and_utf16_csv() {
+        return Stream.of(
+                arguments("data.JSON", utf8("  [{\"a\":1}]"), DataFormat.JSON),
+                arguments("bom.json", new byte[] {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF, '['}, DataFormat.JSON),
+                arguments("utf16.csv", new byte[] {(byte) 0xFF, (byte) 0xFE, 'a', 0x00}, DataFormat.CSV),
+                arguments("data.xlsx", ZIP, DataFormat.XLSX));
+    }
+
+    @ParameterizedTest(name = "dataset {0} → {2}")
+    @MethodSource
+    void datasets_refuse(String name, byte[] head, ErrorCode expected) {
+        assertThatThrownBy(() -> FileTypeDetector.detectDataset(name, head))
+                .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.code()).isEqualTo(expected));
+    }
+
+    static Stream<Arguments> datasets_refuse() {
+        return Stream.of(
+                arguments("data.json", utf8("{\"a\":1}"), ErrorCode.FILE_PARSE_ERROR),
+                arguments("nul.csv", new byte[] {'a', 0x00}, FILE_UNSUPPORTED),
+                arguments("data.xls", utf8("x"), FILE_UNSUPPORTED));
+    }
+
+    @ParameterizedTest(name = "importer {0}")
+    @MethodSource
+    void the_importer_still_refuses_json_and_utf16(String name, byte[] head) {
+        assertThatThrownBy(() -> FileTypeDetector.detect(name, head)).isInstanceOfSatisfying(DomainException.class,
+                e -> assertThat(e.code()).isEqualTo(FILE_UNSUPPORTED));
+    }
+
+    static Stream<Arguments> the_importer_still_refuses_json_and_utf16() {
+        return Stream.of(
+                arguments("data.json", utf8("[{}]")),
+                arguments("utf16.csv", new byte[] {(byte) 0xFF, (byte) 0xFE, 'a', 0x00}));
     }
 }
