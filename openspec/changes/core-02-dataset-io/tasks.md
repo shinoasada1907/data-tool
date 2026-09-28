@@ -362,17 +362,18 @@
 - Create: `MAIN/core/table/{Hash128, KeyHasher, KeyIndex}.java`
 - Test: `TEST/core/table/KeyHasherTest.java`, `KeyIndexTest.java`
 
-- [ ] 14.1 Viết test:
+- [x] 14.1 Viết test:
   - `hash(["ab","c"]) != hash(["a","bc"])`;
   - `hash([null]) != hash([""])`;
   - `hash(["x"]) == hash(["x"])` giữa hai instance khác nhau;
   - `hash([])` ổn định;
   - 200 000 khoá `"k"+i` → không trùng hash nào;
   - `KeyIndex.putIfAbsent(h, 2)` lần đầu trả `null`, lần hai trả `2`, `size()` là 1.
-- [ ] 14.2 Chạy. Mong đợi: FAIL.
-- [ ] 14.3 Cài đặt theo IO11.
-- [ ] 14.4 Chạy lại. Mong đợi: PASS.
-- [ ] 14.5 Commit: `feat(core): 128-bit key hashing for dataset-wide indexes`
+- [x] 14.2 Chạy. Mong đợi: FAIL.
+- [x] 14.3 Cài đặt theo IO11.
+- [x] 14.4 Chạy lại. Mong đợi: PASS.
+- [x] 14.5 Commit: `feat(core): 128-bit key hashing for dataset-wide indexes`
+  - Làm khác: test của `KeyIndex` nằm chung trong `KeyHasherTest`.
 
 ## 15. Mã lỗi `JSON_NOT_FLAT` và `LIMIT_EXCEEDED`
 
