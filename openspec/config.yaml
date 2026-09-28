@@ -1,19 +1,26 @@
 schema: spec-driven
 
 context: |
-  Phạm vi: Backend của Universal Importer (apps/api). Frontend có OpenSpec riêng ở
-  apps/web/openspec (change fe-import-wizard-v0-1); không lập kế hoạch FE ở đây.
-  API contract chính thức do BE chốt: openspec/changes/archive/2026-09-25-be-f01-import-session/design.md
-  (mục "API contract V0.1"). Requirement của các change đã archive nằm trong openspec/specs/.
+  Phạm vi: Backend của Universal Data Tools (apps/api) — website public nhiều tool dữ liệu độc lập,
+  khách vãng lai không đăng nhập. Universal Importer là Tool 01 (V0.1 đã xong); các tool tiếp theo:
+  02 Data Converter, 05 Data Validator, 03 Data Cleaner, 04 Schema Builder, 06 Data Diff.
+  Frontend có OpenSpec riêng ở apps/web/openspec; không lập kế hoạch FE ở đây.
+  Nguồn yêu cầu: Notion "Universal Data Tools — Data Toolbox Platform" (trang gốc + trang từng tool);
+  pack V0.1 của Importer nằm dưới trang 01.
+  Tài liệu thiết kế nền của toolbox: openspec/changes/core-01-toolbox-restructure/design.md
+  (quyết định TD1…TD20 và mục "API contract Toolbox v1" — contract chính thức giữa BE và FE).
+  Sau khi archive, tìm nó trong openspec/changes/archive/*-core-01-toolbox-restructure/.
+  Quyết định nền của Importer V0.1 (D1…D14, API /api/import-sessions) vẫn ở
+  openspec/changes/archive/2026-09-25-be-f01-import-session/design.md.
   Stack: Java 21, Spring Boot 4.1.1 (Web MVC, Validation, Data JPA, Flyway, Actuator),
   PostgreSQL 17, Jackson 3 (tools.jackson), JUnit Jupiter 6, Testcontainers 2.0.5, ArchUnit.
-  Package: com.universalimporter.{api, application, domain, infrastructure};
-  domain là Java thuần, không phụ thuộc Spring/JPA/Servlet (kiểm bằng ArchUnit).
-  Nguồn yêu cầu: Notion "Universal Importer — Agent Project Pack" (trang 00 → 03).
+  Package (từ core-01): com.universaldatatools.{core, platform, tools.<tool>}.
+  core là Java thuần (không Spring); core.format được dùng thêm thư viện định dạng;
+  tool không import tool khác; bên trong mỗi tool: api → application → domain ← infrastructure.
+  Tất cả kiểm bằng ArchUnit.
   Khi tài liệu mâu thuẫn: Requirements → System Design → Feature Breakdown, và báo
-  mâu thuẫn trước khi tự đổi thiết kế. Quyết định nền dùng chung cho mọi change BE
-  nằm trong design.md của be-f01-import-session, đánh mã D1…D14.
-  Mỗi feature BE-Fxx là một change be-fxx-*, làm trên nhánh feature/be-fxx-* theo pack.
+  mâu thuẫn trước khi tự đổi thiết kế (người dùng giao toàn quyền thiết kế BE, nhưng lệch Notion vẫn phải ghi ra).
+  Mỗi change làm trên nhánh feature/<tên-change> trong worktree riêng, xong merge vào dev.
   Ngôn ngữ tài liệu: tiếng Việt, giữ thuật ngữ kỹ thuật tiếng Anh; requirement dùng
   SHALL/MUST, scenario dùng WHEN/THEN.
 
@@ -23,3 +30,4 @@ rules:
   tasks:
     - Mỗi nhóm task là một chu kỳ TDD, kết thúc bằng một commit
     - Test case ghi rõ input và kết quả mong đợi; không viết "thêm test cho phần trên"
+    - Trước khi bắt đầu một change tool (tool-*), đối chiếu tasks.md với code core đã merge và sửa tasks nếu interface đã đổi
