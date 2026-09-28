@@ -55,15 +55,16 @@
 - Create: `TEST/tools/importer/api/export/ExportGoldenIntegrationTest.java`
 - Create: `src/test/resources/golden/importer/{customers-valid.json, customers-valid.csv, customers-errors.csv, types-valid.json, types-valid.csv, formula-errors.csv}`
 
-- [ ] 2.1 Viết `ExportGoldenIntegrationTest`. Chạy 3 luồng qua API thật (MockMvc + Testcontainers):
+- [x] 2.1 Viết `ExportGoldenIntegrationTest`. Chạy 3 luồng qua API thật (MockMvc + Testcontainers):
   1. **customers**: `fixtures/e2e/customers.csv`, cấu hình như `ImportFlowIntegrationTest`. Tải `export?format=json`, `export?format=csv`, `errors/export`.
   2. **types**: XLSX sinh bằng `XlsxFixtures`. Cột `n` (số `12.50`), `b` (boolean), `d` (ngày), `s` (chuỗi `=cmd()`), `e` (email). Schema có đủ 5 kiểu, row nào cũng hợp lệ. Tải JSON và CSV.
   3. **formula**: CSV có một row lỗi, `sourceValue` là `+84901234567` và tên field là `=cmd()`. Tải `errors/export`.
 
   So byte của mỗi file với file golden. Khi có `-Dgolden.write=true` thì ghi file golden rồi fail với message `golden written`.
-- [ ] 2.2 Chạy `./mvnw -q test -Dtest=ExportGoldenIntegrationTest -Dgolden.write=true`. Mong đợi: FAIL `golden written`. Mở các file ra kiểm bằng mắt: có BOM ở CSV, dấu `'` trước `=cmd()`, số `12.50` giữ scale.
-- [ ] 2.3 Chạy lại, không có cờ. Mong đợi: PASS.
-- [ ] 2.4 Commit: `test(importer): golden files for exports before moving them onto TableWriter`
+- [x] 2.2 Chạy `./mvnw -q test -Dtest=ExportGoldenIntegrationTest -Dgolden.write=true`. Mong đợi: FAIL `golden written`. Mở các file ra kiểm bằng mắt: có BOM ở CSV, dấu `'` trước `=cmd()`, số `12.50` giữ scale.
+- [x] 2.3 Chạy lại, không có cờ. Mong đợi: PASS.
+- [x] 2.4 Commit: `test(importer): golden files for exports before moving them onto TableWriter`
+  - Làm khác: luồng "types" dùng XLSX e2e có sẵn (`XlsxFixtures.e2eCustomers`, đủ 5 kiểu) thay vì fixture mới; luồng "formula" có field `=cmd()`, `sourceValue` `+84901234567` và hằng `12.50`. File golden được đánh dấu `binary` trong `.gitattributes` để git không đổi xuống dòng.
 
 ## 3. Contract đọc và `CsvTableReader`: encoding
 

@@ -1,0 +1,3 @@
+﻿rowNumber,fieldName,stage,rule,step,code,message,sourceValue
+3,contact,VALIDATION,email,,VALIDATION_EMAIL,Value is not a valid email address.,'+84901234567
+4,'=cmd(),VALIDATION,required,,VALIDATION_REQUIRED,Value is required.,

@@ -1,0 +1,6 @@
+﻿rowNumber,fieldName,stage,rule,step,code,message,sourceValue
+3,dob,TRANSFORMATION,dateFormat,0,TRANSFORMATION_FAILED,Value does not match pattern dd/MM/yyyy,31/02/1991
+3,active,VALIDATION,type,,VALIDATION_TYPE,Value is not a valid boolean (true/false/1/0).,yes
+3,score,VALIDATION,type,,VALIDATION_TYPE,Value is not a valid number.,x
+4,email,VALIDATION,unique,,VALIDATION_UNIQUE,Duplicate value; first seen in row 2.,an@example.com
+5,name,VALIDATION,required,,VALIDATION_REQUIRED,Value is required.,
