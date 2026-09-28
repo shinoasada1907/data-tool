@@ -80,10 +80,6 @@ Mọi response lỗi của mọi endpoint SHALL là `application/problem+json` v
 - **WHEN** client upload `bad.csv` có nội dung byte `a,b\n` tiếp theo là `0xC3 0x28` và `\n`
 - **THEN** hệ thống trả `422` với `code` là `FILE_PARSE_ERROR`, và không tạo session nào
 
-#### Scenario: Importer bị giới hạn tần suất như mọi tool
-- **WHEN** một client đã hết hạn mức `upload`, và gọi `POST /api/import-sessions`
-- **THEN** hệ thống trả `429` với `code` là `RATE_LIMITED` và có header `Retry-After`
-
 #### Scenario: Mọi lỗi trong bộ kiểm contract đều có mã hợp lệ
 - **WHEN** bộ integration test gọi lần lượt mọi tình huống lỗi trong bảng contract của F11
 - **THEN** mỗi response có `Content-Type` chứa `application/problem+json`, và `code` thuộc tập mã được phép của endpoint tương ứng

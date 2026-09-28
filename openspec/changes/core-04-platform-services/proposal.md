@@ -1,3 +1,5 @@
+> **Tách phạm vi (2026-09-28):** để có Data Converter sớm và tiết kiệm token, change này chỉ còn **dataset API, output/download, header chung, Retry-After, dọn dẹp chung (session + dataset)**. Guard (rate limit, gate, đĩa, body), run store, guest identity, `ErrorCode` interface và metrics chuyển sang `core-05-platform-guard`. Phần bên dưới là mô tả gốc; chỗ nào lệch thì theo `tasks.md` và thư mục `specs/` hiện tại.
+
 ## Why
 
 Mỗi tool mới (Converter, Validator, Cleaner, Diff) đều cần những thứ giống nhau: nhận file một lần rồi đọc lại theo tuỳ chọn, lưu kết quả để xem theo trang và tải về, dọn dữ liệu khách sau 24 giờ, và trả file tải về an toàn. Vì là **website public cho khách vãng lai**, site còn phải chịu được lạm dụng: rate limit, giới hạn số thao tác nặng chạy cùng lúc, không để đầy đĩa. Hiện những việc này hoặc gắn chặt vào import session, hoặc chưa có. Change này dựng lớp `platform` dùng chung, và đặt Importer dưới cùng lớp bảo vệ.
