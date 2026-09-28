@@ -34,7 +34,7 @@ class ApiDocsIntegrationTest {
         Response docs = http.get("/v3/api-docs");
 
         assertThat(docs.status()).isEqualTo(200);
-        assertThat((String) JsonPath.read(docs.body(), "$.info.title")).isEqualTo("Universal Importer API");
+        assertThat((String) JsonPath.read(docs.body(), "$.info.title")).isEqualTo("Universal Data Tools API");
         Map<String, Object> paths = JsonPath.read(docs.body(), "$.paths");
         assertThat(paths).containsKeys(
                 "/api/import-sessions",
@@ -45,6 +45,25 @@ class ApiDocsIntegrationTest {
                 "/api/import-sessions/{id}/transformations",
                 "/api/import-sessions/{id}/validations",
                 "/api/import-sessions/{id}/process");
+    }
+
+    @Test
+    void importer_group_only_holds_importer_endpoints() {
+        Response docs = http.get("/v3/api-docs/importer");
+
+        assertThat(docs.status()).isEqualTo(200);
+        Map<String, Object> paths = JsonPath.read(docs.body(), "$.paths");
+        assertThat(paths).isNotEmpty();
+        assertThat(paths.keySet()).allMatch(path -> path.startsWith("/api/import-sessions"));
+    }
+
+    @Test
+    void all_group_holds_every_endpoint() {
+        Response docs = http.get("/v3/api-docs/all");
+
+        assertThat(docs.status()).isEqualTo(200);
+        Map<String, Object> paths = JsonPath.read(docs.body(), "$.paths");
+        assertThat(paths).containsKey("/api/import-sessions");
     }
 
     @Test
