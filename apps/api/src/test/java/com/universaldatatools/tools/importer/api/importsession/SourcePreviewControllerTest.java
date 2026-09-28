@@ -1,12 +1,12 @@
 package com.universaldatatools.tools.importer.api.importsession;
 
-import com.universaldatatools.tools.importer.application.importsession.SourcePreview;
-import com.universaldatatools.tools.importer.application.importsession.SourcePreviewService;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.core.table.Column;
 import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.core.table.Row;
+import com.universaldatatools.tools.importer.application.importsession.SourcePreview;
+import com.universaldatatools.tools.importer.application.importsession.SourcePreviewService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;

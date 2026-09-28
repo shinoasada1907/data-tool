@@ -5,13 +5,13 @@ import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.core.table.Column;
 import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.core.table.Row;
-import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
-import com.universaldatatools.tools.importer.domain.importsession.SessionStatus;
-import com.universaldatatools.tools.importer.domain.importsession.SourceFile;
-import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
+import com.universaldatatools.core.table.SourceSchema;
 import com.universaldatatools.support.FakeSourceParser;
 import com.universaldatatools.support.InMemoryFileStorage;
 import com.universaldatatools.support.InMemoryImportSessionRepository;
+import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
+import com.universaldatatools.tools.importer.domain.importsession.SessionStatus;
+import com.universaldatatools.tools.importer.domain.importsession.SourceFile;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

@@ -1,12 +1,19 @@
 package com.universaldatatools.tools.importer.application.pipeline;
 
-import com.universaldatatools.tools.importer.domain.validation.FieldValidator;
-import com.universaldatatools.tools.importer.application.common.SessionLocks;
-import com.universaldatatools.tools.importer.application.importsession.SourceParsers;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.core.common.ProblemItem;
 import com.universaldatatools.core.table.DataFormat;
+import com.universaldatatools.core.transform.TransformationEngine;
+import com.universaldatatools.core.transform.TransformationRegistry;
+import com.universaldatatools.core.validate.ValidationRegistry;
+import com.universaldatatools.support.FakeSourceParser;
+import com.universaldatatools.support.InMemoryFileStorage;
+import com.universaldatatools.support.InMemoryImportConfigurationRepository;
+import com.universaldatatools.support.InMemoryImportSessionRepository;
+import com.universaldatatools.support.InMemoryResultStore;
+import com.universaldatatools.tools.importer.application.common.SessionLocks;
+import com.universaldatatools.tools.importer.application.importsession.SourceParsers;
 import com.universaldatatools.tools.importer.domain.config.ConfigHasher;
 import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
@@ -16,14 +23,7 @@ import com.universaldatatools.tools.importer.domain.mapping.MappingConfig;
 import com.universaldatatools.tools.importer.domain.mapping.MappingStrategies;
 import com.universaldatatools.tools.importer.domain.pipeline.DefaultImportPipeline;
 import com.universaldatatools.tools.importer.domain.pipeline.SampleDataset;
-import com.universaldatatools.core.transform.TransformationEngine;
-import com.universaldatatools.core.transform.TransformationRegistry;
-import com.universaldatatools.core.validate.ValidationRegistry;
-import com.universaldatatools.support.FakeSourceParser;
-import com.universaldatatools.support.InMemoryFileStorage;
-import com.universaldatatools.support.InMemoryImportConfigurationRepository;
-import com.universaldatatools.support.InMemoryImportSessionRepository;
-import com.universaldatatools.support.InMemoryResultStore;
+import com.universaldatatools.tools.importer.domain.validation.FieldValidator;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;

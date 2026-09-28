@@ -3,7 +3,7 @@ package com.universaldatatools.tools.importer.infrastructure.persistence;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSessionRepository;
 import com.universaldatatools.tools.importer.domain.importsession.SourceFile;
-import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
+import com.universaldatatools.core.table.SourceSchema;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 import tools.jackson.databind.json.JsonMapper;

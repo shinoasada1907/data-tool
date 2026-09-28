@@ -1,12 +1,12 @@
 package com.universaldatatools.tools.importer.infrastructure.parser;
 
+import com.universaldatatools.core.common.DomainException;
+import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.core.format.csv.CsvSourceParser;
 import com.universaldatatools.core.table.Column;
 import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.core.table.Row;
-import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
-import com.universaldatatools.core.common.DomainException;
-import com.universaldatatools.core.common.ErrorCode;
+import com.universaldatatools.core.table.SourceSchema;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;

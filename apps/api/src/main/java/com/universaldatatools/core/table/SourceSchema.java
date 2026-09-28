@@ -1,6 +1,4 @@
-package com.universaldatatools.tools.importer.domain.importsession;
-
-import com.universaldatatools.core.table.Column;
+package com.universaldatatools.core.table;
 
 import java.util.List;
 

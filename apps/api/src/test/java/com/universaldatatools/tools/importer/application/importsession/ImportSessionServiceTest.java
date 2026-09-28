@@ -1,20 +1,21 @@
 package com.universaldatatools.tools.importer.application.importsession;
-import com.universaldatatools.core.table.Column;
-import com.universaldatatools.core.table.DataFormat;
+
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.core.common.ProblemItem;
-import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
-import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
-import com.universaldatatools.tools.importer.domain.importsession.SessionStatus;
-import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
-import com.universaldatatools.tools.importer.domain.schema.FieldSpec;
-import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
+import com.universaldatatools.core.table.Column;
+import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.core.table.SourceParser;
+import com.universaldatatools.core.table.SourceSchema;
 import com.universaldatatools.support.FakeSourceParser;
 import com.universaldatatools.support.InMemoryFileStorage;
 import com.universaldatatools.support.InMemoryImportConfigurationRepository;
 import com.universaldatatools.support.InMemoryImportSessionRepository;
+import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
+import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
+import com.universaldatatools.tools.importer.domain.importsession.SessionStatus;
+import com.universaldatatools.tools.importer.domain.schema.FieldSpec;
+import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ByteArrayResource;
 

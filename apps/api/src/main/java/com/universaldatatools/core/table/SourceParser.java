@@ -1,6 +1,6 @@
 package com.universaldatatools.core.table;
 
-import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
+import com.universaldatatools.core.table.SourceSchema;
 
 import java.io.InputStream;
 import java.util.stream.Stream;

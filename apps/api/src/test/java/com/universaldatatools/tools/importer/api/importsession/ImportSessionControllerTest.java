@@ -1,10 +1,11 @@
 package com.universaldatatools.tools.importer.api.importsession;
+
+import com.universaldatatools.core.common.DomainException;
+import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.tools.importer.application.importsession.ImportSessionService;
 import com.universaldatatools.tools.importer.application.importsession.SessionDetails;
 import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
-import com.universaldatatools.core.common.DomainException;
-import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
 import com.universaldatatools.tools.importer.domain.importsession.SourceFile;
 import org.junit.jupiter.api.Test;

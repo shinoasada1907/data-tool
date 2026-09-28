@@ -7,7 +7,7 @@ import com.universaldatatools.core.table.ColumnNames;
 import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.core.table.Row;
 import com.universaldatatools.core.table.SourceParser;
-import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
+import com.universaldatatools.core.table.SourceSchema;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;

@@ -5,8 +5,8 @@ import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.core.table.Column;
 import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.core.table.Row;
+import com.universaldatatools.core.table.SourceSchema;
 import com.universaldatatools.support.XlsxFixtures;
-import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

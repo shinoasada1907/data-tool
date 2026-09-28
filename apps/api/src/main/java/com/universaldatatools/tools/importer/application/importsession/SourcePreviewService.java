@@ -1,13 +1,14 @@
 package com.universaldatatools.tools.importer.application.importsession;
-import com.universaldatatools.core.table.DataFormat;
-import com.universaldatatools.core.table.Row;
-import com.universaldatatools.platform.storage.FileStorage;
+
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
+import com.universaldatatools.core.table.DataFormat;
+import com.universaldatatools.core.table.Row;
+import com.universaldatatools.core.table.SourceParser;
+import com.universaldatatools.core.table.SourceSchema;
+import com.universaldatatools.platform.storage.FileStorage;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSessionRepository;
-import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
-import com.universaldatatools.core.table.SourceParser;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;

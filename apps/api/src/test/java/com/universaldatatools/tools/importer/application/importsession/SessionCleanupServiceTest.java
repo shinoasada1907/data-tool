@@ -1,11 +1,11 @@
 package com.universaldatatools.tools.importer.application.importsession;
 
-import com.universaldatatools.tools.importer.application.common.SessionLocks;
-import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
-import com.universaldatatools.tools.importer.domain.importsession.SourceFile;
 import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.support.InMemoryFileStorage;
 import com.universaldatatools.support.InMemoryImportSessionRepository;
+import com.universaldatatools.tools.importer.application.common.SessionLocks;
+import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
+import com.universaldatatools.tools.importer.domain.importsession.SourceFile;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;

@@ -6,7 +6,7 @@ import com.universaldatatools.core.table.Column;
 import com.universaldatatools.core.table.ColumnNames;
 import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.core.table.SourceParser;
-import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
+import com.universaldatatools.core.table.SourceSchema;
 import org.dhatim.fastexcel.reader.Cell;
 import org.dhatim.fastexcel.reader.ReadableWorkbook;
 import org.dhatim.fastexcel.reader.ReadingOptions;

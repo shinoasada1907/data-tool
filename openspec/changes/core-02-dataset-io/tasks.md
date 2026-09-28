@@ -34,16 +34,20 @@
 **Interfaces:**
 - Produces: `CellKind`, `CellKinds`; `Row(long number, List<String> cells, CellKinds kinds)` với `cell(i)`, `kind(i)`. Constructor phụ `Row(long, List<String>)` đặt `kinds = null`, để code Importer không phải đổi.
 
-- [ ] 1.1 Viết `CellKindsTest`:
+- [x] 1.1 Viết `CellKindsTest`:
   - `CellKinds.of(TEXT, null, NUMBER)`: `get(0)` → `TEXT`, `get(1)` → `null`, `get(2)` → `NUMBER`, `get(5)` → `null`.
   - Hai `CellKinds` cùng nội dung thì `equals` và `hashCode` bằng nhau.
-- [ ] 1.2 Viết `RowTest`, giữ các case của `ImportRowTest`, thêm:
+- [x] 1.2 Viết `RowTest`, giữ các case của `ImportRowTest`, thêm:
   - `new Row(2, List.of("a"), CellKinds.of(TEXT)).kind(0)` → `TEXT`;
   - `new Row(2, List.of("a")).kind(0)` → `null`.
-- [ ] 1.3 Chạy `./mvnw -q test -Dtest=CellKindsTest,RowTest`. Mong đợi: FAIL (compile).
-- [ ] 1.4 Đổi tên 4 lớp như phần Files. Tạo `CellKind` và `CellKinds` (mảng byte, `-1` là `null`). `DataFormat` có `CSV`, `XLSX`, `JSON`. Cột `file_type` của Importer vẫn chỉ ghi `CSV`/`XLSX`.
-- [ ] 1.5 Chạy `./mvnw -q test`. Mong đợi: PASS toàn bộ.
-- [ ] 1.6 Commit: `refactor(core): neutral table model Row/Column/DataFormat with cell kinds`
+- [x] 1.3 Chạy `./mvnw -q test -Dtest=CellKindsTest,RowTest`. Mong đợi: FAIL (compile).
+- [x] 1.4 Đổi tên 4 lớp như phần Files. Tạo `CellKind` và `CellKinds` (mảng byte, `-1` là `null`). `DataFormat` có `CSV`, `XLSX`, `JSON`. Cột `file_type` của Importer vẫn chỉ ghi `CSV`/`XLSX`.
+- [x] 1.5 Chạy `./mvnw -q test`. Mong đợi: PASS toàn bộ.
+- [x] 1.6 Commit: `refactor(core): neutral table model Row/Column/DataFormat with cell kinds`
+  - ~~Đổi tên `SourceSchema` → `tools.importer.domain.importsession.SourceSchema` ngay ở task này.~~ **LÝ DO:** `SourceParser` (core) còn trả `SourceSchema`, nên chuyển sớm làm core phụ thuộc tool (ArchitectureTest đỏ). `SourceSchema` ở lại `core.table` tới task 13, lúc `SourceParser` bị xoá.
+  - Làm khác: `Row` giữ tên accessor cũ `rowNumber()`, `values()`, `value(i)` (thay cho `number`/`cells`/`cell` trong design IO1), thêm `kinds()`/`kind(i)`. Tránh sửa hàng trăm chỗ gọi mà nghĩa không đổi.
+  - Làm thêm: thêm `JSON` vào `DataFormat` làm enum `fileType` trong OpenAPI của Importer có thêm `JSON`, khiến snapshot hợp đồng đỏ. Đã ghim `@Schema(allowableValues = {"CSV", "XLSX"})` trên `ImportSessionDto.fileType` và `SourcePreviewDto.fileType`; contract Importer giữ nguyên.
+  - Commit `5cfab6f` lỡ chứa trạng thái test đỏ (do lọc output bằng grep mà không kiểm exit code); đã sửa ở commit kế tiếp. Từ đây luôn kiểm exit code của Maven trước khi commit.
 
 ## 2. Golden file cho export của Importer (chụp trên code hiện tại)
 

@@ -1,7 +1,7 @@
 package com.universaldatatools.tools.importer.infrastructure.persistence;
 
 import com.universaldatatools.core.table.Column;
-import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
+import com.universaldatatools.core.table.SourceSchema;
 
 import java.util.List;
 

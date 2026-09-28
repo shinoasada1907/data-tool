@@ -1,14 +1,12 @@
 package com.universaldatatools.tools.importer.api.mapping;
 
-import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
-import com.universaldatatools.tools.importer.domain.validation.ValidationConfig;
+import com.universaldatatools.core.common.DomainException;
+import com.universaldatatools.core.common.ErrorCode;
+import com.universaldatatools.core.common.ProblemItem;
 import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.platform.web.StrictJsonConfig;
 import com.universaldatatools.tools.importer.application.configuration.ConfigUpdateResult;
 import com.universaldatatools.tools.importer.application.configuration.ConfigurationService;
-import com.universaldatatools.core.common.DomainException;
-import com.universaldatatools.core.common.ErrorCode;
-import com.universaldatatools.core.common.ProblemItem;
 import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
 import com.universaldatatools.tools.importer.domain.config.Readiness;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
@@ -20,6 +18,8 @@ import com.universaldatatools.tools.importer.domain.mapping.MappingSpec;
 import com.universaldatatools.tools.importer.domain.mapping.MappingType;
 import com.universaldatatools.tools.importer.domain.schema.FieldSpec;
 import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
+import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
+import com.universaldatatools.tools.importer.domain.validation.ValidationConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;

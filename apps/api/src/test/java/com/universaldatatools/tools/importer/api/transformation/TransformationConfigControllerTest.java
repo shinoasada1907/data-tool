@@ -1,14 +1,13 @@
 package com.universaldatatools.tools.importer.api.transformation;
 
-import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
-import com.universaldatatools.tools.importer.domain.validation.ValidationConfig;
-import com.universaldatatools.platform.web.StrictJsonConfig;
-import com.universaldatatools.tools.importer.application.configuration.ConfigUpdateResult;
-import com.universaldatatools.tools.importer.application.configuration.ConfigurationService;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.core.common.ProblemItem;
 import com.universaldatatools.core.table.DataFormat;
+import com.universaldatatools.core.transform.TransformationStep;
+import com.universaldatatools.platform.web.StrictJsonConfig;
+import com.universaldatatools.tools.importer.application.configuration.ConfigUpdateResult;
+import com.universaldatatools.tools.importer.application.configuration.ConfigurationService;
 import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
 import com.universaldatatools.tools.importer.domain.config.Readiness;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
@@ -17,7 +16,8 @@ import com.universaldatatools.tools.importer.domain.importsession.SourceFile;
 import com.universaldatatools.tools.importer.domain.mapping.MappingConfig;
 import com.universaldatatools.tools.importer.domain.schema.FieldSpec;
 import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
-import com.universaldatatools.core.transform.TransformationStep;
+import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
+import com.universaldatatools.tools.importer.domain.validation.ValidationConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;

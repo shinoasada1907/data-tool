@@ -1,16 +1,16 @@
 package com.universaldatatools.tools.importer.domain.pipeline;
 
-import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
-import com.universaldatatools.tools.importer.domain.validation.ValidationConfig;
-import com.universaldatatools.tools.importer.domain.validation.ValidationRuleConfig;
-import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
+import com.universaldatatools.core.table.Column;
+import com.universaldatatools.core.table.Row;
+import com.universaldatatools.core.table.SourceSchema;
+import com.universaldatatools.core.transform.TransformationStep;
 import com.universaldatatools.tools.importer.domain.mapping.MappingConfig;
 import com.universaldatatools.tools.importer.domain.mapping.MappingSpec;
 import com.universaldatatools.tools.importer.domain.schema.FieldSpec;
 import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
-import com.universaldatatools.core.table.Column;
-import com.universaldatatools.core.table.Row;
-import com.universaldatatools.core.transform.TransformationStep;
+import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
+import com.universaldatatools.tools.importer.domain.validation.ValidationConfig;
+import com.universaldatatools.tools.importer.domain.validation.ValidationRuleConfig;
 
 import java.util.Arrays;
 import java.util.List;

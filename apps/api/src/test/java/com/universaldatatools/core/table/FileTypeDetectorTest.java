@@ -1,8 +1,8 @@
 package com.universaldatatools.core.table;
 
-import com.universaldatatools.core.table.FileTypeDetector;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
+import com.universaldatatools.core.table.FileTypeDetector;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;

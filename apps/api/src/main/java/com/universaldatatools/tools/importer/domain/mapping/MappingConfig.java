@@ -4,8 +4,8 @@ import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.core.common.ProblemItem;
 import com.universaldatatools.core.table.Column;
+import com.universaldatatools.core.table.SourceSchema;
 import com.universaldatatools.tools.importer.domain.config.FieldScopedSection;
-import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import com.universaldatatools.tools.importer.domain.schema.TargetField;
 import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
 

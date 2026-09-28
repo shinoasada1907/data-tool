@@ -1,14 +1,7 @@
 package com.universaldatatools.tools.importer.domain.pipeline;
 
-import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
-import com.universaldatatools.tools.importer.domain.validation.FieldValidator;
 import com.universaldatatools.core.common.RowErrorCode;
 import com.universaldatatools.core.table.Row;
-import com.universaldatatools.tools.importer.domain.mapping.MappingStrategies;
-import com.universaldatatools.tools.importer.domain.mapping.MappingStrategy;
-import com.universaldatatools.tools.importer.domain.mapping.MappingType;
-import com.universaldatatools.tools.importer.domain.mapping.ResolvedMapping;
-import com.universaldatatools.tools.importer.domain.mapping.ConstantMappingStrategy;
 import com.universaldatatools.core.transform.DateFormatTransformation;
 import com.universaldatatools.core.transform.DefaultValueTransformation;
 import com.universaldatatools.core.transform.LowercaseTransformation;
@@ -20,6 +13,13 @@ import com.universaldatatools.core.transform.TransformationStep;
 import com.universaldatatools.core.transform.TrimTransformation;
 import com.universaldatatools.core.transform.UppercaseTransformation;
 import com.universaldatatools.core.validate.ValidationRegistry;
+import com.universaldatatools.tools.importer.domain.mapping.ConstantMappingStrategy;
+import com.universaldatatools.tools.importer.domain.mapping.MappingStrategies;
+import com.universaldatatools.tools.importer.domain.mapping.MappingStrategy;
+import com.universaldatatools.tools.importer.domain.mapping.MappingType;
+import com.universaldatatools.tools.importer.domain.mapping.ResolvedMapping;
+import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
+import com.universaldatatools.tools.importer.domain.validation.FieldValidator;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;

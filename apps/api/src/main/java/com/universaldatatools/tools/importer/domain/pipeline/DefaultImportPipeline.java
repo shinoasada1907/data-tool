@@ -1,18 +1,18 @@
 package com.universaldatatools.tools.importer.domain.pipeline;
 
-import com.universaldatatools.tools.importer.domain.validation.FieldValidator;
-import com.universaldatatools.tools.importer.domain.validation.ValidationRuleConfig;
 import com.universaldatatools.core.common.RowErrorCode;
 import com.universaldatatools.core.common.ThrottledWarnings;
 import com.universaldatatools.core.table.Row;
-import com.universaldatatools.tools.importer.domain.mapping.MappingStrategies;
-import com.universaldatatools.tools.importer.domain.mapping.RowMapper;
-import com.universaldatatools.tools.importer.domain.schema.TargetField;
 import com.universaldatatools.core.transform.FieldTransformResult;
 import com.universaldatatools.core.transform.TransformationEngine;
 import com.universaldatatools.core.transform.TransformationStep;
 import com.universaldatatools.core.validate.FieldValidation;
 import com.universaldatatools.core.validate.UniqueTracker;
+import com.universaldatatools.tools.importer.domain.mapping.MappingStrategies;
+import com.universaldatatools.tools.importer.domain.mapping.RowMapper;
+import com.universaldatatools.tools.importer.domain.schema.TargetField;
+import com.universaldatatools.tools.importer.domain.validation.FieldValidator;
+import com.universaldatatools.tools.importer.domain.validation.ValidationRuleConfig;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

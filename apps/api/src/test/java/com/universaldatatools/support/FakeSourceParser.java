@@ -3,7 +3,7 @@ package com.universaldatatools.support;
 import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.core.table.Row;
 import com.universaldatatools.core.table.SourceParser;
-import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
+import com.universaldatatools.core.table.SourceSchema;
 
 import java.io.IOException;
 import java.io.InputStream;
