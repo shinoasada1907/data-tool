@@ -5,7 +5,6 @@ import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.support.XlsxFixtures;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.springframework.util.unit.DataSize;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -19,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class XlsxZipGuardTest {
 
-    private static final XlsxLimits DEFAULTS = new XlsxLimits(DataSize.ofMegabytes(200), 100, 10_000);
+    private static final XlsxLimits DEFAULTS = new XlsxLimits(200L * 1024 * 1024, 100, 10_000);
     private static final String TOO_BIG = "XLSX file expands beyond the allowed limits.";
 
     @TempDir
@@ -48,21 +47,21 @@ class XlsxZipGuardTest {
     void too_much_uncompressed_data_in_total_is_rejected() {
         Path big = XlsxFixtures.zipOfRandomText(dir.resolve("big.xlsx"), 3, 600 * 1024);
 
-        assertRejected(new XlsxLimits(DataSize.ofMegabytes(1), 100, 10_000), big, TOO_BIG);
+        assertRejected(new XlsxLimits(1L * 1024 * 1024, 100, 10_000), big, TOO_BIG);
     }
 
     @Test
     void too_many_entries_are_rejected() {
         Path many = XlsxFixtures.zipOfRandomText(dir.resolve("many.xlsx"), 101, 10);
 
-        assertRejected(new XlsxLimits(DataSize.ofMegabytes(200), 100, 100), many, TOO_BIG);
+        assertRejected(new XlsxLimits(200L * 1024 * 1024, 100, 100), many, TOO_BIG);
     }
 
     @Test
     void a_highly_compressible_entry_under_the_ratio_passes() {
         Path zeros = XlsxFixtures.zipOfZeros(dir.resolve("zeros.xlsx"), "xl/worksheets/sheet1.xml", 2L * 1024 * 1024);
 
-        assertPasses(new XlsxLimits(DataSize.ofMegabytes(200), 5_000, 10_000), zeros);
+        assertPasses(new XlsxLimits(200L * 1024 * 1024, 5_000, 10_000), zeros);
     }
 
     @Test

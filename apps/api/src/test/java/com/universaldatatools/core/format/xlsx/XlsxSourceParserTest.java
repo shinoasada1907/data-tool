@@ -9,7 +9,6 @@ import com.universaldatatools.core.table.SourceSchema;
 import com.universaldatatools.support.XlsxFixtures;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.springframework.util.unit.DataSize;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -33,7 +32,7 @@ class XlsxSourceParserTest {
     private static final Path FIXTURES = Path.of("src/test/resources/fixtures/xlsx");
 
     private final XlsxSourceParser parser =
-            new XlsxSourceParser(new XlsxZipGuard(new XlsxLimits(DataSize.ofMegabytes(200), 100, 10_000)));
+            new XlsxSourceParser(new XlsxZipGuard(new XlsxLimits(200L * 1024 * 1024, 100, 10_000)));
 
     @TempDir
     Path dir;

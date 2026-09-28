@@ -4,7 +4,6 @@ import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
-import org.springframework.stereotype.Component;
 
 import java.io.FilterInputStream;
 import java.io.IOException;
@@ -14,7 +13,6 @@ import java.io.InputStream;
  * Scans an uploaded workbook once before it is parsed, and rejects it as soon as it would inflate beyond the
  * configured limits (design X4). Stops reading at the first violation instead of inflating the rest.
  */
-@Component
 public class XlsxZipGuard {
 
     /** Entries smaller than this are never rejected for their ratio: tiny XML parts compress extremely well. */
@@ -28,7 +26,7 @@ public class XlsxZipGuard {
 
     public void check(InputStream input) {
         CountingInputStream compressed = new CountingInputStream(input);
-        long maxTotal = limits.maxUncompressedSize().toBytes();
+        long maxTotal = limits.maxUncompressedBytes();
         byte[] buffer = new byte[64 * 1024];
         // commons-compress, like the XLSX reader itself: java.util.zip.ZipInputStream trusts the sizes declared
         // in local headers and rejects valid workbooks whose local headers declare 0 (sizes in the central

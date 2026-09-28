@@ -11,7 +11,6 @@ import com.universaldatatools.core.table.SourceSchema;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,7 +31,6 @@ import java.util.stream.StreamSupport;
  * CSV as agreed for V0.1 (design D9, P5): UTF-8 only, comma separated, RFC 4180 quoting,
  * header on row 1, row numbers as a spreadsheet shows them.
  */
-@Component
 public class CsvSourceParser implements SourceParser {
 
     /** Empty lines stay records so that record numbers keep matching spreadsheet row numbers. */

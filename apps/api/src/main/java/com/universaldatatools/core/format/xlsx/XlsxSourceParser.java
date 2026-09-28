@@ -14,7 +14,6 @@ import org.dhatim.fastexcel.reader.ReadingOptions;
 import org.dhatim.fastexcel.reader.Row;
 import org.dhatim.fastexcel.reader.Sheet;
 import org.dhatim.fastexcel.reader.SheetVisibility;
-import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,7 +35,6 @@ import java.util.stream.StreamSupport;
  * XLSX as agreed for V0.1 (design D9, X3, X5, X6): the first visible sheet, header on row 1, the sheet's own
  * row numbers, and cell values converted to the same neutral strings as CSV.
  */
-@Component
 public class XlsxSourceParser implements SourceParser {
 
     private final XlsxZipGuard guard;

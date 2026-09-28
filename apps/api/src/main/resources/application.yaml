@@ -32,8 +32,11 @@ importer:
     enabled: true
     session-ttl: ${IMPORTER_SESSION_TTL:24h}
     interval: PT1H
-  xlsx:
-    # Zip bomb guard for uploaded workbooks (BE-F03 design X4).
-    max-uncompressed-size: ${IMPORTER_XLSX_MAX_UNCOMPRESSED_SIZE:200MB}
-    max-inflate-ratio: ${IMPORTER_XLSX_MAX_INFLATE_RATIO:100}
-    max-entries: ${IMPORTER_XLSX_MAX_ENTRIES:10000}
+
+toolbox:
+  format:
+    xlsx:
+      # Zip bomb guard for uploaded workbooks (BE-F03 design X4). IMPORTER_* names are still honoured.
+      max-uncompressed-size: ${TOOLBOX_XLSX_MAX_UNCOMPRESSED_SIZE:${IMPORTER_XLSX_MAX_UNCOMPRESSED_SIZE:200MB}}
+      max-inflate-ratio: ${TOOLBOX_XLSX_MAX_INFLATE_RATIO:${IMPORTER_XLSX_MAX_INFLATE_RATIO:100}}
+      max-entries: ${TOOLBOX_XLSX_MAX_ENTRIES:${IMPORTER_XLSX_MAX_ENTRIES:10000}}
