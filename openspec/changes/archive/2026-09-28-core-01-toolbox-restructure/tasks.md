@@ -27,17 +27,18 @@
 **Files:**
 - Create: `TEST/api/ApiContractSnapshotTest.java`, `src/test/resources/contract/importer-openapi.json`
 
-- [ ] 1.1 Chạy `./mvnw -q test`. Ghi số test chạy và số test pass vào phần ghi chú của task này (dạng `Tests run: N`). Mong đợi: tất cả pass.
-- [ ] 1.2 Viết `ApiContractSnapshotTest` (`@SpringBootTest` + MockMvc + Testcontainers, như các integration test sẵn có):
+- [x] 1.1 Chạy `./mvnw -q test`. Ghi số test chạy và số test pass vào phần ghi chú của task này (dạng `Tests run: N`). Mong đợi: tất cả pass.
+  - Ghi chú: baseline `Tests run: 920`, pass hết.
+- [x] 1.2 Viết `ApiContractSnapshotTest` (`@SpringBootTest` + MockMvc + Testcontainers, như các integration test sẵn có):
   1. `GET /v3/api-docs`.
   2. Bỏ key `info` và `servers`.
   3. Giữ lại `paths` có key bắt đầu bằng `/api/import-sessions`, và `components.schemas`.
   4. Sắp key theo thứ tự chữ cái, serialize có thụt lề.
   5. So bằng chuỗi với `contract/importer-openapi.json`.
   6. Nếu file snapshot chưa tồn tại và có system property `-Dsnapshot.write=true` thì ghi file rồi fail với message `snapshot written`.
-- [ ] 1.3 Chạy `./mvnw -q test -Dtest=ApiContractSnapshotTest -Dsnapshot.write=true`. Mong đợi: FAIL `snapshot written`, và file snapshot được tạo ra.
-- [ ] 1.4 Chạy lại, không có `-Dsnapshot.write`. Mong đợi: PASS.
-- [ ] 1.5 Commit: `test(api): snapshot the importer OpenAPI contract before the package move`
+- [x] 1.3 Chạy `./mvnw -q test -Dtest=ApiContractSnapshotTest -Dsnapshot.write=true`. Mong đợi: FAIL `snapshot written`, và file snapshot được tạo ra.
+- [x] 1.4 Chạy lại, không có `-Dsnapshot.write`. Mong đợi: PASS.
+- [x] 1.5 Commit: `test(api): snapshot the importer OpenAPI contract before the package move`
 
 ## 2. Test kiến trúc cho cây package đích (RED)
 
@@ -53,13 +54,13 @@
 - `each_tool_is_layered`
 - `scheduling_lives_in_platform_or_tool_infrastructure`
 
-- [ ] 2.1 Viết lại `ArchitectureTest`:
+- [x] 2.1 Viết lại `ArchitectureTest`:
   - Import `com.universaldatatools`.
   - Luật 5 dùng `slices().matching("com.universaldatatools.tools.(*)..").should().notDependOnEachOther()`.
   - Luật 6 dùng `layeredArchitecture()` cho **mỗi** tool trong `List.of("importer")`. Danh sách này tăng dần khi thêm tool.
   - Mọi luật đặt `allowEmptyShould(false)`, để test đỏ khi chưa có lớp nào ở package mới.
-- [ ] 2.2 Chạy `./mvnw -q test -Dtest=ArchitectureTest`. Mong đợi: FAIL, vì chưa có lớp nào trong `com.universaldatatools`.
-- [ ] 2.3 Không commit riêng. Task 3 làm test này xanh; commit cùng task 3.
+- [x] 2.2 Chạy `./mvnw -q test -Dtest=ArchitectureTest`. Mong đợi: FAIL, vì chưa có lớp nào trong `com.universaldatatools`.
+- [x] 2.3 Không commit riêng. Task 3 làm test này xanh; commit cùng task 3.
 
 ## 3. Chuyển package bằng OpenRewrite
 
@@ -67,7 +68,7 @@
 - Create tạm (không commit): `apps/api/rewrite.yml`
 - Modify: mọi file `.java` trong `src/main` và `src/test`; `pom.xml` (`groupId`)
 
-- [ ] 3.1 Tạo `apps/api/rewrite.yml`. Thứ tự trong `recipeList` là quan trọng: lớp lẻ trước, package con trước package cha.
+- [x] 3.1 Tạo `apps/api/rewrite.yml`. Thứ tự trong `recipeList` là quan trọng: lớp lẻ trước, package con trước package cha.
   ```yaml
   type: specs.openrewrite.org/v1beta/recipe
   name: udt.MoveToToolbox
@@ -122,20 +123,22 @@
   Ghi chú:
   - Các test cùng tên với lớp chuyển nguyên package (ví dụ `LocalFileStorageTest`, `TargetSchemaTest`) tự đi theo `ChangePackage`.
   - Test cho các lớp thuộc `api/common` (package test `api.common`) đi theo `platform.web`.
-- [ ] 3.2 Chạy từ `apps/api`:
+- [x] 3.2 Chạy từ `apps/api`:
   ```
   ./mvnw -q -U org.openrewrite.maven:rewrite-maven-plugin:run -Drewrite.configLocation=rewrite.yml -Drewrite.activeRecipes=udt.MoveToToolbox
   ```
   Mong đợi: lệnh kết thúc không lỗi, và `git status` cho thấy các file đã đổi chỗ.
   - Nếu plugin không tải được (không có mạng): gạch task này, ghi LÝ DO, rồi làm bằng IntelliJ *Refactor → Move Package/Class* theo đúng bảng TD2. Kết quả phải như nhau.
-- [ ] 3.3 Xoá `rewrite.yml`. Kiểm không còn chuỗi `com.universalimporter` trong `src`: `grep -rn "com\.universalimporter" src` → không có kết quả.
-- [ ] 3.4 Sửa `pom.xml`: `<groupId>com.universaldatatools</groupId>`. Artifact `api` giữ nguyên.
-- [ ] 3.5 Chạy `./mvnw -q -DskipTests compile test-compile`. Mong đợi: compile được.
+- [x] 3.3 Xoá `rewrite.yml`. Kiểm không còn chuỗi `com.universalimporter` trong `src`: `grep -rn "com\.universalimporter" src` → không có kết quả.
+- [x] 3.4 Sửa `pom.xml`: `<groupId>com.universaldatatools</groupId>`. Artifact `api` giữ nguyên.
+- [x] 3.5 Chạy `./mvnw -q -DskipTests compile test-compile`. Mong đợi: compile được.
   - Lỗi còn lại chỉ có thể là truy cập package-private giữa hai lớp giờ đã khác package, ví dụ `TransformationConfig` gọi một hằng package-private của `TrimTransformation`.
   - Sửa bằng cách nâng thành `public` **chỉ đúng thành viên đó**. Ghi từng chỗ vào ghi chú của task này.
-- [ ] 3.6 Chạy `./mvnw -q test -Dtest=ArchitectureTest`. Mong đợi: FAIL ở luật `core_has_no_framework_or_outer_layers`, vì `CsvSourceParser`, `XlsxSourceParser`, `XlsxZipGuard`, `XlsxLimits` còn annotation Spring. Task 4 sẽ sửa. Các luật khác PASS.
+  - Ghi chú: OpenRewrite **không** thêm import cho các lớp trước kia cùng package. Đã thêm import tường minh cho `tools.importer.domain.{transformation,validation}` (main và test) bằng script, rồi sắp lại khối import. Package-private phải nâng thành `public`: `DateFormatTransformation.TYPE` và `OUTPUT_FORMAT` (vì `TransformationConfig` dùng).
+- [x] 3.6 Chạy `./mvnw -q test -Dtest=ArchitectureTest`. Mong đợi: FAIL ở luật `core_has_no_framework_or_outer_layers`, vì `CsvSourceParser`, `XlsxSourceParser`, `XlsxZipGuard`, `XlsxLimits` còn annotation Spring. Task 4 sẽ sửa. Các luật khác PASS.
   - Nếu luật khác fail, đó là một phụ thuộc TD2 chưa lường tới. Ghi lại, rồi chuyển lớp đó về đúng tầng, hoặc báo trong ghi chú nếu cần đổi thiết kế.
-- [ ] 3.7 Commit: `refactor: move packages to com.universaldatatools {core, platform, tools.importer}`
+  - Ghi chú: `scheduling_lives_in_platform_or_tool_infrastructure` cũng đỏ, vì code không có method `@Scheduled` (scheduler đăng ký bằng code). Đã giữ `allowEmptyShould(true)` cho luật method như test cũ. Luật đó không lệch thiết kế.
+- [x] 3.7 Commit: `refactor: move packages to com.universaldatatools {core, platform, tools.importer}`
 
 ## 4. `core.format` không dùng Spring
 
@@ -160,14 +163,15 @@
   }
   ```
 
-- [ ] 4.1 Viết `FormatConfigTest`. Dùng `ApplicationContextRunner` với `FormatConfig` và `@EnableConfigurationProperties(XlsxLimitsProperties.class)`:
+- [x] 4.1 Viết `FormatConfigTest`. Dùng `ApplicationContextRunner` với `FormatConfig` và `@EnableConfigurationProperties(XlsxLimitsProperties.class)`:
   - không có property nào: bean `XlsxZipGuard` có giới hạn `200MB` / `100` / `10000`;
   - với `toolbox.format.xlsx.max-entries=5`: guard có `maxEntries` là `5`;
   - context có đúng 2 bean kiểu `SourceParser`.
-- [ ] 4.2 Chạy `./mvnw -q test -Dtest=FormatConfigTest`. Mong đợi: FAIL, vì class chưa có.
-- [ ] 4.3 Bỏ `@Component` và `@ConfigurationProperties` khỏi 4 lớp `core.format`. Tạo `XlsxLimitsProperties` và `FormatConfig`. `XlsxZipGuard` nhận `XlsxLimits` qua constructor.
-- [ ] 4.4 Chạy `./mvnw -q test -Dtest=FormatConfigTest,ArchitectureTest,XlsxUploadIntegrationTest`. Mong đợi: PASS.
-- [ ] 4.5 Commit: `refactor(format): core.format free of Spring; beans in platform.config.FormatConfig`
+- [x] 4.2 Chạy `./mvnw -q test -Dtest=FormatConfigTest`. Mong đợi: FAIL, vì class chưa có.
+- [x] 4.3 Bỏ `@Component` và `@ConfigurationProperties` khỏi 4 lớp `core.format`. Tạo `XlsxLimitsProperties` và `FormatConfig`. `XlsxZipGuard` nhận `XlsxLimits` qua constructor.
+  - Ghi chú: làm luôn phần `toolbox.format.xlsx` của `application.yaml` và đổi property `importer.xlsx.*` trong test ở task này, vì prefix binding đổi ngay tại đây. `XlsxLimits` giờ là `(long maxUncompressedBytes, …)`; default nằm ở `@DefaultValue` của `XlsxLimitsProperties`.
+- [x] 4.4 Chạy `./mvnw -q test -Dtest=FormatConfigTest,ArchitectureTest,XlsxUploadIntegrationTest`. Mong đợi: PASS.
+- [x] 4.5 Commit: `refactor(format): core.format free of Spring; beans in platform.config.FormatConfig`
 
 ## 5. Config `toolbox.*` và fallback biến môi trường cũ
 
@@ -177,7 +181,7 @@
 - Modify: mọi test đặt property `importer.` (tìm bằng `grep -rln "importer\.\(storage\|cleanup\|xlsx\)" src/test`)
 - Test: `TEST/platform/config/ConfigurationKeysIntegrationTest.java`
 
-- [ ] 5.1 Viết `ConfigurationKeysIntegrationTest`. Dùng `ApplicationContextRunner` nạp `application.yaml` thật (`ConfigDataApplicationContextInitializer`) cùng các lớp properties. Đặt "biến môi trường" bằng `withPropertyValues`, vì placeholder resolve trên mọi property source.
+- [x] 5.1 Viết `ConfigurationKeysIntegrationTest`. Dùng `ApplicationContextRunner` nạp `application.yaml` thật (`ConfigDataApplicationContextInitializer`) cùng các lớp properties. Đặt "biến môi trường" bằng `withPropertyValues`, vì placeholder resolve trên mọi property source.
 
   | Đặt | Mong đợi |
   |---|---|
@@ -189,10 +193,11 @@
   | `TOOLBOX_XLSX_MAX_ENTRIES=5` | 5 |
   | `importer.storage.dir=/x/legacy-key` (key cũ, không phải biến môi trường) | **không** có hiệu lực: `dir` là giá trị mặc định |
   | (không đặt gì) | `spring.application.name` = `universal-data-tools` |
-- [ ] 5.2 Chạy `./mvnw -q test -Dtest=ConfigurationKeysIntegrationTest`. Mong đợi: FAIL.
-- [ ] 5.3 Sửa `application.yaml` theo bảng TD2. Ví dụ `toolbox.storage.dir: ${TOOLBOX_STORAGE_DIR:${IMPORTER_STORAGE_DIR:${java.io.tmpdir}/universal-importer}}`. Các lớp properties đổi prefix. Cập nhật test config và các test đặt `importer.*`.
-- [ ] 5.4 Chạy `./mvnw -q test`. Mong đợi: toàn bộ PASS, trừ `ArchitectureTest` nếu task 4 chưa xong (task 4 phải xong trước task này).
-- [ ] 5.5 Commit: `refactor(config): toolbox.* keys; IMPORTER_* environment variables still honoured`
+  - Ghi chú: tên thực tế là `ConfigurationKeysTest` (không cần Spring context đầy đủ). Nạp **chỉ** `classpath:/application.yaml` qua `spring.config.location`, vì file config của test chuyển storage đi chỗ khác. Boot 4 chuyển `ConfigDataApplicationContextInitializer` sang `org.springframework.boot.test.context`.
+- [x] 5.2 Chạy `./mvnw -q test -Dtest=ConfigurationKeysIntegrationTest`. Mong đợi: FAIL.
+- [x] 5.3 Sửa `application.yaml` theo bảng TD2. Ví dụ `toolbox.storage.dir: ${TOOLBOX_STORAGE_DIR:${IMPORTER_STORAGE_DIR:${java.io.tmpdir}/universal-importer}}`. Các lớp properties đổi prefix. Cập nhật test config và các test đặt `importer.*`.
+- [x] 5.4 Chạy `./mvnw -q test`. Mong đợi: toàn bộ PASS, trừ `ArchitectureTest` nếu task 4 chưa xong (task 4 phải xong trước task này).
+- [x] 5.5 Commit: `refactor(config): toolbox.* keys; IMPORTER_* environment variables still honoured`
 
 ## 6. OpenAPI: tiêu đề mới và nhóm theo tool
 
@@ -200,18 +205,18 @@
 - Modify: `MAIN/platform/web/OpenApiConfig.java`
 - Modify: test api-docs sẵn có (tìm `Universal Importer API` trong `src/test`)
 
-- [ ] 6.1 Sửa test api-docs:
+- [x] 6.1 Sửa test api-docs:
   - `info.title` là `Universal Data Tools API`.
   - Thêm case: `GET /v3/api-docs/importer` trả `200`, và mọi key của `paths` bắt đầu bằng `/api/import-sessions`.
   - Thêm case: `GET /v3/api-docs/all` trả `200`, và có `/api/import-sessions`.
-- [ ] 6.2 Chạy test đó. Mong đợi: FAIL.
-- [ ] 6.3 Sửa `OpenApiConfig`:
+- [x] 6.2 Chạy test đó. Mong đợi: FAIL.
+- [x] 6.3 Sửa `OpenApiConfig`:
   - tiêu đề mới;
   - `GroupedOpenApi` `all` (`/api/**`) và `importer` (`/api/import-sessions/**`);
   - `springdoc.api-docs.path` giữ `/v3/api-docs`, để bản không nhóm vẫn trả toàn bộ path.
-- [ ] 6.4 Chạy lại test đó và `ApiContractSnapshotTest`. Mong đợi: PASS. Snapshot đã bỏ `info`, và nhóm không đổi nội dung `paths` hay `components`.
+- [x] 6.4 Chạy lại test đó và `ApiContractSnapshotTest`. Mong đợi: PASS. Snapshot đã bỏ `info`, và nhóm không đổi nội dung `paths` hay `components`.
   - Nếu snapshot khác vì springdoc đổi thứ tự hoặc tên `operationId` khi có nhóm: xem diff. Nếu chỉ là thứ tự thì chuẩn hoá thêm trong test. Nếu nội dung đổi thật thì dừng lại và ghi LÝ DO.
-- [ ] 6.5 Commit: `feat(api-docs): Universal Data Tools API, grouped per tool`
+- [x] 6.5 Commit: `feat(api-docs): Universal Data Tools API, grouped per tool`
 
 ## 7. Tài liệu và kiểm toàn bộ
 
@@ -219,9 +224,10 @@
 - Modify: `README.md` (gốc repo): tên dự án, cách chạy `ToolboxApplication`, biến môi trường mới (ghi rõ biến cũ vẫn chạy).
 - Modify: `apps/api/HELP.md` nếu có nhắc `ApiApplication`.
 
-- [ ] 7.1 Cập nhật README: tiêu đề "Universal Data Tools". Bảng biến môi trường ghi cả `TOOLBOX_*` lẫn `IMPORTER_*` (cũ, vẫn nhận).
-- [ ] 7.2 Chạy `./mvnw -q verify`. Mong đợi: PASS. Số test ≥ baseline ở 1.1 cộng các test mới (Snapshot, FormatConfig, ConfigurationKeys, 3 case OpenAPI).
-- [ ] 7.3 Chạy app thật ở cổng phụ để không đụng app của người dùng:
+- [x] 7.1 Cập nhật README: tiêu đề "Universal Data Tools". Bảng biến môi trường ghi cả `TOOLBOX_*` lẫn `IMPORTER_*` (cũ, vẫn nhận).
+- [x] 7.2 Chạy `./mvnw -q verify`. Mong đợi: PASS. Số test ≥ baseline ở 1.1 cộng các test mới (Snapshot, FormatConfig, ConfigurationKeys, 3 case OpenAPI).
+  - Ghi chú: `Tests run: 937` (920 + 17 mới), pass hết.
+- [x] 7.3 Chạy app thật ở cổng phụ để không đụng app của người dùng:
   ```
   ./mvnw -q spring-boot:run -Dspring-boot.run.arguments="--server.port=8081 --toolbox.importer.cleanup.enabled=false"
   ```
@@ -229,17 +235,18 @@
   - `curl -s localhost:8081/v3/api-docs | jq -r .info.title` → `Universal Data Tools API`.
   - Upload fixture e2e `customers.csv` → `201`.
   - Tắt app, rồi kiểm `netstat` không còn gì nghe ở 8081.
-- [ ] 7.4 Commit: `docs: Universal Data Tools naming in README`
+  - Ghi chú: chạy với Postgres tạm (container `udt-core01-db`, cổng 55432) và storage tạm, không đụng DB hay storage dùng chung. Health `UP`, title `Universal Data Tools API`, upload `customers.csv` → `201`.
+- [x] 7.4 Commit: `docs: Universal Data Tools naming in README`
 
 ## 8. Hoàn tất
 
-- [ ] 8.1 `openspec validate core-01-toolbox-restructure --strict`. Mong đợi: hợp lệ.
-- [ ] 8.2 `openspec archive core-01-toolbox-restructure -y`. Lệnh này gộp delta vào `openspec/specs/api-docs` và tạo `openspec/specs/toolbox-platform`. Commit: `docs(openspec): archive core-01-toolbox-restructure`.
-- [ ] 8.3 Kiểm thư mục chính: `git -C D:/Code/Product/universal-importer status --short`. Có file đang sửa trong `apps/api/src` thì dừng và báo người dùng. Sạch thì chạy `git -C D:/Code/Product/universal-importer merge --no-ff feature/core-01-toolbox-restructure`.
-- [ ] 8.4 Báo người dùng:
+- [x] 8.1 `openspec validate core-01-toolbox-restructure --strict`. Mong đợi: hợp lệ.
+- [x] 8.2 `openspec archive core-01-toolbox-restructure -y`. Lệnh này gộp delta vào `openspec/specs/api-docs` và tạo `openspec/specs/toolbox-platform`. Commit: `docs(openspec): archive core-01-toolbox-restructure`.
+- [x] 8.3 Kiểm thư mục chính: `git -C D:/Code/Product/universal-importer status --short`. Có file đang sửa trong `apps/api/src` thì dừng và báo người dùng. Sạch thì chạy `git -C D:/Code/Product/universal-importer merge --no-ff feature/core-01-toolbox-restructure`.
+- [x] 8.4 Báo người dùng:
   - IntelliJ cần reload Maven và chạy `ToolboxApplication`;
   - biến `IMPORTER_*` vẫn dùng được;
   - DB không đổi.
 
   Báo phiên FE: API không đổi, chỉ đổi tiêu đề và nhóm OpenAPI.
-- [ ] 8.5 Xoá nhánh: `git branch -d feature/core-01-toolbox-restructure`.
+- [x] 8.5 Xoá nhánh: `git branch -d feature/core-01-toolbox-restructure`.
