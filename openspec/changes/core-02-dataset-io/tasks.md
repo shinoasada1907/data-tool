@@ -316,7 +316,7 @@
 **Files:**
 - Test: `TEST/core/format/RoundTripTest.java`
 
-- [ ] 12.1 Viết test tham số hoá. Mọi cặp nguồn → đích trong {CSV, JSON, XLSX} × {CSV, JSON, XLSX}, bảng mẫu:
+- [x] 12.1 Viết test tham số hoá. Mọi cặp nguồn → đích trong {CSV, JSON, XLSX} × {CSV, JSON, XLSX}, bảng mẫu:
   - 5 cột `id`(số), `name`(tiếng Việt), `note`(có `=x`, có xuống dòng, có `"`), `ok`(boolean), `joined`(ngày ISO);
   - 50 row, có ô rỗng.
 
@@ -325,8 +325,9 @@
   Kiểm:
   - (A) và (B) cùng tên cột, cùng số row, cùng chữ từng ô;
   - với cặp mà cả hai định dạng đều có kiểu (JSON, XLSX), cùng `CellKind`.
-- [ ] 12.2 Chạy. Mong đợi: PASS nếu task 3–11 đúng. Nếu FAIL: tìm nguyên nhân, sửa writer hoặc reader. Không được sửa test để né.
-- [ ] 12.3 Commit: `test(core): read/write round trip across CSV, JSON and XLSX`
+- [x] 12.2 Chạy. Mong đợi: PASS nếu task 3–11 đúng. Nếu FAIL: tìm nguyên nhân, sửa writer hoặc reader. Không được sửa test để né.
+- [x] 12.3 Commit: `test(core): read/write round trip across CSV, JSON and XLSX`
+  - Làm khác: ~~(A) và (B) cùng chữ từng ô cho mọi cặp~~. **LÝ DO:** giữa JSON và XLSX, luật V0.1 hiển thị boolean là `TRUE`/`FALSE`, số `12.50` thành `12.5`, và JSON không có kiểu ngày. Chữ nhất thiết đổi dù giá trị giữ nguyên. Test so theo **giá trị** (số theo giá trị, boolean không phân biệt hoa thường) khi cả hai định dạng đều có kiểu; cặp có CSV vẫn so từng chữ. Spec `dataset-io`, requirement "Round-trip không làm mất dữ liệu", đã sửa cho khớp.
 
 ## 13. Importer chạy trên lớp mới
 

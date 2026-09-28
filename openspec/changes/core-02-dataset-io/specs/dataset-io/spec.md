@@ -232,7 +232,12 @@ Tên sheet lấy từ tuỳ chọn `sheetName`, mặc định `Sheet1`. Các ký
 - **THEN** sheet có tên `Q1_2024_ _draft_`
 
 ### Requirement: Round-trip không làm mất dữ liệu
-Đọc một bảng rồi ghi lại với `typing` là `PRESERVE`, rồi đọc file vừa ghi, SHALL cho cùng tên cột, cùng số row, và cùng chữ của từng ô. Với cặp JSON↔XLSX, kiểu gốc của ô cũng SHALL giữ nguyên. Riêng ô số có hơn 15 chữ số có nghĩa được ghi vào XLSX thì kiểu gốc đổi thành `TEXT`, còn chữ vẫn giữ nguyên.
+Đọc một bảng rồi ghi lại với `typing` là `PRESERVE`, rồi đọc file vừa ghi, SHALL cho cùng tên cột, cùng số row, và cùng giá trị của từng ô:
+- Khi nguồn hoặc đích là CSV: cùng **chữ** của từng ô.
+- Giữa hai định dạng có kiểu (JSON, XLSX): cùng **giá trị**. Số so theo giá trị, vì XLSX hiển thị `12.50` thành `12.5`. Boolean không phân biệt hoa thường, vì XLSX hiển thị `TRUE`/`FALSE`. Chữ và ngày giống từng chữ.
+- Giữa hai định dạng có kiểu, kiểu gốc của ô SHALL giữ nguyên, với hai ngoại lệ:
+  - ngày đi vào JSON thành `TEXT`, vì JSON không có kiểu ngày;
+  - số có hơn 15 chữ số có nghĩa đi vào XLSX thành `TEXT` (chữ vẫn giữ nguyên).
 
 #### Scenario: CSV sang XLSX rồi về CSV
 - **WHEN** CSV có 3 cột và 100 row, với chữ tiếng Việt, ô rỗng, ô `=x` và ô có xuống dòng, được ghi ra XLSX rồi đọc lại và ghi ra CSV với `formulaGuard` là `false`
