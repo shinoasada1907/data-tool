@@ -1,13 +1,13 @@
 package com.universaldatatools.core.format.csv;
 
-import com.universaldatatools.core.table.SourceFileType;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
+import com.universaldatatools.core.table.Column;
 import com.universaldatatools.core.table.ColumnNames;
-import com.universaldatatools.core.table.ImportRow;
-import com.universaldatatools.core.table.SourceColumn;
+import com.universaldatatools.core.table.DataFormat;
+import com.universaldatatools.core.table.Row;
 import com.universaldatatools.core.table.SourceParser;
-import com.universaldatatools.core.table.SourceSchema;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -45,19 +45,19 @@ public class CsvSourceParser implements SourceParser {
     private static final char REPLACEMENT_CHARACTER = (char) 0xFFFD;
 
     @Override
-    public boolean supports(SourceFileType type) {
-        return type == SourceFileType.CSV;
+    public boolean supports(DataFormat type) {
+        return type == DataFormat.CSV;
     }
 
     @Override
     public SourceSchema inspect(InputStream input) {
-        try (Reading reading = Reading.open(input); Stream<ImportRow> rows = reading.rows()) {
+        try (Reading reading = Reading.open(input); Stream<Row> rows = reading.rows()) {
             return new SourceSchema(reading.columns(), rows.count(), null);
         }
     }
 
     @Override
-    public Stream<ImportRow> read(InputStream input) {
+    public Stream<Row> read(InputStream input) {
         Reading reading = Reading.open(input);
         return reading.rows().onClose(reading::close);
     }
@@ -67,7 +67,7 @@ public class CsvSourceParser implements SourceParser {
 
         private final CSVParser parser;
         private final Iterator<CSVRecord> records;
-        private final List<SourceColumn> columns;
+        private final List<Column> columns;
         private long lastRowNumber;
 
         private Reading(CSVParser parser) {
@@ -105,13 +105,13 @@ public class CsvSourceParser implements SourceParser {
             }
         }
 
-        List<SourceColumn> columns() {
+        List<Column> columns() {
             return columns;
         }
 
-        Stream<ImportRow> rows() {
-            Iterator<ImportRow> rows = new Iterator<>() {
-                private ImportRow next;
+        Stream<Row> rows() {
+            Iterator<Row> rows = new Iterator<>() {
+                private Row next;
 
                 @Override
                 public boolean hasNext() {
@@ -126,11 +126,11 @@ public class CsvSourceParser implements SourceParser {
                 }
 
                 @Override
-                public ImportRow next() {
+                public Row next() {
                     if (!hasNext()) {
                         throw new NoSuchElementException();
                     }
-                    ImportRow row = next;
+                    Row row = next;
                     next = null;
                     return row;
                 }
@@ -139,7 +139,7 @@ public class CsvSourceParser implements SourceParser {
         }
 
         /** Returns {@code null} for a blank row: it is skipped but its row number stays used. */
-        private ImportRow toRow(CSVRecord record) {
+        private Row toRow(CSVRecord record) {
             List<String> values = cells(record);
             if (ColumnNames.isBlankRow(values)) {
                 return null;
@@ -148,7 +148,7 @@ public class CsvSourceParser implements SourceParser {
             for (int i = 0; i < columns.size(); i++) {
                 sized.add(i < values.size() ? values.get(i) : null);
             }
-            return new ImportRow(record.getRecordNumber(), sized);
+            return new Row(record.getRecordNumber(), sized);
         }
 
         private List<String> cells(CSVRecord record) {

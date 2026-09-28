@@ -1,6 +1,6 @@
 package com.universaldatatools.tools.importer.infrastructure.persistence;
 
-import com.universaldatatools.core.table.SourceFileType;
+import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.tools.importer.domain.importsession.SessionStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -27,7 +27,7 @@ class ImportSessionEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "file_type", nullable = false, length = 10)
-    private SourceFileType fileType;
+    private DataFormat fileType;
 
     @Column(name = "size_bytes", nullable = false)
     private long sizeBytes;
@@ -54,7 +54,7 @@ class ImportSessionEntity {
     protected ImportSessionEntity() {
     }
 
-    ImportSessionEntity(UUID id, String originalFileName, SourceFileType fileType, long sizeBytes,
+    ImportSessionEntity(UUID id, String originalFileName, DataFormat fileType, long sizeBytes,
                         SessionStatus status, Long version, Instant createdAt, Instant updatedAt,
                         String sourceSchemaJson) {
         this.id = id;
@@ -76,7 +76,7 @@ class ImportSessionEntity {
         return originalFileName;
     }
 
-    SourceFileType getFileType() {
+    DataFormat getFileType() {
         return fileType;
     }
 

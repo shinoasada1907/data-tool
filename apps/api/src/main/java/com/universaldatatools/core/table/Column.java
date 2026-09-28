@@ -6,5 +6,5 @@ package com.universaldatatools.core.table;
  * @param index position in the file, from 0
  * @param name  unique, non-blank name (see {@link ColumnNames#normalize})
  */
-public record SourceColumn(int index, String name) {
+public record Column(int index, String name) {
 }

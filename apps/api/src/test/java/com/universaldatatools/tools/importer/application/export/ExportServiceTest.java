@@ -1,11 +1,11 @@
 package com.universaldatatools.tools.importer.application.export;
 
-import com.universaldatatools.core.table.SourceFileType;
 import com.universaldatatools.tools.importer.application.common.SessionLocks;
 import com.universaldatatools.tools.importer.application.result.ResultQueryService;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.core.common.RowErrorCode;
+import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.tools.importer.domain.config.ConfigHasher;
 import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
 import com.universaldatatools.tools.importer.domain.export.ExportFormat;
@@ -183,7 +183,7 @@ class ExportServiceTest {
     }
 
     private void givenSession(SessionStatus status) {
-        sessions.save(ImportSession.restore(ID, new SourceFile("customers.csv", SourceFileType.CSV, 100), status,
+        sessions.save(ImportSession.restore(ID, new SourceFile("customers.csv", DataFormat.CSV, 100), status,
                 T0, T0, 0L, SampleDataset.SOURCE));
     }
 

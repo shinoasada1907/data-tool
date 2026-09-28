@@ -1,13 +1,13 @@
 package com.universaldatatools.tools.importer.api.importsession;
 
-import com.universaldatatools.core.table.SourceFileType;
+import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.tools.importer.application.importsession.SourcePreview;
 
 import java.util.List;
 import java.util.UUID;
 
 /** {@code SourcePreviewDto} of the API contract V0.1; {@code values[i]} belongs to {@code columns[i]}. */
-public record SourcePreviewDto(UUID sessionId, SourceFileType fileType, String sheetName, List<ColumnDto> columns,
+public record SourcePreviewDto(UUID sessionId, DataFormat fileType, String sheetName, List<ColumnDto> columns,
                                List<RowDto> rows, int previewLimit, long totalRows) {
 
     public record ColumnDto(int index, String name) {

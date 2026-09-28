@@ -1,8 +1,8 @@
 package com.universaldatatools.tools.importer.application.importsession;
 
 import com.universaldatatools.core.common.OriginalFileName;
+import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.core.table.FileTypeDetector;
-import com.universaldatatools.core.table.SourceFileType;
 import com.universaldatatools.platform.storage.FileStorage;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
@@ -11,8 +11,8 @@ import com.universaldatatools.tools.importer.domain.config.ImportConfigurationRe
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSessionRepository;
 import com.universaldatatools.tools.importer.domain.importsession.SourceFile;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import com.universaldatatools.core.table.SourceParser;
-import com.universaldatatools.core.table.SourceSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.InputStreamSource;
@@ -56,7 +56,7 @@ public class ImportSessionService {
      */
     public SessionDetails upload(String originalFileName, InputStreamSource content) {
         String name = OriginalFileName.sanitize(originalFileName);
-        SourceFileType type = FileTypeDetector.detect(name, readHead(content));
+        DataFormat type = FileTypeDetector.detect(name, readHead(content));
         UUID id = UUID.randomUUID();
         long size = store(id, content);
         Instant now = now();

@@ -1,6 +1,6 @@
 package com.universaldatatools.tools.importer.application.importsession;
 
-import com.universaldatatools.core.table.SourceFileType;
+import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.core.table.SourceParser;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +17,7 @@ public class SourceParsers {
         this.parsers = List.copyOf(parsers);
     }
 
-    public Optional<SourceParser> find(SourceFileType type) {
+    public Optional<SourceParser> find(DataFormat type) {
         return parsers.stream().filter(parser -> parser.supports(type)).findFirst();
     }
 }

@@ -1,9 +1,9 @@
 package com.universaldatatools.tools.importer.application.importsession;
 
-import com.universaldatatools.core.table.SourceFileType;
 import com.universaldatatools.tools.importer.application.common.SessionLocks;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
 import com.universaldatatools.tools.importer.domain.importsession.SourceFile;
+import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.support.InMemoryFileStorage;
 import com.universaldatatools.support.InMemoryImportSessionRepository;
 import org.junit.jupiter.api.Test;
@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 class SessionCleanupServiceTest {
 
     private static final Instant T0 = Instant.parse("2026-09-25T12:00:00Z");
-    private static final SourceFile FILE = new SourceFile("customers.csv", SourceFileType.CSV, 3);
+    private static final SourceFile FILE = new SourceFile("customers.csv", DataFormat.CSV, 3);
     private static final UUID INSTALLATION = UUID.fromString("99999999-0000-0000-0000-000000000009");
     private static final UUID A = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
     private static final UUID B = UUID.fromString("bbbbbbbb-0000-0000-0000-000000000002");

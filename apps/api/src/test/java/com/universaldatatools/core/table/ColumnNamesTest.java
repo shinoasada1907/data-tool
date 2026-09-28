@@ -20,9 +20,9 @@ class ColumnNamesTest {
     @ParameterizedTest(name = "{0} → {1}")
     @MethodSource
     void normalize_gives_every_column_a_unique_non_blank_name(List<String> raw, List<String> expected) {
-        List<SourceColumn> columns = ColumnNames.normalize(raw);
+        List<Column> columns = ColumnNames.normalize(raw);
 
-        assertThat(columns).extracting(SourceColumn::name).containsExactlyElementsOf(expected);
+        assertThat(columns).extracting(Column::name).containsExactlyElementsOf(expected);
         for (int i = 0; i < columns.size(); i++) {
             assertThat(columns.get(i).index()).isEqualTo(i);
         }

@@ -1,12 +1,12 @@
 package com.universaldatatools.core.format.xlsx;
 
-import com.universaldatatools.core.table.SourceFileType;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
-import com.universaldatatools.core.table.ImportRow;
-import com.universaldatatools.core.table.SourceColumn;
-import com.universaldatatools.core.table.SourceSchema;
+import com.universaldatatools.core.table.Column;
+import com.universaldatatools.core.table.DataFormat;
+import com.universaldatatools.core.table.Row;
 import com.universaldatatools.support.XlsxFixtures;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -39,8 +39,8 @@ class XlsxSourceParserTest {
 
     @Test
     void supports_only_xlsx() {
-        assertThat(parser.supports(SourceFileType.XLSX)).isTrue();
-        assertThat(parser.supports(SourceFileType.CSV)).isFalse();
+        assertThat(parser.supports(DataFormat.XLSX)).isTrue();
+        assertThat(parser.supports(DataFormat.CSV)).isFalse();
     }
 
     @Test
@@ -50,7 +50,7 @@ class XlsxSourceParserTest {
         SourceSchema schema = inspect(types);
 
         assertThat(schema.sheetName()).isEqualTo("Data");
-        assertThat(schema.columns()).extracting(SourceColumn::name).containsExactly(
+        assertThat(schema.columns()).extracting(Column::name).containsExactly(
                 "text", "int", "decimal", "small", "big", "bool", "date_builtin", "date_custom", "datetime",
                 "formula_num", "formula_text", "formula_bool", "na", "time_only");
         assertThat(schema.totalRows()).isEqualTo(1);
@@ -70,7 +70,7 @@ class XlsxSourceParserTest {
         SourceSchema schema = inspect(file);
 
         assertThat(schema.sheetName()).isEqualTo("Visible");
-        assertThat(schema.columns()).extracting(SourceColumn::name).containsExactly("name");
+        assertThat(schema.columns()).extracting(Column::name).containsExactly("name");
         assertThat(rows(file)).containsExactly(row(2, "An"));
     }
 
@@ -84,7 +84,7 @@ class XlsxSourceParserTest {
 
     @Test
     void duplicate_and_blank_headers_get_unique_names() {
-        assertThat(inspect(XlsxFixtures.duplicateHeaders(dir)).columns()).extracting(SourceColumn::name)
+        assertThat(inspect(XlsxFixtures.duplicateHeaders(dir)).columns()).extracting(Column::name)
                 .containsExactly("Email", "email (2)", "Column C", "x");
     }
 
@@ -158,8 +158,8 @@ class XlsxSourceParserTest {
         }
     }
 
-    private List<ImportRow> rows(Path file) {
-        try (InputStream in = Files.newInputStream(file); Stream<ImportRow> rows = parser.read(in)) {
+    private List<Row> rows(Path file) {
+        try (InputStream in = Files.newInputStream(file); Stream<Row> rows = parser.read(in)) {
             return rows.toList();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -173,8 +173,8 @@ class XlsxSourceParserTest {
         });
     }
 
-    private static ImportRow row(long rowNumber, String... values) {
-        return new ImportRow(rowNumber, Arrays.asList(values));
+    private static Row row(long rowNumber, String... values) {
+        return new Row(rowNumber, Arrays.asList(values));
     }
 
     private static List<Path> temporaryWorkbooks() throws IOException {

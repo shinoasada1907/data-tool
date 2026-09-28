@@ -1,5 +1,7 @@
 package com.universaldatatools.core.table;
 
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
+
 import java.io.InputStream;
 import java.util.stream.Stream;
 
@@ -9,7 +11,7 @@ import java.util.stream.Stream;
  */
 public interface SourceParser {
 
-    boolean supports(SourceFileType type);
+    boolean supports(DataFormat type);
 
     /**
      * Reads the whole file once: checks its structure, names the columns and counts the data rows.
@@ -20,5 +22,5 @@ public interface SourceParser {
     /**
      * Streams the non-blank data rows in file order. Closing the stream closes {@code input}.
      */
-    Stream<ImportRow> read(InputStream input);
+    Stream<Row> read(InputStream input);
 }

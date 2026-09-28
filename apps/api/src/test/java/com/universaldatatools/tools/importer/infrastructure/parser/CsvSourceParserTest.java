@@ -1,12 +1,12 @@
 package com.universaldatatools.tools.importer.infrastructure.parser;
 
 import com.universaldatatools.core.format.csv.CsvSourceParser;
-import com.universaldatatools.core.table.SourceFileType;
+import com.universaldatatools.core.table.Column;
+import com.universaldatatools.core.table.DataFormat;
+import com.universaldatatools.core.table.Row;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
-import com.universaldatatools.core.table.ImportRow;
-import com.universaldatatools.core.table.SourceColumn;
-import com.universaldatatools.core.table.SourceSchema;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -27,15 +27,15 @@ class CsvSourceParserTest {
 
     @Test
     void supports_only_csv() {
-        assertThat(parser.supports(SourceFileType.CSV)).isTrue();
-        assertThat(parser.supports(SourceFileType.XLSX)).isFalse();
+        assertThat(parser.supports(DataFormat.CSV)).isTrue();
+        assertThat(parser.supports(DataFormat.XLSX)).isFalse();
     }
 
     @Test
     void inspect_names_the_columns_and_counts_data_rows() {
         SourceSchema schema = parser.inspect(utf8("name,email\nAn,an@x.com\nBinh,binh@x.com\n"));
 
-        assertThat(schema.columns()).containsExactly(new SourceColumn(0, "name"), new SourceColumn(1, "email"));
+        assertThat(schema.columns()).containsExactly(new Column(0, "name"), new Column(1, "email"));
         assertThat(schema.totalRows()).isEqualTo(2);
         assertThat(schema.sheetName()).isNull();
     }
@@ -51,7 +51,7 @@ class CsvSourceParserTest {
         byte[] withBom = concat(new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF}, bytes("name\nAn\n"));
 
         assertThat(parser.inspect(new ByteArrayInputStream(withBom)).columns())
-                .containsExactly(new SourceColumn(0, "name"));
+                .containsExactly(new Column(0, "name"));
     }
 
     @Test
@@ -92,7 +92,7 @@ class CsvSourceParserTest {
     @Test
     void blank_header_cells_get_generated_names() {
         assertThat(parser.inspect(utf8(",b\n1,2\n")).columns())
-                .extracting(SourceColumn::name).containsExactly("Column A", "b");
+                .extracting(Column::name).containsExactly("Column A", "b");
     }
 
     @Test
@@ -132,7 +132,7 @@ class CsvSourceParserTest {
         byte[] content = concat(bytes("a,b\n"), new byte[]{(byte) 0xC3, 0x28}, bytes(",y\n"));
 
         assertFailure(() -> {
-            try (Stream<ImportRow> rows = parser.read(new ByteArrayInputStream(content))) {
+            try (Stream<Row> rows = parser.read(new ByteArrayInputStream(content))) {
                 rows.toList();
             }
         }, ErrorCode.FILE_PARSE_ERROR, "File is not valid UTF-8 (near row 2).");
@@ -156,14 +156,14 @@ class CsvSourceParserTest {
         assertThat(input.closed).isTrue();
     }
 
-    private List<ImportRow> rows(String csv) {
-        try (Stream<ImportRow> rows = parser.read(utf8(csv))) {
+    private List<Row> rows(String csv) {
+        try (Stream<Row> rows = parser.read(utf8(csv))) {
             return rows.toList();
         }
     }
 
-    private static ImportRow row(long rowNumber, String... values) {
-        return new ImportRow(rowNumber, Arrays.asList(values));
+    private static Row row(long rowNumber, String... values) {
+        return new Row(rowNumber, Arrays.asList(values));
     }
 
     private static void assertFailure(Runnable action, ErrorCode code, String message) {

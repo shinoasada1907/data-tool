@@ -1,6 +1,6 @@
 package com.universaldatatools.tools.importer.application.configuration;
-
-import com.universaldatatools.core.table.SourceFileType;
+import com.universaldatatools.core.table.Column;
+import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.tools.importer.domain.transformation.TransformationConfigValidator;
 import com.universaldatatools.tools.importer.domain.validation.ValidationConfigValidator;
 import com.universaldatatools.tools.importer.application.common.SessionLocks;
@@ -8,14 +8,13 @@ import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.core.common.ProblemItem;
 import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import com.universaldatatools.tools.importer.domain.mapping.MappingSpec;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
 import com.universaldatatools.tools.importer.domain.importsession.SessionStatus;
 import com.universaldatatools.tools.importer.domain.importsession.SourceFile;
 import com.universaldatatools.tools.importer.domain.schema.FieldSpec;
 import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
-import com.universaldatatools.core.table.SourceColumn;
-import com.universaldatatools.core.table.SourceSchema;
 import com.universaldatatools.core.transform.TransformationRegistry;
 import com.universaldatatools.support.InMemoryImportConfigurationRepository;
 import com.universaldatatools.support.InMemoryImportSessionRepository;
@@ -43,10 +42,10 @@ class ConfigurationServiceTest {
     private static final Instant T0 = Instant.parse("2026-09-26T09:00:00Z");
     private static final Instant NOW = Instant.parse("2026-09-26T10:00:00.123456789Z");
     private static final Instant NOW_IN_MICROS = Instant.parse("2026-09-26T10:00:00.123456Z");
-    private static final SourceSchema SOURCE = new SourceSchema(List.of(new SourceColumn(0, "note")), 1, null);
+    private static final SourceSchema SOURCE = new SourceSchema(List.of(new Column(0, "note")), 1, null);
     private static final List<FieldSpec> NOTE = List.of(new FieldSpec("note", "string", false, 0));
     private static final SourceSchema CUSTOMERS_SOURCE =
-            new SourceSchema(List.of(new SourceColumn(0, "Họ tên"), new SourceColumn(1, "email")), 1, null);
+            new SourceSchema(List.of(new Column(0, "Họ tên"), new Column(1, "email")), 1, null);
     private static final TargetSchema CUSTOMERS = TargetSchema.define(List.of(new FieldSpec("name", "string", true, 0),
             new FieldSpec("email", "email", true, 1), new FieldSpec("note", "string", false, 2)));
 
@@ -273,7 +272,7 @@ class ConfigurationServiceTest {
     }
 
     private void givenCustomers(SessionStatus status) {
-        sessions.save(ImportSession.restore(ID, new SourceFile("customers.csv", SourceFileType.CSV, 20), status,
+        sessions.save(ImportSession.restore(ID, new SourceFile("customers.csv", DataFormat.CSV, 20), status,
                 T0, T0, 0L, CUSTOMERS_SOURCE));
         configurations.save(ImportConfiguration.empty(ID).withSchema(CUSTOMERS).configuration(), T0);
     }
@@ -283,7 +282,7 @@ class ConfigurationServiceTest {
     }
 
     private void givenSession(SessionStatus status) {
-        sessions.save(ImportSession.restore(ID, new SourceFile("notes.csv", SourceFileType.CSV, 10), status,
+        sessions.save(ImportSession.restore(ID, new SourceFile("notes.csv", DataFormat.CSV, 10), status,
                 T0, T0, 0L, status == SessionStatus.UPLOADED ? null : SOURCE));
     }
 

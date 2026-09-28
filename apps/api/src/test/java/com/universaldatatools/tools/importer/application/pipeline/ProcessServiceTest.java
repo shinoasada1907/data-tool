@@ -1,12 +1,12 @@
 package com.universaldatatools.tools.importer.application.pipeline;
 
-import com.universaldatatools.core.table.SourceFileType;
 import com.universaldatatools.tools.importer.domain.validation.FieldValidator;
 import com.universaldatatools.tools.importer.application.common.SessionLocks;
 import com.universaldatatools.tools.importer.application.importsession.SourceParsers;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.core.common.ProblemItem;
+import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.tools.importer.domain.config.ConfigHasher;
 import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
@@ -48,7 +48,7 @@ class ProcessServiceTest {
     private final InMemoryImportConfigurationRepository configurations = new InMemoryImportConfigurationRepository();
     private final InMemoryFileStorage storage = new InMemoryFileStorage();
     private final InMemoryResultStore results = new InMemoryResultStore();
-    private FakeSourceParser parser = FakeSourceParser.forType(SourceFileType.CSV).withRows(SampleDataset.rows());
+    private FakeSourceParser parser = FakeSourceParser.forType(DataFormat.CSV).withRows(SampleDataset.rows());
 
     private ProcessService service() {
         return new ProcessService(sessions, configurations, storage, new SourceParsers(List.of(parser)),
@@ -111,7 +111,7 @@ class ProcessServiceTest {
         givenSample(SessionStatus.PROCESSED);
         results.put(ID, new InMemoryResultStore.Stored(null, List.of()));
         DomainException parseError = new DomainException(ErrorCode.FILE_PARSE_ERROR, "CSV syntax error near row 4.");
-        parser = FakeSourceParser.forType(SourceFileType.CSV).withRows(SampleDataset.rows()).failingAtRow(4, parseError);
+        parser = FakeSourceParser.forType(DataFormat.CSV).withRows(SampleDataset.rows()).failingAtRow(4, parseError);
 
         DomainException ex = catchThrowableOfType(DomainException.class, () -> service().process(ID));
 
@@ -138,7 +138,7 @@ class ProcessServiceTest {
     @Test
     void a_read_error_mid_file_is_an_internal_error_and_leaves_no_temporary_result() {
         givenSample(SessionStatus.READY);
-        parser = FakeSourceParser.forType(SourceFileType.CSV).withRows(SampleDataset.rows())
+        parser = FakeSourceParser.forType(DataFormat.CSV).withRows(SampleDataset.rows())
                 .failingAtRow(3, new UncheckedIOException(new IOException("disk gone")));
 
         DomainException ex = catchThrowableOfType(DomainException.class, () -> service().process(ID));
@@ -176,7 +176,7 @@ class ProcessServiceTest {
     @Test
     void a_failure_to_close_the_source_after_reading_it_all_does_not_undo_the_run() {
         givenSample(SessionStatus.READY);
-        parser = FakeSourceParser.forType(SourceFileType.CSV).withRows(SampleDataset.rows())
+        parser = FakeSourceParser.forType(DataFormat.CSV).withRows(SampleDataset.rows())
                 .failingOnClose(new UncheckedIOException(new IOException("temp file still locked")));
 
         PipelineSummaryView view = service().process(ID);
@@ -190,7 +190,7 @@ class ProcessServiceTest {
     void any_source_error_fails_the_session_not_only_parse_errors() {
         givenSample(SessionStatus.READY);
         DomainException empty = new DomainException(ErrorCode.FILE_EMPTY, "The file has no header row.");
-        parser = FakeSourceParser.forType(SourceFileType.CSV).withRows(SampleDataset.rows()).failingAtRow(2, empty);
+        parser = FakeSourceParser.forType(DataFormat.CSV).withRows(SampleDataset.rows()).failingAtRow(2, empty);
 
         assertThat(catchThrowableOfType(DomainException.class, () -> service().process(ID))).isSameAs(empty);
         assertThat(sessions.findById(ID).orElseThrow().status()).isEqualTo(SessionStatus.FAILED);
@@ -216,7 +216,7 @@ class ProcessServiceTest {
         assertThat(service().process(ID).status()).isEqualTo(SessionStatus.PROCESSED);
 
         givenSample(SessionStatus.CONFIGURING);
-        parser = FakeSourceParser.forType(SourceFileType.CSV).withRows(SampleDataset.rows())
+        parser = FakeSourceParser.forType(DataFormat.CSV).withRows(SampleDataset.rows())
                 .failingAtRow(3, new DomainException(ErrorCode.FILE_PARSE_ERROR, "CSV syntax error near row 3."));
         DomainException ex = catchThrowableOfType(DomainException.class, () -> service().process(ID));
 
@@ -258,7 +258,7 @@ class ProcessServiceTest {
     void a_result_that_cannot_be_deleted_does_not_hide_the_parse_error() {
         givenSample(SessionStatus.READY);
         DomainException parseError = new DomainException(ErrorCode.FILE_PARSE_ERROR, "CSV syntax error near row 2.");
-        parser = FakeSourceParser.forType(SourceFileType.CSV).withRows(SampleDataset.rows()).failingAtRow(2, parseError);
+        parser = FakeSourceParser.forType(DataFormat.CSV).withRows(SampleDataset.rows()).failingAtRow(2, parseError);
         InMemoryResultStore stuck = new InMemoryResultStore() {
             @Override
             public void delete(UUID sessionId) {
@@ -284,7 +284,7 @@ class ProcessServiceTest {
     }
 
     private void givenSession(SessionStatus status) {
-        sessions.save(ImportSession.restore(ID, new SourceFile("customers.csv", SourceFileType.CSV, 100), status,
+        sessions.save(ImportSession.restore(ID, new SourceFile("customers.csv", DataFormat.CSV, 100), status,
                 T0, T0, 0L, SampleDataset.SOURCE));
         storage.save(ID, new ByteArrayInputStream("the rows come from the fake parser".getBytes()));
     }

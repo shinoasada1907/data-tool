@@ -1,14 +1,14 @@
 package com.universaldatatools.tools.importer.application.importsession;
 
-import com.universaldatatools.core.table.SourceFileType;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
+import com.universaldatatools.core.table.Column;
+import com.universaldatatools.core.table.DataFormat;
+import com.universaldatatools.core.table.Row;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
 import com.universaldatatools.tools.importer.domain.importsession.SessionStatus;
 import com.universaldatatools.tools.importer.domain.importsession.SourceFile;
-import com.universaldatatools.core.table.ImportRow;
-import com.universaldatatools.core.table.SourceColumn;
-import com.universaldatatools.core.table.SourceSchema;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import com.universaldatatools.support.FakeSourceParser;
 import com.universaldatatools.support.InMemoryFileStorage;
 import com.universaldatatools.support.InMemoryImportSessionRepository;
@@ -28,16 +28,16 @@ class SourcePreviewServiceTest {
 
     private static final UUID ID = UUID.fromString("0b6f0c52-8a8e-4d5c-9a55-2f3c1c3f7e11");
     private static final Instant T0 = Instant.parse("2026-09-25T10:00:00Z");
-    private static final SourceFile FILE = new SourceFile("customers.csv", SourceFileType.CSV, 42);
-    private static final List<SourceColumn> COLUMNS = List.of(new SourceColumn(0, "name"), new SourceColumn(1, "email"));
-    private static final List<ImportRow> ROWS = List.of(
-            new ImportRow(2, List.of("An", "an@x.com")),
-            new ImportRow(3, List.of("Binh", "binh@x.com")),
-            new ImportRow(5, List.of("Chi", "chi@x.com")));
+    private static final SourceFile FILE = new SourceFile("customers.csv", DataFormat.CSV, 42);
+    private static final List<Column> COLUMNS = List.of(new Column(0, "name"), new Column(1, "email"));
+    private static final List<Row> ROWS = List.of(
+            new Row(2, List.of("An", "an@x.com")),
+            new Row(3, List.of("Binh", "binh@x.com")),
+            new Row(5, List.of("Chi", "chi@x.com")));
 
     private final InMemoryImportSessionRepository repository = new InMemoryImportSessionRepository();
     private final InMemoryFileStorage storage = new InMemoryFileStorage();
-    private final FakeSourceParser parser = FakeSourceParser.forType(SourceFileType.CSV).withRows(ROWS);
+    private final FakeSourceParser parser = FakeSourceParser.forType(DataFormat.CSV).withRows(ROWS);
     private final SourcePreviewService service =
             new SourcePreviewService(repository, storage, new SourceParsers(List.of(parser)));
 
@@ -53,7 +53,7 @@ class SourcePreviewServiceTest {
         SourcePreview preview = service.preview(ID, 2);
 
         assertThat(preview.sessionId()).isEqualTo(ID);
-        assertThat(preview.fileType()).isEqualTo(SourceFileType.CSV);
+        assertThat(preview.fileType()).isEqualTo(DataFormat.CSV);
         assertThat(preview.sheetName()).isNull();
         assertThat(preview.columns()).isEqualTo(COLUMNS);
         assertThat(preview.rows()).containsExactly(ROWS.get(0), ROWS.get(1));

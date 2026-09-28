@@ -1,4 +1,6 @@
-package com.universaldatatools.core.table;
+package com.universaldatatools.tools.importer.domain.importsession;
+
+import com.universaldatatools.core.table.Column;
 
 import java.util.List;
 
@@ -8,7 +10,7 @@ import java.util.List;
  * @param totalRows non-blank data rows (the header is not counted)
  * @param sheetName sheet that was read, or {@code null} for CSV
  */
-public record SourceSchema(List<SourceColumn> columns, long totalRows, String sheetName) {
+public record SourceSchema(List<Column> columns, long totalRows, String sheetName) {
 
     public SourceSchema {
         columns = List.copyOf(columns);

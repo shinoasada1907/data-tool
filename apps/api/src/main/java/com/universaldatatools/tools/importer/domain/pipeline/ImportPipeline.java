@@ -1,6 +1,6 @@
 package com.universaldatatools.tools.importer.domain.pipeline;
 
-import com.universaldatatools.core.table.ImportRow;
+import com.universaldatatools.core.table.Row;
 
 import java.util.stream.Stream;
 
@@ -8,5 +8,5 @@ import java.util.stream.Stream;
 public interface ImportPipeline {
 
     /** Consumes {@code rows} in order, hands every result to {@code sink} as it is done, and returns the counts. */
-    PipelineSummary execute(Stream<ImportRow> rows, PipelineConfig config, RowResultSink sink);
+    PipelineSummary execute(Stream<Row> rows, PipelineConfig config, RowResultSink sink);
 }

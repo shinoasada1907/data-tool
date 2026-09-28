@@ -1,17 +1,16 @@
 package com.universaldatatools.tools.importer.application.importsession;
-
-import com.universaldatatools.core.table.SourceFileType;
+import com.universaldatatools.core.table.Column;
+import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.core.common.ProblemItem;
 import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
 import com.universaldatatools.tools.importer.domain.importsession.SessionStatus;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import com.universaldatatools.tools.importer.domain.schema.FieldSpec;
 import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
-import com.universaldatatools.core.table.SourceColumn;
 import com.universaldatatools.core.table.SourceParser;
-import com.universaldatatools.core.table.SourceSchema;
 import com.universaldatatools.support.FakeSourceParser;
 import com.universaldatatools.support.InMemoryFileStorage;
 import com.universaldatatools.support.InMemoryImportConfigurationRepository;
@@ -36,7 +35,7 @@ class ImportSessionServiceTest {
     private static final Instant NOW_IN_MICROS = Instant.parse("2026-09-25T10:00:00.123456Z");
 
     private static final SourceSchema SCHEMA =
-            new SourceSchema(List.of(new SourceColumn(0, "name"), new SourceColumn(1, "email")), 2, null);
+            new SourceSchema(List.of(new Column(0, "name"), new Column(1, "email")), 2, null);
 
     private final InMemoryImportSessionRepository repository = new InMemoryImportSessionRepository();
     private final InMemoryImportConfigurationRepository configurations = new InMemoryImportConfigurationRepository();
@@ -51,7 +50,7 @@ class ImportSessionServiceTest {
 
     @Test
     void upload_with_a_parser_inspects_the_stored_file_and_moves_the_session_to_configuring() {
-        FakeSourceParser csv = FakeSourceParser.forType(SourceFileType.CSV).returning(SCHEMA);
+        FakeSourceParser csv = FakeSourceParser.forType(DataFormat.CSV).returning(SCHEMA);
 
         ImportSession session = serviceWith(csv).upload("customers.csv", content("name,email\nAn,an@x.com\n")).session();
 
@@ -64,7 +63,7 @@ class ImportSessionServiceTest {
     @Test
     void a_file_the_parser_rejects_leaves_nothing_behind() {
         DomainException parseError = new DomainException(ErrorCode.FILE_PARSE_ERROR, "CSV syntax error near row 2.");
-        ImportSessionService service = serviceWith(FakeSourceParser.forType(SourceFileType.CSV).failingWith(parseError));
+        ImportSessionService service = serviceWith(FakeSourceParser.forType(DataFormat.CSV).failingWith(parseError));
 
         assertThatThrownBy(() -> service.upload("broken.csv", content("a,b\n\"x\n"))).isSameAs(parseError);
         assertThat(storage.isEmpty()).isTrue();
@@ -74,7 +73,7 @@ class ImportSessionServiceTest {
     @Test
     void an_unexpected_parser_failure_also_removes_the_stored_file() {
         IllegalStateException bug = new IllegalStateException("parser bug");
-        ImportSessionService service = serviceWith(FakeSourceParser.forType(SourceFileType.CSV).failingWith(bug));
+        ImportSessionService service = serviceWith(FakeSourceParser.forType(DataFormat.CSV).failingWith(bug));
 
         assertThatThrownBy(() -> service.upload("a.csv", content("a"))).isSameAs(bug);
         assertThat(storage.isEmpty()).isTrue();
@@ -82,7 +81,7 @@ class ImportSessionServiceTest {
 
     @Test
     void without_a_parser_for_the_type_the_session_stays_uploaded() {
-        ImportSessionService service = serviceWith(FakeSourceParser.forType(SourceFileType.CSV).returning(SCHEMA));
+        ImportSessionService service = serviceWith(FakeSourceParser.forType(DataFormat.CSV).returning(SCHEMA));
 
         ImportSession session = service.upload("a.xlsx", new ByteArrayResource(new byte[]{0x50, 0x4B, 0x03, 0x04})).session();
 
@@ -92,7 +91,7 @@ class ImportSessionServiceTest {
 
     @Test
     void an_inspected_file_is_still_removed_when_the_session_cannot_be_saved() {
-        ImportSessionService service = serviceWith(FakeSourceParser.forType(SourceFileType.CSV).returning(SCHEMA));
+        ImportSessionService service = serviceWith(FakeSourceParser.forType(DataFormat.CSV).returning(SCHEMA));
         repository.failOnSave();
 
         assertThatThrownBy(() -> service.upload("a.csv", content("a"))).hasMessage("database is down");
@@ -104,7 +103,7 @@ class ImportSessionServiceTest {
         ImportSession session = service.upload("customers.csv", content("a,b\n1,2")).session();
 
         assertThat(session.status()).isEqualTo(SessionStatus.UPLOADED);
-        assertThat(session.sourceFile().fileType()).isEqualTo(SourceFileType.CSV);
+        assertThat(session.sourceFile().fileType()).isEqualTo(DataFormat.CSV);
         assertThat(session.sourceFile().sizeBytes()).isEqualTo(7);
         assertThat(session.sourceFile().originalFileName()).isEqualTo("customers.csv");
         assertThat(session.createdAt()).isEqualTo(NOW_IN_MICROS);
@@ -149,7 +148,7 @@ class ImportSessionServiceTest {
 
     @Test
     void upload_comes_with_an_empty_configuration_that_is_not_ready() {
-        SessionDetails details = serviceWith(FakeSourceParser.forType(SourceFileType.CSV).returning(SCHEMA))
+        SessionDetails details = serviceWith(FakeSourceParser.forType(DataFormat.CSV).returning(SCHEMA))
                 .upload("customers.csv", content("name,email\nAn,an@x.com\n"));
 
         assertThat(details.configuration().sessionId()).isEqualTo(details.session().id());

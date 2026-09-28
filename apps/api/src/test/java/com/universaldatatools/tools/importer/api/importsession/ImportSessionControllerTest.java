@@ -1,6 +1,5 @@
 package com.universaldatatools.tools.importer.api.importsession;
-
-import com.universaldatatools.core.table.SourceFileType;
+import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.tools.importer.application.importsession.ImportSessionService;
 import com.universaldatatools.tools.importer.application.importsession.SessionDetails;
 import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
@@ -40,7 +39,7 @@ class ImportSessionControllerTest {
     private static final UUID ID = UUID.fromString("0b6f0c52-8a8e-4d5c-9a55-2f3c1c3f7e11");
     private static final Instant T0 = Instant.parse("2026-09-25T10:00:00Z");
     private static final ImportSession SESSION =
-            ImportSession.create(ID, new SourceFile("customers.csv", SourceFileType.CSV, 7), T0);
+            ImportSession.create(ID, new SourceFile("customers.csv", DataFormat.CSV, 7), T0);
     /** A session that has no configuration yet, as after upload. */
     private static final SessionDetails DETAILS = SessionDetails.of(SESSION, ImportConfiguration.empty(ID));
 

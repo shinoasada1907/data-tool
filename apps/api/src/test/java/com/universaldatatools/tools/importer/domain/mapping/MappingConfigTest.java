@@ -3,10 +3,10 @@ package com.universaldatatools.tools.importer.domain.mapping;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.core.common.ProblemItem;
+import com.universaldatatools.core.table.Column;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import com.universaldatatools.tools.importer.domain.schema.FieldSpec;
 import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
-import com.universaldatatools.core.table.SourceColumn;
-import com.universaldatatools.core.table.SourceSchema;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -22,7 +22,7 @@ class MappingConfigTest {
             new FieldSpec("country", "string", false, 1),
             new FieldSpec("note", "string", false, 2)));
     private static final SourceSchema SOURCE =
-            new SourceSchema(List.of(new SourceColumn(0, "Họ tên"), new SourceColumn(1, "email")), 1, null);
+            new SourceSchema(List.of(new Column(0, "Họ tên"), new Column(1, "email")), 1, null);
 
     @Test
     void a_valid_mapping_is_sorted_by_schema_order() {

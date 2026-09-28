@@ -3,11 +3,11 @@ package com.universaldatatools.tools.importer.domain.mapping;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.core.common.ProblemItem;
+import com.universaldatatools.core.table.Column;
 import com.universaldatatools.tools.importer.domain.config.FieldScopedSection;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import com.universaldatatools.tools.importer.domain.schema.TargetField;
 import com.universaldatatools.tools.importer.domain.schema.TargetSchema;
-import com.universaldatatools.core.table.SourceColumn;
-import com.universaldatatools.core.table.SourceSchema;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -38,7 +38,7 @@ public record MappingConfig(List<FieldMapping> mappings) implements FieldScopedS
      * @throws DomainException {@code MAPPING_INVALID} when any item is, otherwise {@code SOURCE_COLUMN_NOT_FOUND}
      */
     public static MappingConfig define(List<MappingSpec> specs, TargetSchema schema, SourceSchema source) {
-        Set<String> columns = source.columns().stream().map(SourceColumn::name).collect(Collectors.toSet());
+        Set<String> columns = source.columns().stream().map(Column::name).collect(Collectors.toSet());
         List<ProblemItem> problems = new ArrayList<>();
         Set<String> mapped = new HashSet<>();
         List<FieldMapping> valid = new ArrayList<>(specs.size());

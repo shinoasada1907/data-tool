@@ -1,13 +1,12 @@
 package com.universaldatatools.core.format.xlsx;
 
-import com.universaldatatools.core.table.SourceFileType;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
+import com.universaldatatools.core.table.Column;
 import com.universaldatatools.core.table.ColumnNames;
-import com.universaldatatools.core.table.ImportRow;
-import com.universaldatatools.core.table.SourceColumn;
+import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.core.table.SourceParser;
-import com.universaldatatools.core.table.SourceSchema;
+import com.universaldatatools.tools.importer.domain.importsession.SourceSchema;
 import org.dhatim.fastexcel.reader.Cell;
 import org.dhatim.fastexcel.reader.ReadableWorkbook;
 import org.dhatim.fastexcel.reader.ReadingOptions;
@@ -44,8 +43,8 @@ public class XlsxSourceParser implements SourceParser {
     }
 
     @Override
-    public boolean supports(SourceFileType type) {
-        return type == SourceFileType.XLSX;
+    public boolean supports(DataFormat type) {
+        return type == DataFormat.XLSX;
     }
 
     /** Scans for zip bombs first, then parses: two passes, hence the temporary copy. */
@@ -56,7 +55,7 @@ public class XlsxSourceParser implements SourceParser {
             try (InputStream scan = Files.newInputStream(file)) {
                 guard.check(scan);
             }
-            try (Reading reading = Reading.open(file); Stream<ImportRow> rows = reading.rows()) {
+            try (Reading reading = Reading.open(file); Stream<com.universaldatatools.core.table.Row> rows = reading.rows()) {
                 return new SourceSchema(reading.columns(), rows.count(), reading.sheetName());
             }
         } catch (IOException e) {
@@ -68,7 +67,7 @@ public class XlsxSourceParser implements SourceParser {
 
     /** No zip bomb scan: the file already passed {@link #inspect} at upload. */
     @Override
-    public Stream<ImportRow> read(InputStream input) {
+    public Stream<com.universaldatatools.core.table.Row> read(InputStream input) {
         Path file = spool(input);
         try {
             Reading reading = Reading.open(file);
@@ -114,7 +113,7 @@ public class XlsxSourceParser implements SourceParser {
         private final String sheetName;
         private final Stream<Row> sheetRows;
         private final Iterator<Row> rowIterator;
-        private final List<SourceColumn> columns;
+        private final List<Column> columns;
 
         private Reading(ReadableWorkbook workbook) {
             this.workbook = workbook;
@@ -156,13 +155,13 @@ public class XlsxSourceParser implements SourceParser {
             return sheetName;
         }
 
-        List<SourceColumn> columns() {
+        List<Column> columns() {
             return columns;
         }
 
-        Stream<ImportRow> rows() {
-            Iterator<ImportRow> rows = new Iterator<>() {
-                private ImportRow next;
+        Stream<com.universaldatatools.core.table.Row> rows() {
+            Iterator<com.universaldatatools.core.table.Row> rows = new Iterator<>() {
+                private com.universaldatatools.core.table.Row next;
 
                 @Override
                 public boolean hasNext() {
@@ -177,11 +176,11 @@ public class XlsxSourceParser implements SourceParser {
                 }
 
                 @Override
-                public ImportRow next() {
+                public com.universaldatatools.core.table.Row next() {
                     if (!hasNext()) {
                         throw new NoSuchElementException();
                     }
-                    ImportRow row = next;
+                    com.universaldatatools.core.table.Row row = next;
                     next = null;
                     return row;
                 }
@@ -190,9 +189,9 @@ public class XlsxSourceParser implements SourceParser {
         }
 
         /** Returns {@code null} for a blank row: it is skipped but its row number stays used. */
-        private ImportRow toRow(Row row) {
+        private com.universaldatatools.core.table.Row toRow(Row row) {
             List<String> values = values(row, columns.size());
-            return ColumnNames.isBlankRow(values) ? null : new ImportRow(row.getRowNum(), values);
+            return ColumnNames.isBlankRow(values) ? null : new com.universaldatatools.core.table.Row(row.getRowNum(), values);
         }
 
         private List<String> values(Row row, int width) {

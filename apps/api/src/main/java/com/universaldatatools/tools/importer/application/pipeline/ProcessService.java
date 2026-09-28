@@ -5,6 +5,7 @@ import com.universaldatatools.tools.importer.application.common.SessionLocks;
 import com.universaldatatools.tools.importer.application.importsession.SourceParsers;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
+import com.universaldatatools.core.table.Row;
 import com.universaldatatools.tools.importer.domain.config.ConfigHasher;
 import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
 import com.universaldatatools.tools.importer.domain.config.ImportConfigurationRepository;
@@ -20,7 +21,6 @@ import com.universaldatatools.tools.importer.domain.pipeline.ResultStore;
 import com.universaldatatools.tools.importer.domain.pipeline.ResultSummary;
 import com.universaldatatools.tools.importer.domain.pipeline.ResultWriter;
 import com.universaldatatools.tools.importer.domain.pipeline.RowResultSink;
-import com.universaldatatools.core.table.ImportRow;
 import com.universaldatatools.core.table.SourceParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -158,7 +158,7 @@ public class ProcessService {
      */
     private PipelineSummary readThrough(UUID sessionId, SourceParser parser, PipelineConfig config, RowResultSink sink) {
         PipelineSummary summary = null;
-        try (InputStream in = storage.open(sessionId); Stream<ImportRow> rows = parser.read(in)) {
+        try (InputStream in = storage.open(sessionId); Stream<Row> rows = parser.read(in)) {
             summary = pipeline.execute(rows, config, sink);
         } catch (ResultWriteFailure e) {
             throw e;

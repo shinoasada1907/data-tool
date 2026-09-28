@@ -1,8 +1,8 @@
 package com.universaldatatools.tools.importer.api.mapping;
 
-import com.universaldatatools.core.table.SourceFileType;
 import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
 import com.universaldatatools.tools.importer.domain.validation.ValidationConfig;
+import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.platform.web.StrictJsonConfig;
 import com.universaldatatools.tools.importer.application.configuration.ConfigUpdateResult;
 import com.universaldatatools.tools.importer.application.configuration.ConfigurationService;
@@ -149,7 +149,7 @@ class MappingControllerTest {
     }
 
     private static ConfigUpdateResult nameMappedNoteUnmapped() {
-        ImportSession session = ImportSession.restore(ID, new SourceFile("customers.csv", SourceFileType.CSV, 20),
+        ImportSession session = ImportSession.restore(ID, new SourceFile("customers.csv", DataFormat.CSV, 20),
                 SessionStatus.READY, T0, T0, 2L, null);
         TargetSchema schema = TargetSchema.define(List.of(
                 new FieldSpec("name", "string", true, 0), new FieldSpec("note", "string", false, 1)));

@@ -2,7 +2,6 @@ package com.universaldatatools.tools.importer.domain.importsession;
 
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
-import com.universaldatatools.core.table.SourceSchema;
 
 import java.time.Instant;
 import java.util.Objects;

@@ -1,6 +1,5 @@
 package com.universaldatatools.tools.importer.api.transformation;
 
-import com.universaldatatools.core.table.SourceFileType;
 import com.universaldatatools.tools.importer.domain.transformation.TransformationConfig;
 import com.universaldatatools.tools.importer.domain.validation.ValidationConfig;
 import com.universaldatatools.platform.web.StrictJsonConfig;
@@ -9,6 +8,7 @@ import com.universaldatatools.tools.importer.application.configuration.Configura
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.core.common.ProblemItem;
+import com.universaldatatools.core.table.DataFormat;
 import com.universaldatatools.tools.importer.domain.config.ImportConfiguration;
 import com.universaldatatools.tools.importer.domain.config.Readiness;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
@@ -138,7 +138,7 @@ class TransformationConfigControllerTest {
     }
 
     private static ConfigUpdateResult nameTrimmed() {
-        ImportSession session = ImportSession.restore(ID, new SourceFile("customers.csv", SourceFileType.CSV, 20),
+        ImportSession session = ImportSession.restore(ID, new SourceFile("customers.csv", DataFormat.CSV, 20),
                 SessionStatus.CONFIGURING, T0, T0, 1L, null);
         TargetSchema schema = TargetSchema.define(List.of(new FieldSpec("name", "string", false, 0)));
         TransformationConfig transformations =
