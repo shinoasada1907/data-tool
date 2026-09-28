@@ -1,26 +1,19 @@
 package com.universaldatatools.tools.importer.api.export;
 
+import com.universaldatatools.platform.output.Downloads;
 import com.universaldatatools.tools.importer.application.export.ExportDownload;
 import com.universaldatatools.tools.importer.application.export.ExportService;
-import com.universaldatatools.core.common.DomainException;
-import com.universaldatatools.core.common.ErrorCode;
 import com.universaldatatools.tools.importer.domain.export.ExportFormat;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.util.DisconnectedClientHelper;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 /**
@@ -34,8 +27,6 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/import-sessions")
 public class ExportController {
-
-    private static final Logger log = LoggerFactory.getLogger(ExportController.class);
 
     private final ExportService service;
 
@@ -68,30 +59,9 @@ public class ExportController {
         }
     }
 
-    /**
-     * A failure while nothing has reached the client yet is still a clean {@code 500 EXPORT_FAILED}: the response
-     * is reset, headers included. Once bytes are out, the status cannot change: the exception goes on to the
-     * container, which drops the connection ({@code GlobalExceptionHandler} and
-     * {@code CommittedErrorPageFilter} keep any error body out of the file).
-     */
+    /** The shared download path (core-04 PL7): a clean 500 before any byte, a dropped connection after. */
     private static void send(UUID id, ExportDownload download, HttpServletResponse response) throws IOException {
-        response.setContentType(download.contentType());
-        response.setHeader(HttpHeaders.CONTENT_DISPOSITION,
-                ContentDisposition.attachment().filename(download.fileName(), StandardCharsets.UTF_8).build().toString());
-        try {
-            download.body().writeTo(response.getOutputStream());
-            response.flushBuffer();
-        } catch (IOException | RuntimeException e) {
-            if (DisconnectedClientHelper.isClientDisconnectedException(e)) {
-                log.debug("Client left during the export of session {}", id);
-                throw e;
-            }
-            log.error("Export stream failed for session {}", id, e);
-            if (!response.isCommitted()) {
-                response.reset();
-                throw new DomainException(ErrorCode.EXPORT_FAILED, "Export failed.");
-            }
-            throw e;
-        }
+        Downloads.send(response, download.fileName(), download.contentType(), download.body()::writeTo,
+                "session " + id);
     }
 }

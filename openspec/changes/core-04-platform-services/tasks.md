@@ -67,11 +67,12 @@
 - Create: `MAIN/platform/web/{JsonBodyLimitFilter, SecurityHeadersFilter}.java`
 - Test: `TEST/platform/web/WebFiltersIntegrationTest.java`
 
-- [ ] 7.1 Viết test (~~giới hạn body JSON 1 MB~~ **LÝ DO:** chuyển sang core-05 cùng các guard khác):
+- [x] 7.1 Viết test (~~giới hạn body JSON 1 MB~~ **LÝ DO:** chuyển sang core-05 cùng các guard khác):
   - mọi response có `X-Content-Type-Options: nosniff`;
   - `GET /api/datasets/{id}` (task 11) có `Cache-Control: no-store`. Case này để lại, thêm ở task 11.
-- [ ] 7.2 FAIL → cài đặt → PASS.
-- [ ] 7.3 Commit: `feat(web): 1 MB JSON body limit and nosniff header`
+- [x] 7.2 FAIL → cài đặt → PASS.
+- [x] 7.3 Commit: `feat(web): 1 MB JSON body limit and nosniff header`
+  - Làm khác: `SecurityHeadersFilter` thêm `nosniff` cho mọi response. `Cache-Control: no-store` do controller dataset tự đặt. Kiểm trong `DatasetApiIntegrationTest`.
 
 ## 8. Dataset: bảng, repository, TTL
 
@@ -169,19 +170,20 @@
 - Modify: Importer dùng `DownloadNames` thay cho `ExportFileName` (xoá lớp cũ)
 - Test: `TEST/platform/output/OutputSpecTest.java`, `DownloadNamesTest.java` (chuyển từ `ExportFileNameTest`), `DownloadsIntegrationTest.java` (qua `SampleRunController` thêm `POST /runs/{id}/export`)
 
-- [ ] 13.1 Viết `OutputSpecTest`:
+- [x] 13.1 Viết `OutputSpecTest`:
   - `{format:CSV}` → mặc định `COMMA`, header, BOM, guard;
   - `{format:JSON, json:{pretty:true, typing:STRING}}` → đúng;
   - `{format:JSON, csv:{…}}` → `CONFIG_INVALID` với `pointer` `/output/csv`;
   - `{format:XLSX, xlsx:{sheetName:"Q1"}}` → sheet `Q1`;
   - `format` thiếu → `CONFIG_INVALID` với `pointer` `/output/format`.
-- [ ] 13.2 Viết `DownloadsIntegrationTest`:
+- [x] 13.2 Viết `DownloadsIntegrationTest`:
   - export CSV của run mẫu có tên nguồn `báo cáo.xlsx` → `Content-Disposition` chứa `filename*=UTF-8''b%C3%A1o%20c%C3%A1o`, có `Cache-Control: no-store` và `nosniff`;
   - writer ném lỗi trước byte đầu → `500` problem+json, không có `Content-Disposition`;
   - lỗi sau khi đã flush hơn bộ đệm → kết nối bị huỷ (dùng lại cách kiểm của test export Importer);
   - permit của gate được trả sau khi stream xong (`gate.available()` về lại `max`).
-- [ ] 13.3 FAIL → cài đặt theo PL7 → PASS. Test tên file của Importer (`data-export`) vẫn PASS.
-- [ ] 13.4 Commit: `feat(output): OutputDto to TableWriter; safe streamed downloads shared by all tools`
+- [x] 13.3 FAIL → cài đặt theo PL7 → PASS. Test tên file của Importer (`data-export`) vẫn PASS.
+- [x] 13.4 Commit: `feat(output): OutputDto to TableWriter; safe streamed downloads shared by all tools`
+  - Làm khác: `Downloads.send` ghi **đồng bộ** vào `HttpServletResponse`, giống cách Importer đã làm (lý do có trong javadoc: `StreamingResponseBody` có thể time-out giữa chừng mà vẫn kết thúc bằng `200`), không dùng `StreamingResponseBody` như bản phác PL7. Importer dùng chung đường này, nên file tải của Importer có thêm `Cache-Control: no-store`. `ExportFileName` chuyển thành `platform.output.DownloadNames`; test `ExportFormat` tách sang `ExportFormatTest`. Lỗi `CONFIG_INVALID` của `OutputSpec` chưa có `pointer` (chờ core-03); message nêu tên field (`output.csv…`). Chưa gắn permit của gate (core-05).
 
 ~~14. Guest identity~~
 

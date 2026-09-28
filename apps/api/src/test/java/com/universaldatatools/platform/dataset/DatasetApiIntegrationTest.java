@@ -71,6 +71,7 @@ class DatasetApiIntegrationTest {
         Instant expires = Instant.parse(JsonPath.read(upload.body(), "$.expiresAt"));
         assertThat(Duration.between(created, expires)).isEqualTo(Duration.ofHours(24));
         assertThat(upload.headers().getCacheControl()).isEqualTo("no-store");
+        assertThat(upload.headers().getFirst("X-Content-Type-Options")).isEqualTo("nosniff");
     }
 
     @Test

@@ -1,11 +1,11 @@
 package com.universaldatatools.tools.importer.application.export;
 
-import com.universaldatatools.tools.importer.application.result.CurrentResult;
-import com.universaldatatools.tools.importer.application.result.ResultQueryService;
 import com.universaldatatools.core.common.DomainException;
 import com.universaldatatools.core.common.ErrorCode;
+import com.universaldatatools.platform.output.DownloadNames;
+import com.universaldatatools.tools.importer.application.result.CurrentResult;
+import com.universaldatatools.tools.importer.application.result.ResultQueryService;
 import com.universaldatatools.tools.importer.domain.export.ErrorReportExporter;
-import com.universaldatatools.tools.importer.domain.export.ExportFileName;
 import com.universaldatatools.tools.importer.domain.export.ExportFormat;
 import com.universaldatatools.tools.importer.domain.export.ValidRowsExporter;
 import com.universaldatatools.tools.importer.domain.importsession.ImportSession;
@@ -85,7 +85,7 @@ public class ExportService {
     private String fileName(UUID sessionId, String suffix) {
         ImportSession session = sessions.findById(sessionId)
                 .orElseThrow(() -> new DomainException(ErrorCode.SESSION_NOT_FOUND, "Import session not found."));
-        return ExportFileName.of(session.sourceFile().originalFileName(), suffix);
+        return DownloadNames.of(session.sourceFile().originalFileName(), suffix);
     }
 
     private CurrentResult open(UUID sessionId, ResultView view) {
