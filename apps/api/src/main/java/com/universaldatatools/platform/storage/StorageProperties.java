@@ -4,7 +4,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.nio.file.Path;
 
-/** @param dir root directory for session files ({@code IMPORTER_STORAGE_DIR}) */
-@ConfigurationProperties("importer.storage")
+/** @param dir root directory for session files ({@code TOOLBOX_STORAGE_DIR}, or {@code IMPORTER_STORAGE_DIR} of V0.1) */
+@ConfigurationProperties("toolbox.storage")
 public record StorageProperties(Path dir) {
 }

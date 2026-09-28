@@ -38,7 +38,7 @@ class SessionLifecycleIntegrationTest {
 
     @DynamicPropertySource
     static void storage(DynamicPropertyRegistry registry) {
-        registry.add("importer.storage.dir", storageDir::toString);
+        registry.add("toolbox.storage.dir", storageDir::toString);
     }
 
     @LocalServerPort

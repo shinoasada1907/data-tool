@@ -30,8 +30,8 @@ class SessionCleanupSchedulerStartupTest {
 
     @DynamicPropertySource
     static void cleanupOnItsOwnStorage(DynamicPropertyRegistry registry) {
-        registry.add("importer.storage.dir", storageDir::toString);
-        registry.add("importer.cleanup.enabled", () -> "true");
+        registry.add("toolbox.storage.dir", storageDir::toString);
+        registry.add("toolbox.importer.cleanup.enabled", () -> "true");
     }
 
     /** Not reset between tests: the call under test happens once, while the context starts. */

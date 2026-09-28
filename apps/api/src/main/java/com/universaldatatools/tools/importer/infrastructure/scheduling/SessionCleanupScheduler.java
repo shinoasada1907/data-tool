@@ -14,12 +14,12 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 
 /**
- * Runs the cleanup at startup, then every {@code importer.cleanup.interval} (BE-F11 D3), taken from the checked
- * {@link CleanupProperties}: one value, one default. Off when {@code importer.cleanup.enabled} is false, as in
+ * Runs the cleanup at startup, then every {@code toolbox.importer.cleanup.interval} (BE-F11 D3), taken from the checked
+ * {@link CleanupProperties}: one value, one default. Off when {@code toolbox.importer.cleanup.enabled} is false, as in
  * tests.
  */
 @Component
-@ConditionalOnProperty(name = "importer.cleanup.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "toolbox.importer.cleanup.enabled", havingValue = "true", matchIfMissing = true)
 public class SessionCleanupScheduler implements SchedulingConfigurer {
 
     private static final Logger log = LoggerFactory.getLogger(SessionCleanupScheduler.class);
