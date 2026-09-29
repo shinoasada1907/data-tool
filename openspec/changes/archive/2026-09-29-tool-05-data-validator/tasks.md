@@ -54,5 +54,5 @@
 - [x] 4.2 Chạy app thật với DB tạm: upload → run → rows → export.
   - Tìm ra một lỗi: `GET` run trả `errorCountsByField` và `errorCountsByCode` sai thứ tự, vì `jsonb` của PostgreSQL tự sắp lại key (theo độ dài rồi theo byte). Response của `POST` thì đúng, vì chưa qua DB. Đã sửa trong `ValidatorService.view`: sắp lại mã theo thứ tự chữ, field theo thứ tự schema. Test `a_file_with_an_invalid_row` giờ canh thứ tự này.
   - Không đổi cột sang `json`. **LÝ DO:** `V13` đã vào `dev`; sửa migration đã chạy sẽ làm lệch checksum Flyway ở DB đã áp nó.
-- [ ] 4.3 `openspec validate tool-05-data-validator --strict`, rồi `openspec archive tool-05-data-validator -y`.
+- [x] 4.3 `openspec validate tool-05-data-validator --strict`, rồi `openspec archive tool-05-data-validator -y`.
 - [ ] 4.4 Merge `--no-ff` vào `dev`, xoá nhánh. Gửi contract cho phiên FE.
