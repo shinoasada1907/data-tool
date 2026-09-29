@@ -28,4 +28,11 @@ final class TransformationParams {
         }
         return TextValues.isEmpty(value) ? List.of("Parameter '" + name + "' must not be blank.") : List.of();
     }
+
+    /** Empty when the parameter is absent, {@code true} or {@code false}; otherwise why not. */
+    static List<String> bool(TransformationContext context, String name) {
+        String value = context.params().get(name);
+        return value == null || value.equals("true") || value.equals("false") ? List.of()
+                : List.of("Parameter '" + name + "' must be 'true' or 'false'.");
+    }
 }

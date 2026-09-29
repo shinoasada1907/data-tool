@@ -3,6 +3,7 @@ package com.universaldatatools.core.transform;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -23,6 +24,23 @@ public final class TransformationRegistry {
     public static TransformationRegistry standard() {
         return new TransformationRegistry(List.of(new TrimTransformation(), new UppercaseTransformation(),
                 new LowercaseTransformation(), new DefaultValueTransformation(), new DateFormatTransformation()));
+    }
+
+    /**
+     * A tool's own subset of the {@link TransformationCatalog}.
+     *
+     * @throws IllegalArgumentException for a type the catalog does not have: a wiring bug, found at startup
+     */
+    public static TransformationRegistry of(Set<String> types) {
+        Map<String, Transformation> catalog = TransformationCatalog.all().stream()
+                .collect(Collectors.toMap(Transformation::type, Function.identity()));
+        return new TransformationRegistry(types.stream().map(type -> {
+            Transformation transformation = catalog.get(type);
+            if (transformation == null) {
+                throw new IllegalArgumentException("No transformation of type " + type);
+            }
+            return transformation;
+        }).toList());
     }
 
     /** Case-sensitive: {@code "TRIM"} is not {@code "trim"}. */
