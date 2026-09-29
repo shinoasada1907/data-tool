@@ -33,7 +33,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     ResponseEntity<ProblemDetail> handleDomain(DomainException ex, HttpServletRequest request) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(ErrorHttpStatus.of(ex.code()), ex.getMessage());
         if (!ex.items().isEmpty()) {
-            problem.setProperty("errors", ex.items());
+            problem.setProperty("errors", ex.items().stream().map(ProblemItemDto::of).toList());
         }
         ex.extensions().forEach((name, value) -> {
             if (!DomainException.RETRY_AFTER.equals(name)) {

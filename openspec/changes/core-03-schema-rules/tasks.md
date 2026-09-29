@@ -25,14 +25,14 @@
 - Modify: `MAIN/core/common/ProblemItem.java`, `MAIN/platform/web/GlobalExceptionHandler.java` (hoặc nơi dựng `ProblemItemDto`)
 - Test: `TEST/platform/web/ProblemItemPointerTest.java`
 
-- [ ] 1.1 Viết test:
+- [x] 1.1 Viết test:
   - `new ProblemItem("a","X","m")` có `pointer()` là `null`;
   - lỗi có `ProblemItem(null,"X","m","/fields/0/name")` → JSON `errors[0]` có `"pointer":"/fields/0/name"` và `"field":null`;
   - lỗi có `ProblemItem("email","SCHEMA_INVALID","Duplicate field name.")` → JSON `errors[0]` **không** có key `pointer`, và có `"field":"email"`.
-- [ ] 1.2 Chạy. Mong đợi: FAIL.
-- [ ] 1.3 Thêm field và constructor 3 tham số. DTO đánh dấu riêng `pointer` là `@JsonInclude(NON_NULL)`.
-- [ ] 1.4 Chạy lại, cùng `ApiContractSnapshotTest` và `ErrorContractIntegrationTest`. Mong đợi: PASS.
-- [ ] 1.5 Commit: `feat(errors): optional JSON pointer on problem items`
+- [x] 1.2 Chạy. Mong đợi: FAIL.
+- [x] 1.3 Thêm field và constructor 3 tham số. DTO đánh dấu riêng `pointer` là `@JsonInclude(NON_NULL)`.
+- [x] 1.4 Chạy lại, cùng `ApiContractSnapshotTest` và `ErrorContractIntegrationTest`. Mong đợi: PASS.
+- [x] 1.5 Commit: `feat(errors): optional JSON pointer on problem items`
 
 ## 2. Mô hình schema và `SchemaDefinition.check`
 
