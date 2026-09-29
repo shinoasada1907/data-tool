@@ -12,7 +12,7 @@ public final class ErrorHttpStatus {
     public static HttpStatus of(ErrorCode code) {
         return switch (code) {
             case REQUEST_INVALID -> HttpStatus.BAD_REQUEST;
-            case SESSION_NOT_FOUND, DATASET_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case SESSION_NOT_FOUND, DATASET_NOT_FOUND, RUN_NOT_FOUND -> HttpStatus.NOT_FOUND;
             case SESSION_NOT_READY, SESSION_STATE_INVALID, RESULT_NOT_AVAILABLE -> HttpStatus.CONFLICT;
             case FILE_TOO_LARGE -> HttpStatus.CONTENT_TOO_LARGE;
             case FILE_UNSUPPORTED -> HttpStatus.UNSUPPORTED_MEDIA_TYPE;
