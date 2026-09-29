@@ -5,18 +5,18 @@
 **Goal:** phần còn lại của platform, tách từ core-04 ngày 2026-09-28:
 - `ErrorCode` thành interface;
 - rate limit, `ProcessingGate`, `DiskSpaceGuard`, giới hạn body JSON;
-- run store (`tool_run`, Flyway `V13`) cho Validator, Cleaner, Diff;
+- ~~run store (`tool_run`, Flyway `V13`) cho Validator, Cleaner, Diff;~~ chuyển sang `core-06-run-store`;
 - guest identity;
 - metrics.
 
 **Architecture:** design của core-04 (`openspec/changes/archive/*-core-04-platform-services/design.md`) PL1–PL4, PL6, PL8, PL10 (giới hạn body), PL11. Nền là core-01 TD13–TD16, TD19.
 
-**Spec:** `specs/tool-runs`, `specs/toolbox-platform` (ADDED).
+**Spec:** `specs/toolbox-platform` (ADDED). ~~`specs/tool-runs`~~ đã chuyển sang `core-06-run-store`.
 
 ## Global Constraints
 
 - core-04 đã merge. Nhánh `feature/core-05-platform-guard`.
-- Phải xong **trước** tool đầu tiên dạng run (Validator), và trước khi mở site public.
+- ~~Phải xong **trước** tool đầu tiên dạng run (Validator)~~ (run store đã tách ra, xem nhóm 12), và **phải xong trước khi mở site public**.
 - Mọi ràng buộc chung của core-04 (DB và storage riêng cho test, không chạy trên DB dùng chung với TTL ngắn) vẫn áp dụng.
 - Số thứ tự các nhóm task giữ như ở core-04, để dễ đối chiếu.
 
@@ -113,31 +113,9 @@
 - [ ] 6.2 FAIL → cài đặt, gắn vào upload Importer ngay trước khi lưu file → PASS.
 - [ ] 6.3 Commit: `feat(guard): refuse uploads and runs when storage is nearly full`
 
-## 12. Run store
+## ~~12. Run store~~
 
-**Files:**
-- Create: `src/main/resources/db/migration/V13__create_tool_run.sql`
-- Create: `MAIN/platform/run/{RunStore, FileRunStore, RunWriter, SectionWriter, RunRecord, RunSource, ToolRunEntity, ToolRunJpaRepository, RunPages}.java`
-- Test: `TEST/platform/run/FileRunStoreTest.java`, `TEST/platform/run/sample/SampleRunController.java`, `TEST/platform/run/RunLifecycleIntegrationTest.java`
-
-- [ ] 12.1 Viết `FileRunStoreTest`:
-  - `begin("sample")` → có thư mục `{id}.staging-*`; ghi section `rows` 3 dòng; `commit(...)` → thư mục `{id}` có `rows.ndjson`, có row DB, không còn staging;
-  - `close()` khi chưa commit → staging bị xoá, không có row DB;
-  - insert DB ném lỗi (repository giả) → thư mục `{id}` bị xoá, exception được ném tiếp;
-  - `read(id, "rows", Row.class, 1)` → 2 record cuối;
-  - tên section `Rows!` → `IllegalArgumentException`;
-  - `find("other", id)` → rỗng; `find("sample", id)` sau 25 giờ → rỗng.
-- [ ] 12.2 Viết `SampleRunController` (chỉ trong test). Nó có đủ `POST /runs`, `GET /runs/{id}`, `GET /runs/{id}/rows`, `DELETE /runs/{id}`, dùng `RunStore` và `RunPages` (phân trang chung).
-- [ ] 12.3 Viết `RunLifecycleIntegrationTest` theo spec `tool-runs`:
-  - `POST` → `201` + `Location`; `GET` → có `Cache-Control: no-store`;
-  - `GET /api/sample/runs/{id của tool khác}` → `404 RUN_NOT_FOUND`;
-  - `DELETE` → `204`, rồi `GET` → `404`;
-  - `rows?page=5&size=10` với 30 row → `rows` rỗng, `totalElements=30`, `totalPages=3`;
-  - `size=0` → `400`;
-  - xoá dataset nguồn, rồi `rows` vẫn `200`.
-- [ ] 12.4 FAIL → cài đặt theo PL6 → PASS.
-- [ ] 12.4b Dọn thư mục `{UUID}.staging-{nonce}` cũ hơn 1 giờ, cùng lượt dọn mồ côi. `RunStore` cài `StorageOwner` (có từ core-04), để thư mục run không bao giờ bị coi là mồ côi. Viết delta **MODIFIED** cho requirement "Dọn thư mục lưu trữ mồ côi" (spec `import-session`) để thêm thư mục staging và run. Phần này bị gỡ khỏi core-04, vì lúc đó chưa có run.
-- [ ] 12.5 Commit: `feat(run): atomic run store with NDJSON sections and sliding retention (V13)`
+> **LÝ DO:** ngày 2026-09-29 người dùng bảo làm Validator tiếp. Validator chỉ cần run store, không cần guard, nên nhóm này được tách thành change `core-06-run-store` (spec `tool-runs` chuyển theo). Ở đó thư mục tạm nằm trong `{root}/.staging/`, nên không cần sửa requirement dọn mồ côi như task 12.4b cũ.
 
 ## 14. Guest identity
 

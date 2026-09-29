@@ -8,14 +8,14 @@ Change `core-04-platform-services` ban đầu gồm cả dataset, download, dọ
 - Rate limit theo client (bucket `upload`, `compute`, `read`) → `429 RATE_LIMITED` + `Retry-After`. Áp cho cả Importer.
 - `ProcessingGate` (toàn server và theo client) → `503 SERVER_BUSY` / `429`. Permit giữ tới byte cuối.
 - `DiskSpaceGuard` → `503 SERVER_BUSY` khi đĩa sắp đầy. Body JSON tối đa 1 MB.
-- Run store: bảng `tool_run` (Flyway `V13`), section NDJSON ghi nguyên khối, TTL trượt 24 giờ, `RUN_NOT_FOUND`, `DELETE`. Thêm `RunCatalog` vào cleanup chung.
+- ~~Run store~~: đã tách sang `core-06-run-store` ngày 2026-09-29, để làm Validator trước guard.
 - Guest identity: `X-Guest-Token` → `GuestKey`.
 - Metrics Micrometer theo tool.
 
 ## Capabilities
 
 ### New Capabilities
-- `tool-runs`: ngữ nghĩa chung của mọi run (tạo nguyên khối, xem, xoá, TTL, độc lập với dataset, phân trang).
+(không có. `tool-runs` đã chuyển sang `core-06-run-store`)
 
 ### Modified Capabilities
 - `toolbox-platform`: thêm giới hạn tần suất, giới hạn thao tác nặng, chặn khi đĩa sắp đầy, giới hạn body JSON, guest token.
@@ -23,5 +23,5 @@ Change `core-04-platform-services` ban đầu gồm cả dataset, download, dọ
 ## Impact
 
 - **Code**: `platform.{guard, run, identity}`; `core.common.ErrorCode`; controller Importer có thêm annotation rate limit và dùng gate.
-- **DB**: `V13__create_tool_run.sql`.
+- **DB**: không có (`V13` thuộc `core-06-run-store`).
 - **FE**: mọi endpoint có thể trả `429`/`503` kèm `Retry-After`.

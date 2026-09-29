@@ -31,6 +31,7 @@
   - lỗi có `ProblemItem("email","SCHEMA_INVALID","Duplicate field name.")` → JSON `errors[0]` **không** có key `pointer`, và có `"field":"email"`.
 - [x] 1.2 Chạy. Mong đợi: FAIL.
 - [x] 1.3 Thêm field và constructor 3 tham số. DTO đánh dấu riêng `pointer` là `@JsonInclude(NON_NULL)`.
+  - Làm thêm: `ReadinessDto` và `ConfigUpdateResponseDto` của Importer trả thẳng `ProblemItem`. **LÝ DO:** thêm `pointer` vào record sẽ làm đổi OpenAPI và JSON của chúng. Vì vậy chúng dùng `IssueDto` ba field với `@Schema(name = "ProblemItem")`. Còn `errors[]` của lỗi dùng `platform.web.ProblemItemDto`.
 - [x] 1.4 Chạy lại, cùng `ApiContractSnapshotTest` và `ErrorContractIntegrationTest`. Mong đợi: PASS.
 - [x] 1.5 Commit: `feat(errors): optional JSON pointer on problem items`
 
@@ -42,7 +43,7 @@
 
 **Interfaces:** như design SR1–SR2. `Checked<T>` là sealed: `Ok(T value)` | `Invalid(List<ProblemItem> problems)`.
 
-- [ ] 2.1 Viết `SchemaDefinitionTest`. `f(name,type)` là field không có constraint:
+- [x] 2.1 Viết `SchemaDefinitionTest`. `f(name,type)` là field không có constraint:
 
   | Input | Mong đợi (`code` @ `pointer`) |
   |---|---|
@@ -69,10 +70,13 @@
   | `d` date, `format="dd/MM/yyyy"`, `defaultValue="31/01/2024"` | Ok |
   | `q` foo (type sai), `defaultValue="x"` | chỉ `FIELD_TYPE_INVALID`, không có lỗi `defaultValue` |
   | tên ` Email ` | Ok, field tên `Email` (đã trim) |
-- [ ] 2.2 Chạy. Mong đợi: FAIL.
-- [ ] 2.3 Thêm dependency RE2J vào `pom.xml`. Cập nhật luật 1 của `ArchitectureTest` (allowlist `com.google.re2j..`). Cài đặt theo SR2. Kiểm `defaultValue` dùng `TypeConverter` (task 3); tạm thời có thể viết task 3 trước task 2.3 nếu cần.
-- [ ] 2.4 Chạy lại, cùng `ArchitectureTest`. Mong đợi: PASS.
-- [ ] 2.5 Commit: `feat(core): data schema model and definition checks with JSON pointers`
+- [x] 2.2 Chạy. Mong đợi: FAIL.
+- [x] 2.3 Thêm dependency RE2J vào `pom.xml`. Cập nhật luật 1 của `ArchitectureTest` (allowlist `com.google.re2j..`). Cài đặt theo SR2. Kiểm `defaultValue` dùng `TypeConverter` (task 3); tạm thời có thể viết task 3 trước task 2.3 nếu cần.
+- [x] 2.4 Chạy lại, cùng `ArchitectureTest`. Mong đợi: PASS.
+- [x] 2.5 Commit: `feat(core): data schema model and definition checks with JSON pointers`
+  - ~~Mỗi task 2–7 một commit~~ **LÝ DO:** `ValidationContext` đổi `UniqueTracker` sang `UniqueIndex`, và `ValidationRule` thêm `code()`. Hai thay đổi này chạm cả task 3–7, nên các task không biên dịch riêng được. Task 2–7 gộp thành một commit `feat(core): schema core and rule engine; importer validates through it`.
+  - Kiểm `format` bằng `DatePatterns.checkInput` rồi `checkOutput`. **LÝ DO:** `checkInput` cho phép giờ phút (để đọc date-time), trong khi field `date` chỉ là ngày; `checkOutput` báo `must not contain time fields`.
+  - Field có `type` sai thì bỏ qua **mọi** kiểm constraint, không chỉ `defaultValue`. **LÝ DO:** luật constraint đều phụ thuộc kiểu.
 
 ## 3. `TypeConverter`
 
@@ -82,7 +86,7 @@
 - Modify: `MAIN/core/common/RowErrorCode.java` (thêm 6 mã)
 - Test: `TEST/core/schema/TypeConverterTest.java`
 
-- [ ] 3.1 Viết `TypeConverterTest`:
+- [x] 3.1 Viết `TypeConverterTest`:
 
   | Giá trị | Field | Mong đợi |
   |---|---|---|
@@ -100,10 +104,11 @@
   | `a@x.com` | email | `a@x.com` |
   | `a@` | email | `VALIDATION_EMAIL`, `Value is not a valid email address.` |
   | `=cmd()` | string | `=cmd()` |
-- [ ] 3.2 Chạy. Mong đợi: FAIL.
-- [ ] 3.3 Chuyển logic ép kiểu từ `TypeRule` sang `TypeConverter`. `TypeRule.validate` gọi `convert(text, SchemaField(name, type, false, NONE))`. Thêm 6 mã mới vào `RowErrorCode`.
-- [ ] 3.4 Chạy `TypeConverterTest`, `TypeRuleTest`, `FieldValidatorTest`. Mong đợi: PASS. Hai test V0.1 không đổi kỳ vọng.
-- [ ] 3.5 Commit: `refactor(core): TypeConverter is the single place values get their type`
+- [x] 3.2 Chạy. Mong đợi: FAIL.
+- [x] 3.3 Chuyển logic ép kiểu từ `TypeRule` sang `TypeConverter`. `TypeRule.validate` gọi `convert(text, SchemaField(name, type, false, NONE))`. Thêm 6 mã mới vào `RowErrorCode`.
+  - `TypeConverter` đọc ngày có `format` bằng `DatePatterns.formatter` (không phân biệt hoa thường, tên tháng tiếng Anh, `y` → `u`), thay vì `DateTimeFormatter.ofPattern(format, ROOT)`. **LÝ DO:** giống hệt cách transformation `dateFormat` của Importer đọc ngày, nên một pattern có một nghĩa ở mọi nơi.
+- [x] 3.4 Chạy `TypeConverterTest`, `TypeRuleTest`, `FieldValidatorTest`. Mong đợi: PASS. Hai test V0.1 không đổi kỳ vọng.
+- [x] 3.5 Commit: `refactor(core): TypeConverter is the single place values get their type`
 
 ## 4. Rule constraint
 
@@ -111,7 +116,7 @@
 - Create: `MAIN/core/validate/{MinLengthRule, MaxLengthRule, PatternRule, MinRule, MaxRule}.java`
 - Test: `TEST/core/validate/ConstraintRulesTest.java`
 
-- [ ] 4.1 Viết `ConstraintRulesTest`. Giá trị đã qua `type`, nên với `number` là `BigDecimal`:
+- [x] 4.1 Viết `ConstraintRulesTest`. Giá trị đã qua `type`, nên với `number` là `BigDecimal`:
 
   | Rule | Constraint | Giá trị | Mong đợi |
   |---|---|---|---|
@@ -129,10 +134,10 @@
   | min | `0.5` | `0.49` | message `Value must be at least 0.5.` |
 
   Kiểm thêm: không message nào chứa giá trị được kiểm.
-- [ ] 4.2 Chạy. Mong đợi: FAIL.
-- [ ] 4.3 Cài đặt theo SR5.
-- [ ] 4.4 Chạy lại. Mong đợi: PASS.
-- [ ] 4.5 Commit: `feat(core): length, RE2 pattern and numeric range rules`
+- [x] 4.2 Chạy. Mong đợi: FAIL.
+- [x] 4.3 Cài đặt theo SR5.
+- [x] 4.4 Chạy lại. Mong đợi: PASS.
+- [x] 4.5 Commit: `feat(core): length, RE2 pattern and numeric range rules`
 
 ## 5. `FieldRulePlan` và `FieldRuleRunner`
 
@@ -140,7 +145,7 @@
 - Create: `MAIN/core/validate/{FieldRulePlan, FieldRuleRunner}.java`
 - Test: `TEST/core/validate/FieldRuleRunnerTest.java`
 
-- [ ] 5.1 Viết `FieldRuleRunnerTest`:
+- [x] 5.1 Viết `FieldRuleRunnerTest`:
   - thứ tự plan của field `string` có đủ `required, minLength, maxLength, pattern, unique` → `[required, type, minLength, maxLength, pattern, unique]`;
   - `code` string, `minLength=5`, `pattern=[A-Z]+`, giá trị `ab` → một lỗi `VALIDATION_MIN_LENGTH`;
   - optional, có `pattern`, giá trị `""` → hợp lệ, giá trị ra `null`;
@@ -149,10 +154,11 @@
   - field string với `extraRules={"email"}`, giá trị `x` → `VALIDATION_EMAIL`;
   - number `min=1`, giá trị `abc` → `VALIDATION_TYPE` (dừng ở type, không tới min);
   - rule ném `RuntimeException("SECRET")` (rule giả chèn vào plan qua constructor cho test) → lỗi mang mã của rule đó, message `Unexpected error while applying rule '<type>'.`, không chứa `SECRET`.
-- [ ] 5.2 Chạy. Mong đợi: FAIL.
-- [ ] 5.3 Cài đặt theo SR6.
-- [ ] 5.4 Chạy lại. Mong đợi: PASS.
-- [ ] 5.5 Commit: `feat(core): per-field rule plans in a fixed order, first failure wins`
+- [x] 5.2 Chạy. Mong đợi: FAIL.
+- [x] 5.3 Cài đặt theo SR6.
+  - `FieldRulePlan.of(field, extraRules, ValidationRegistry base)` là overload thêm. `ValidationRegistry` vẫn public, và `FieldValidator(ValidationRegistry)` giữ nguyên. **LÝ DO:** test V0.1 `a_bug_in_a_rule_becomes_a_failure_without_its_message` chèn rule lỗi qua registry; giữ đường này thì test không phải đổi. Test đó chỉ thêm `code()` cho rule giả, kỳ vọng giữ nguyên.
+- [x] 5.4 Chạy lại. Mong đợi: PASS.
+- [x] 5.5 Commit: `feat(core): per-field rule plans in a fixed order, first failure wins`
 
 ## 6. `UniqueIndex`
 
@@ -162,16 +168,17 @@
 - Delete: `MAIN/core/validate/UniqueTracker.java`
 - Test: `TEST/core/validate/UniqueIndexTest.java` (chuyển các case của `UniqueTrackerTest` sang `VALID_ROWS`)
 
-- [ ] 6.1 Viết `UniqueIndexTest`:
+- [x] 6.1 Viết `UniqueIndexTest`:
   - **VALID_ROWS** (mọi case của `UniqueTrackerTest` cũ): stage rồi commit mới được tính; `discardRow` thì bỏ; gọi `record` khi chưa `beginRow` → `IllegalStateException`;
   - **ALL_ROWS**: row 2 `a@x.com`, `discardRow()`; row 3 `a@x.com` → `firstRowOf` = 2;
   - canonical: `1.0` và `1` trùng; `Abc` và `abc` không trùng; `LocalDate` trùng theo ngày;
   - hai field khác tên cùng giá trị `x` → không trùng nhau;
   - 300 000 giá trị khác nhau → không có trùng giả.
-- [ ] 6.2 Chạy. Mong đợi: FAIL.
-- [ ] 6.3 Cài đặt theo SR7. Khoá là `KeyHasher.hash([field, kindTag, canonicalText])`. Message của `UniqueRule` giữ `Duplicate value; first seen in row N.`
-- [ ] 6.4 Chạy lại, cùng `UniqueRuleTest`. Mong đợi: PASS.
-- [ ] 6.5 Commit: `feat(core): hashed unique index with valid-rows and all-rows scopes`
+- [x] 6.2 Chạy. Mong đợi: FAIL.
+- [x] 6.3 Cài đặt theo SR7. Khoá là `KeyHasher.hash([field, kindTag, canonicalText])`. Message của `UniqueRule` giữ `Duplicate value; first seen in row N.`
+  - API là `key(field, value)` → `Hash128`, rồi `firstRowOf(Hash128)` và `record(Hash128)`, thay cho `firstRowOf(field, canonical)` / `record(field, canonical)`. **LÝ DO:** mỗi lần kiểm chỉ băm một lần. Canonical nằm trong `UniqueIndex`. `UniqueTrackerTest` đã xoá; các case của nó nằm trong `UniqueIndexTest`.
+- [x] 6.4 Chạy lại, cùng `UniqueRuleTest`. Mong đợi: PASS.
+- [x] 6.5 Commit: `feat(core): hashed unique index with valid-rows and all-rows scopes`
 
 ## 7. Importer chạy trên engine mới
 
@@ -179,10 +186,10 @@
 - Modify: `MAIN/tools/importer/domain/validation/FieldValidator.java`: dựng `FieldRulePlan` từ `TargetField` (chuyển sang `SchemaField` với `FieldConstraints.NONE`, `unique` từ `ValidationRuleConfig`) cùng `extraRules` (`email`); gọi `FieldRuleRunner`. Bỏ map `CODES` và vòng lặp viết cứng.
 - Modify: `MAIN/tools/importer/domain/pipeline/DefaultImportPipeline.java`: `UniqueTracker` → `UniqueIndex(VALID_ROWS)`. Plan được dựng **một lần mỗi lượt chạy** trong `Run`.
 
-- [ ] 7.1 Chạy toàn bộ test V0.1 trước khi sửa, để ghi baseline. Mong đợi: PASS.
-- [ ] 7.2 Sửa như phần Files.
-- [ ] 7.3 Chạy `./mvnw -q test`. Mong đợi: PASS toàn bộ, gồm `ExportGoldenIntegrationTest` và các test e2e. Không test V0.1 nào đổi kỳ vọng.
-- [ ] 7.4 Commit: `refactor(importer): validate through core rule plans and unique index`
+- [x] 7.1 Chạy toàn bộ test V0.1 trước khi sửa, để ghi baseline. Mong đợi: PASS.
+- [x] 7.2 Sửa như phần Files.
+- [x] 7.3 Chạy `./mvnw -q test`. Mong đợi: PASS toàn bộ, gồm `ExportGoldenIntegrationTest` và các test e2e. Không test V0.1 nào đổi kỳ vọng.
+- [x] 7.4 Commit: `refactor(importer): validate through core rule plans and unique index`
 
 ## 8. Transformation mới và catalog
 
@@ -191,7 +198,7 @@
 - Modify: `MAIN/core/transform/TransformationRegistry.java` (`of(Set<String>)`)
 - Test: `TEST/core/transform/{TitleCaseTransformationTest, ReplaceTransformationTest, NormalizeNullTransformationTest, TransformationCatalogTest}.java`
 
-- [ ] 8.1 Viết test:
+- [x] 8.1 Viết test:
 
   | Transformation | Tham số | Input | Mong đợi |
   |---|---|---|---|
@@ -214,10 +221,13 @@
   - `all()` có đúng 8 type;
   - `TransformationRegistry.standard().types()` = `[dateFormat, defaultValue, lowercase, trim, uppercase]`;
   - `of(Set.of("trim","nope"))` → `IllegalArgumentException`.
-- [ ] 8.2 Chạy. Mong đợi: FAIL.
-- [ ] 8.3 Cài đặt theo SR8–SR9. `ListParams.split(String)` và `ListParams.join(List<String>)` mã hoá danh sách bằng `\n`.
-- [ ] 8.4 Chạy lại, cùng test transformation của Importer (`PUT /transformations` với `titleCase` vẫn trả `CONFIG_INVALID`). Mong đợi: PASS.
-- [ ] 8.5 Commit: `feat(core): titleCase, replace and normalizeNull in the shared transformation catalog`
+- [x] 8.2 Chạy. Mong đợi: FAIL.
+- [x] 8.3 Cài đặt theo SR8–SR9. `ListParams.split(String)` và `ListParams.join(List<String>)` mã hoá danh sách bằng `\n`.
+  - ~~Bốn file test riêng~~ gộp thành `NewTransformationsTest`. **LÝ DO:** mỗi transformation chỉ vài case; gộp lại gọn hơn mà vẫn đủ bảng 8.1.
+  - `replace`: `find` là một khoảng trắng vẫn hợp lệ (không dùng `TransformationParams.required`, vốn báo `must not be blank`). Rỗng hoặc dài quá 1 000 thì báo `Parameter 'find' must be 1-1000 characters.` **LÝ DO:** thay khoảng trắng là việc dọn dữ liệu hay gặp.
+  - Sai `caseSensitive` báo `Parameter 'caseSensitive' must be 'true' or 'false'.`; sai `match` báo `Parameter 'match' must be 'exact' or 'contains'.`
+- [x] 8.4 Chạy lại, cùng test transformation của Importer (`PUT /transformations` với `titleCase` vẫn trả `CONFIG_INVALID`). Mong đợi: PASS.
+- [x] 8.5 Commit: `feat(core): titleCase, replace and normalizeNull in the shared transformation catalog`
 
 ## 9. Hoàn tất
 
