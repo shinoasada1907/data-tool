@@ -231,7 +231,7 @@
 
 ## 9. Hoàn tất
 
-- [ ] 9.1 `./mvnw -q verify`. Mong đợi: PASS.
-- [ ] 9.2 `openspec validate core-03-schema-rules --strict`, rồi `openspec archive core-03-schema-rules -y`. Commit: `docs(openspec): archive core-03-schema-rules`.
+- [x] 9.1 `./mvnw -q verify`. Mong đợi: PASS.
+- [x] 9.2 `openspec validate core-03-schema-rules --strict`, rồi `openspec archive core-03-schema-rules -y`. Commit: `docs(openspec): archive core-03-schema-rules`.
 - [ ] 9.3 Kiểm thư mục chính rồi merge `--no-ff` vào `dev`. Báo người dùng rằng `pom.xml` thêm RE2J, nên cần reload Maven.
 - [ ] 9.4 `git branch -d feature/core-03-schema-rules`.
