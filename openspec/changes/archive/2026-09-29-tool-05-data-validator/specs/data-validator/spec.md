@@ -56,3 +56,20 @@ Tên file SHALL là tên gốc bỏ đuôi, cộng `-valid`, `-invalid` hoặc `
 #### Scenario: Danh sách lỗi
 - **WHEN** run có 1 row lỗi (row 3) với lỗi `VALIDATION_EMAIL` ở field `email`, giá trị `a@`, và client export `ERRORS` sang CSV
 - **THEN** file có dòng tiêu đề `row,field,code,rule,message,value` và dòng `3,email,VALIDATION_EMAIL,email,Value is not a valid email address.,a@`
+
+### Requirement: Mã lỗi của Validator
+Mỗi endpoint của Validator SHALL chỉ trả các `code` sau, cùng các ngoại lệ chung của spec `api-errors`:
+
+| Endpoint | Mã lỗi được phép |
+|---|---|
+| `POST /api/validator/runs` | `REQUEST_INVALID`, `SCHEMA_INVALID`, `SCHEMA_INCOMPATIBLE`, `DATASET_NOT_FOUND`, `FILE_PARSE_ERROR`, `FILE_EMPTY`, `JSON_NOT_FLAT`, `LIMIT_EXCEEDED`, `CONFIG_INVALID`, `SERVER_BUSY` |
+| `GET /api/validator/runs/{id}` | `REQUEST_INVALID`, `RUN_NOT_FOUND` |
+| `GET /api/validator/runs/{id}/rows` | `REQUEST_INVALID`, `RUN_NOT_FOUND` |
+| `POST /api/validator/runs/{id}/export` | `REQUEST_INVALID`, `RUN_NOT_FOUND`, `CONFIG_INVALID`, `LIMIT_EXCEEDED`, `EXPORT_FAILED` |
+| `DELETE /api/validator/runs/{id}` | `REQUEST_INVALID`, `RUN_NOT_FOUND` |
+
+`SERVER_BUSY` ở `POST /api/validator/runs` là khi dataset đang bị xoá.
+
+#### Scenario: Run không có
+- **WHEN** client gọi `GET /api/validator/runs/{id}` với một UUID không phải run nào
+- **THEN** hệ thống trả `404` với `code` là `RUN_NOT_FOUND`
