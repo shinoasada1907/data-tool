@@ -8,7 +8,7 @@ FE SHALL hiển thị sidebar bên trái, gồm tên app ở trên cùng và dan
 
 #### Scenario: Mở app
 - **WHEN** user mở app
-- **THEN** sidebar hiển thị "Universal Importer" và mục "Import dữ liệu" đang được chọn (`aria-current="page"`)
+- **THEN** sidebar hiển thị "Universal Data Tools", có hai mục "Import dữ liệu" và "Kiểm tra dữ liệu", và "Import dữ liệu" đang được chọn (`aria-current="page"`)
 
 ### Requirement: Trang của công cụ có tiêu đề
 Vùng nội dung SHALL hiển thị tiêu đề trang (h1) là tên công cụ đang mở, kèm mô tả ngắn, rồi tới nội dung của công cụ đó.
@@ -22,7 +22,7 @@ Tên app MUST được lấy từ đúng một nguồn (`messages.appName`) cho 
 
 #### Scenario: Tiêu đề tab
 - **WHEN** app đã chạy
-- **THEN** `document.title` là "Universal Importer", trùng tên trên sidebar
+- **THEN** `document.title` là "Universal Data Tools", trùng tên trên sidebar
 
 ### Requirement: Thu gọn và mở rộng sidebar
 Sidebar SHALL có một nút bật/tắt để chuyển giữa hai trạng thái: mở (như mặc định) và thu gọn thành một dải hẹp. Nút MUST có tên đọc được, là "Thu gọn thanh bên" khi sidebar đang mở và "Mở rộng thanh bên" khi đang thu gọn, và MUST báo trạng thái qua `aria-expanded`.
@@ -51,4 +51,11 @@ Trạng thái thu gọn SHALL được nhớ qua lần tải lại trang. Nếu 
 #### Scenario: Không lưu được trạng thái
 - **WHEN** trình duyệt chặn `localStorage`
 - **THEN** sidebar mặc định là mở và nút bật/tắt vẫn dùng được
+
+### Requirement: Giữ trạng thái khi chuyển công cụ
+Công cụ đã mở ít nhất một lần SHALL giữ nguyên trạng thái (file, cấu hình, kết quả, bước đang đứng) khi user chuyển sang công cụ khác rồi quay lại. Công cụ không đang mở MUST bị ẩn khỏi màn hình và khỏi cây truy cập (`hidden`). Công cụ chưa mở lần nào MUST NOT được mount.
+
+#### Scenario: Quay lại Import
+- **WHEN** user đã upload file ở "Import dữ liệu", chuyển sang "Kiểm tra dữ liệu", rồi quay lại
+- **THEN** wizard Import vẫn ở bước cũ với file đã upload
 
