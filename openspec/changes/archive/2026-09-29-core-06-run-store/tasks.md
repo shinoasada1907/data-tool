@@ -55,6 +55,6 @@
 
 ## 3. Hoàn tất
 
-- [ ] 3.1 `./mvnw -q verify`. Mong đợi: PASS.
-- [ ] 3.2 `openspec validate core-06-run-store --strict`, rồi `openspec archive core-06-run-store -y`.
+- [x] 3.1 `./mvnw -q verify`. Mong đợi: PASS.
+- [x] 3.2 `openspec validate core-06-run-store --strict`, rồi `openspec archive core-06-run-store -y`.
 - [ ] 3.3 Merge `--no-ff` vào `dev`, xoá nhánh.
