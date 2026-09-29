@@ -30,7 +30,7 @@ class ArchitectureTest {
     private static final String TOOLS = ROOT + ".tools..";
 
     /** Tools that exist so far; each new tool adds its name. */
-    private static final List<String> TOOL_NAMES = List.of("importer", "converter");
+    private static final List<String> TOOL_NAMES = List.of("importer", "converter", "validator");
 
     private static final JavaClasses PRODUCTION_CLASSES = new ClassFileImporter()
             .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)

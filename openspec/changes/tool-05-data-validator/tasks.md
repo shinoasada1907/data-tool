@@ -20,10 +20,10 @@
 - Modify: `ErrorCode` (`SCHEMA_INCOMPATIBLE`), `ErrorHttpStatus`, `ArchitectureTest.TOOL_NAMES`, `OpenApiConfig` (group `validator`)
 - Test: `TEST/tools/validator/ColumnMatcherTest.java`, `TEST/tools/validator/ValidatorApiIntegrationTest.java`
 
-- [ ] 1.1 `ColumnMatcherTest`: khớp chính xác trước; ` Email ` khớp `email`; một cột không khớp hai field; thiếu required → danh sách lỗi `FIELD_MISSING`; optional thiếu → `missingOptional`; cột thừa → `extraColumns`.
-- [ ] 1.2 `ValidatorApiIntegrationTest` (tạo run): scenario "File có row lỗi", "Trùng với row lỗi vẫn là trùng", "Constraint sai kiểu" (`pointer` `/schema/fields/1/constraints/min`), "Thiếu cột bắt buộc" (không có row `tool_run`), `DATASET_NOT_FOUND`, `GET` run có `Cache-Control: no-store`, `DELETE` rồi `GET` → `404 RUN_NOT_FOUND`.
-- [ ] 1.3 FAIL → cài đặt → PASS.
-- [ ] 1.4 Commit: `feat(validator): validate a dataset against an inline schema into a run`
+- [x] 1.1 `ColumnMatcherTest`: khớp chính xác trước; ` Email ` khớp `email`; một cột không khớp hai field; thiếu required → danh sách lỗi `FIELD_MISSING`; optional thiếu → `missingOptional`; cột thừa → `extraColumns`.
+- [x] 1.2 `ValidatorApiIntegrationTest` (tạo run): scenario "File có row lỗi", "Trùng với row lỗi vẫn là trùng", "Constraint sai kiểu" (`pointer` `/schema/fields/1/constraints/min`), "Thiếu cột bắt buộc" (không có row `tool_run`), `DATASET_NOT_FOUND`, `GET` run có `Cache-Control: no-store`, `DELETE` rồi `GET` → `404 RUN_NOT_FOUND`.
+- [x] 1.3 FAIL → cài đặt → PASS.
+- [x] 1.4 Commit: `feat(validator): validate a dataset against an inline schema into a run`
 
 ## 2. Xem row
 
@@ -31,9 +31,9 @@
 - Create: `MAIN/tools/validator/application/ValidatorRows.java`
 - Test: thêm vào `ValidatorApiIntegrationTest`
 
-- [ ] 2.1 Test: `view` mặc định `VALID`; `view=invalid` có `errors[].value` là giá trị gốc; scenario "Lọc theo mã"; `view=x` → `400`; `page=5&size=10` → `rows` rỗng, tổng đúng; xoá dataset nguồn rồi `rows` vẫn `200`.
-- [ ] 2.2 FAIL → cài đặt → PASS.
-- [ ] 2.3 Commit: `feat(validator): paged valid and invalid rows with field and code filters`
+- [x] 2.1 Test: `view` mặc định `VALID`; `view=invalid` có `errors[].value` là giá trị gốc; scenario "Lọc theo mã"; `view=x` → `400`; `page=5&size=10` → `rows` rỗng, tổng đúng; xoá dataset nguồn rồi `rows` vẫn `200`.
+- [x] 2.2 FAIL → cài đặt → PASS.
+- [x] 2.3 Commit: `feat(validator): paged valid and invalid rows with field and code filters`
 
 ## 3. Export
 
@@ -41,13 +41,18 @@
 - Create: `MAIN/tools/validator/application/ValidatorExports.java`
 - Test: thêm vào `ValidatorApiIntegrationTest`
 
-- [ ] 3.1 Test: scenario "Ngày theo format riêng thành ngày ISO", "Danh sách lỗi"; `INVALID` sang CSV có `_row` và `_errors`; tên file `-valid.xlsx`; `content` lạ → `400`; `output.format` lạ → `422 CONFIG_INVALID`.
-- [ ] 3.2 FAIL → cài đặt → PASS.
-- [ ] 3.3 Commit: `feat(validator): export valid rows, invalid rows or the error list`
+- [x] 3.1 Test: scenario "Ngày theo format riêng thành ngày ISO", "Danh sách lỗi"; `INVALID` sang CSV có `_row` và `_errors`; tên file `-valid.xlsx`; `content` lạ → `400`; `output.format` lạ → `422 CONFIG_INVALID`.
+- [x] 3.2 FAIL → cài đặt → PASS.
+  - ~~Ba commit riêng cho nhóm 1, 2, 3~~ gộp làm một: `feat(validator): …`. **LÝ DO:** ba nhóm dùng chung `ValidatorDtos`, `ValidatorService.view` và một file test tích hợp; chúng được viết và chạy test cùng lúc.
+  - Làm thêm: `RunSourceDto` trong `platform.run`, để Cleaner và Diff dùng lại cho `sources` của run.
+  - Làm thêm: requirement "Mã lỗi của Validator" trong spec, vì spec `api-errors` nói mã của mỗi endpoint tool nằm trong spec của tool đó.
+- [x] 3.3 Commit: `feat(validator): export valid rows, invalid rows or the error list`
 
 ## 4. Hoàn tất
 
-- [ ] 4.1 `./mvnw -q verify`. Mong đợi: PASS.
-- [ ] 4.2 Chạy app thật với DB tạm: upload → run → rows → export.
+- [x] 4.1 `./mvnw -q verify`. Mong đợi: PASS.
+- [x] 4.2 Chạy app thật với DB tạm: upload → run → rows → export.
+  - Tìm ra một lỗi: `GET` run trả `errorCountsByField` và `errorCountsByCode` sai thứ tự, vì `jsonb` của PostgreSQL tự sắp lại key (theo độ dài rồi theo byte). Response của `POST` thì đúng, vì chưa qua DB. Đã sửa trong `ValidatorService.view`: sắp lại mã theo thứ tự chữ, field theo thứ tự schema. Test `a_file_with_an_invalid_row` giờ canh thứ tự này.
+  - Không đổi cột sang `json`. **LÝ DO:** `V13` đã vào `dev`; sửa migration đã chạy sẽ làm lệch checksum Flyway ở DB đã áp nó.
 - [ ] 4.3 `openspec validate tool-05-data-validator --strict`, rồi `openspec archive tool-05-data-validator -y`.
 - [ ] 4.4 Merge `--no-ff` vào `dev`, xoá nhánh. Gửi contract cho phiên FE.

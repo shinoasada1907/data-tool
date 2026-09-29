@@ -43,6 +43,11 @@ public class OpenApiConfig {
     }
 
     @Bean
+    GroupedOpenApi validatorApi() {
+        return GroupedOpenApi.builder().group("validator").pathsToMatch("/api/validator/**").build();
+    }
+
+    @Bean
     GroupedOpenApi importerApi() {
         return GroupedOpenApi.builder().group("importer").pathsToMatch("/api/import-sessions/**").build();
     }
