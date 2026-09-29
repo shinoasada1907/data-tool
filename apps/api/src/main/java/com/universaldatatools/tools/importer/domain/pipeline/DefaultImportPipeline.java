@@ -7,12 +7,13 @@ import com.universaldatatools.core.transform.FieldTransformResult;
 import com.universaldatatools.core.transform.TransformationEngine;
 import com.universaldatatools.core.transform.TransformationStep;
 import com.universaldatatools.core.validate.FieldValidation;
-import com.universaldatatools.core.validate.UniqueTracker;
+import com.universaldatatools.core.validate.FieldRulePlan;
+import com.universaldatatools.core.validate.UniqueIndex;
+import com.universaldatatools.core.validate.UniqueScope;
 import com.universaldatatools.tools.importer.domain.mapping.MappingStrategies;
 import com.universaldatatools.tools.importer.domain.mapping.RowMapper;
 import com.universaldatatools.tools.importer.domain.schema.TargetField;
 import com.universaldatatools.tools.importer.domain.validation.FieldValidator;
-import com.universaldatatools.tools.importer.domain.validation.ValidationRuleConfig;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -24,7 +25,7 @@ import java.util.stream.Stream;
 /**
  * The pipeline of V0.1 (design P1–P4). Streams: only counters and the unique values of one run stay in memory.
  * Deterministic: the same rows and config give the same results, whatever ran before, since each run has its own
- * {@link UniqueTracker}. A failure in one field of one row, even a bug, becomes that field's error; the run goes on.
+ * {@link UniqueIndex}. A failure in one field of one row, even a bug, becomes that field's error; the run goes on.
  */
 public final class DefaultImportPipeline implements ImportPipeline {
 
@@ -55,8 +56,8 @@ public final class DefaultImportPipeline implements ImportPipeline {
         private final List<TargetField> fields;
         private final RowMapper mapper;
         private final List<List<TransformationStep>> steps = new ArrayList<>();
-        private final List<List<ValidationRuleConfig>> rules = new ArrayList<>();
-        private final UniqueTracker tracker = new UniqueTracker();
+        private final List<FieldRulePlan> plans = new ArrayList<>();
+        private final UniqueIndex tracker = new UniqueIndex(UniqueScope.VALID_ROWS);
         private final Map<String, Long> byCode = new TreeMap<>();
         private final long[] byField;
         private long valid;
@@ -67,7 +68,7 @@ public final class DefaultImportPipeline implements ImportPipeline {
             this.mapper = RowMapper.of(config.schema(), config.mapping(), config.source(), strategies);
             for (TargetField field : fields) {
                 steps.add(config.transformations().stepsFor(field.name()));
-                rules.add(config.validations().rulesFor(field.name()));
+                plans.add(validator.plan(field, config.validations().rulesFor(field.name())));
             }
             this.byField = new long[fields.size()];
         }
@@ -101,7 +102,7 @@ public final class DefaultImportPipeline implements ImportPipeline {
                     continue;
                 }
                 transformed.put(field.name(), t.value());
-                FieldValidation v = validator.validate(field, rules.get(i), t.value(), rowNumber, tracker);
+                FieldValidation v = validator.validate(plans.get(i), t.value(), rowNumber, tracker);
                 if (v.failed()) {
                     errors.add(new ImportError(rowNumber, field.name(), ErrorStage.VALIDATION, v.failure().rule(), null,
                             v.failure().code(), v.failure().message(), raw));

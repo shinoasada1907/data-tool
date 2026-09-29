@@ -39,7 +39,7 @@ class ArchitectureTest {
     @Test
     void core_is_plain_java() {
         classes().that().resideInAPackage(CORE).and().resideOutsideOfPackage(CORE_FORMAT)
-                .should().onlyDependOnClassesThat().resideInAnyPackage("java..", CORE)
+                .should().onlyDependOnClassesThat().resideInAnyPackage("java..", CORE, "com.google.re2j..")
                 .check(PRODUCTION_CLASSES);
     }
 

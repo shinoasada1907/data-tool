@@ -6,7 +6,8 @@ import com.universaldatatools.core.validate.EmailRule;
 import com.universaldatatools.core.validate.FieldValidation;
 import com.universaldatatools.core.validate.RequiredRule;
 import com.universaldatatools.core.validate.TypeRule;
-import com.universaldatatools.core.validate.UniqueTracker;
+import com.universaldatatools.core.validate.UniqueIndex;
+import com.universaldatatools.core.validate.UniqueScope;
 import com.universaldatatools.core.validate.ValidationContext;
 import com.universaldatatools.core.validate.ValidationFailure;
 import com.universaldatatools.core.validate.ValidationRegistry;
@@ -25,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class FieldValidatorTest {
 
     private final FieldValidator validator = new FieldValidator(ValidationRegistry.standard());
-    private final UniqueTracker tracker = new UniqueTracker();
+    private final UniqueIndex tracker = new UniqueIndex(UniqueScope.VALID_ROWS);
 
     @Test
     void an_empty_required_field_only_reports_required() {
@@ -136,6 +137,11 @@ class FieldValidatorTest {
         @Override
         public String type() {
             return "unique";
+        }
+
+        @Override
+        public RowErrorCode code() {
+            return RowErrorCode.VALIDATION_UNIQUE;
         }
 
         @Override

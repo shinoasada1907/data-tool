@@ -11,6 +11,11 @@ public final class EmailRule implements ValidationRule {
     }
 
     @Override
+    public RowErrorCode code() {
+        return RowErrorCode.VALIDATION_EMAIL;
+    }
+
+    @Override
     public ValidationResult validate(Object value, ValidationContext context) {
         return value instanceof String text && EmailAddresses.isValid(text)
                 ? new ValidationResult.Valid(value)

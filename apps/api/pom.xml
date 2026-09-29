@@ -140,6 +140,12 @@
             <artifactId>fastexcel</artifactId>
             <version>0.20.2</version>
         </dependency>
+        <!-- Linear-time regular expressions for user-supplied patterns (core-03 SR10): no ReDoS. -->
+        <dependency>
+            <groupId>com.google.re2j</groupId>
+            <artifactId>re2j</artifactId>
+            <version>1.8</version>
+        </dependency>
     </dependencies>
 
     <build>

@@ -1,12 +1,12 @@
 package com.universaldatatools.core.validate;
 
 import com.universaldatatools.core.common.RowErrorCode;
+import com.universaldatatools.core.table.Hash128;
 
-import java.util.Optional;
+import java.util.OptionalInt;
 
 /**
- * A value may appear in only one valid row per field. The value is staged for the row being checked; it only
- * counts once the row is committed (see {@link UniqueTracker}).
+ * A value may appear only once per field; which earlier rows count depends on the {@link UniqueIndex}'s scope.
  */
 public final class UniqueRule implements ValidationRule {
 
@@ -16,14 +16,19 @@ public final class UniqueRule implements ValidationRule {
     }
 
     @Override
+    public RowErrorCode code() {
+        return RowErrorCode.VALIDATION_UNIQUE;
+    }
+
+    @Override
     public ValidationResult validate(Object value, ValidationContext context) {
-        Object canonical = UniqueTracker.canonical(value);
-        Optional<Integer> firstRow = context.uniqueTracker().firstRowOf(context.fieldName(), canonical);
+        Hash128 key = context.unique().key(context.fieldName(), value);
+        OptionalInt firstRow = context.unique().firstRowOf(key);
         if (firstRow.isPresent()) {
             return new ValidationResult.Invalid(RowErrorCode.VALIDATION_UNIQUE,
-                    "Duplicate value; first seen in row " + firstRow.get() + ".");
+                    "Duplicate value; first seen in row " + firstRow.getAsInt() + ".");
         }
-        context.uniqueTracker().stage(context.fieldName(), canonical);
+        context.unique().record(key);
         return new ValidationResult.Valid(value);
     }
 }
