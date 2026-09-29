@@ -6,7 +6,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/** The validation rules the application knows, looked up by their exact type. */
+/** The rules a {@link FieldRulePlan} takes {@code required}, {@code type}, {@code email} and {@code unique} from. */
 public final class ValidationRegistry {
 
     private final Map<String, ValidationRule> byType;
@@ -22,6 +22,11 @@ public final class ValidationRegistry {
     /** The four rules of V0.1. */
     public static ValidationRegistry standard() {
         return new ValidationRegistry(List.of(new RequiredRule(), new TypeRule(), new EmailRule(), new UniqueRule()));
+    }
+
+    /** @throws IllegalStateException when there is no such rule: a wiring bug, not user input */
+    ValidationRule require(String type) {
+        return find(type).orElseThrow(() -> new IllegalStateException("No validation rule of type " + type));
     }
 
     public Optional<ValidationRule> find(String type) {

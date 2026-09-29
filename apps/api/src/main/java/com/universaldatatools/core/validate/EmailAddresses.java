@@ -12,7 +12,7 @@ public final class EmailAddresses {
 
     public static final int MAX_LENGTH = 254;
 
-    static final String INVALID = "Value is not a valid email address.";
+    public static final String INVALID = "Value is not a valid email address.";
 
     private EmailAddresses() {
     }

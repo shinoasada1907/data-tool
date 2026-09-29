@@ -10,7 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class UniqueRuleTest {
 
-    private final UniqueTracker tracker = new UniqueTracker();
+    private final UniqueIndex tracker = new UniqueIndex(UniqueScope.VALID_ROWS);
     private final UniqueRule rule = new UniqueRule();
 
     @Test
