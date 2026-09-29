@@ -26,7 +26,7 @@ export function problemResponse(status: number, code: string, detail: string): R
 export function problemWithErrors(
   status: number,
   code: string,
-  errors: { field: string | null; code: string; message: string }[],
+  errors: { field: string | null; code: string; message: string; pointer?: string }[],
 ): Response {
   return HttpResponse.json(problemFixture(status, code, 'Request failed.', { errors }), {
     status,

@@ -22,12 +22,34 @@ export const errorCodeMessages: Readonly<Record<string, string>> = {
   CONFIG_INVALID: 'Cấu hình transformation hoặc validation không hợp lệ',
   EXPORT_FAILED: 'Không tạo được file export',
   INTERNAL_ERROR: 'Máy chủ gặp lỗi không lường trước',
+  // Lỗi API của toolbox (contract Toolbox v1)
+  DATASET_NOT_FOUND: 'File không còn trên máy chủ (đã hết hạn hoặc đã xoá); hãy chọn lại file',
+  RUN_NOT_FOUND: 'Kết quả không còn trên máy chủ (đã hết hạn); hãy chạy lại',
+  JSON_NOT_FLAT: 'JSON có giá trị lồng nhau; chỉ hỗ trợ mảng các object phẳng',
+  LIMIT_EXCEEDED: 'Dữ liệu vượt giới hạn xử lý của máy chủ',
+  SCHEMA_INCOMPATIBLE: 'File thiếu cột cho field bắt buộc',
+  RATE_LIMITED: 'Bạn thao tác quá nhanh, hãy thử lại sau ít phút',
+  SERVER_BUSY: 'Máy chủ đang bận, hãy thử lại sau ít giây',
+  // Lỗi trong errors[] của SCHEMA_INVALID / SCHEMA_INCOMPATIBLE
+  SCHEMA_NAME_INVALID: 'Tên schema không hợp lệ',
+  SCHEMA_FIELDS_INVALID: 'Danh sách field không hợp lệ',
+  FIELD_NAME_INVALID: 'Tên field không hợp lệ',
+  FIELD_NAME_DUPLICATE: 'Tên field bị trùng',
+  FIELD_TYPE_INVALID: 'Kiểu dữ liệu không hợp lệ',
+  CONSTRAINT_INVALID: 'Ràng buộc không hợp lệ',
+  FIELD_MISSING: 'Không có cột cho field bắt buộc',
   // Lỗi theo dòng
   TRANSFORMATION_FAILED: 'Biến đổi dữ liệu thất bại',
   VALIDATION_REQUIRED: 'Thiếu giá trị bắt buộc',
   VALIDATION_TYPE: 'Sai kiểu dữ liệu',
   VALIDATION_EMAIL: 'Email không hợp lệ',
   VALIDATION_UNIQUE: 'Giá trị bị trùng',
+  VALIDATION_MIN: 'Nhỏ hơn giá trị tối thiểu',
+  VALIDATION_MAX: 'Lớn hơn giá trị tối đa',
+  VALIDATION_MIN_LENGTH: 'Ngắn hơn độ dài tối thiểu',
+  VALIDATION_MAX_LENGTH: 'Dài hơn độ dài tối đa',
+  VALIDATION_PATTERN: 'Không khớp pattern',
+  VALIDATION_DATE_FORMAT: 'Sai định dạng ngày',
   // Readiness issue
   SCHEMA_EMPTY: 'Schema chưa có field nào',
   TARGET_FIELD_REQUIRED: 'Field bắt buộc chưa được map',
@@ -46,7 +68,7 @@ export const stepLabels: Readonly<Record<StepId, string>> = {
 
 export const messages = {
   /** Tên app: nguồn duy nhất cho sidebar và tiêu đề tab. Đổi tên dự án thì sửa ở đây (fe-app-shell D2). */
-  appName: 'Universal Importer',
+  appName: 'Universal Data Tools',
   appVersion: 'V0.1',
 
   shell: {
@@ -59,6 +81,10 @@ export const messages = {
     import: {
       label: 'Import dữ liệu',
       description: 'Nhập file CSV hoặc XLSX, map sang schema đích, kiểm tra rồi xuất dữ liệu hợp lệ.',
+    },
+    validator: {
+      label: 'Kiểm tra dữ liệu',
+      description: 'Kiểm tra file CSV, XLSX hoặc JSON theo một schema; xem lỗi theo từng dòng và tải báo cáo.',
     },
   },
 

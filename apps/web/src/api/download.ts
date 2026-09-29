@@ -22,8 +22,16 @@ export interface Download {
  * Tải file bằng `fetch` + blob (design D10): kiểm `response.ok` trước; lỗi thì đọc ProblemDetail và ném `ApiError`,
  * không bao giờ trả body lỗi như một file. Kết nối đứt khi BE đang stream (BE không đổi được status nữa) là lỗi mạng.
  */
-export async function download(path: string, { signal }: { signal?: AbortSignal } = {}): Promise<Download> {
-  const result = await fetchWithin(path, {}, { signal, timeoutMs: DOWNLOAD_IDLE_TIMEOUT_MS }, async (response, progress) =>
+export async function download(
+  path: string,
+  { signal, method = 'GET', body }: { signal?: AbortSignal; method?: 'GET' | 'POST'; body?: unknown } = {},
+): Promise<Download> {
+  // Export của toolbox là POST với body JSON chọn nội dung và định dạng (design V9).
+  const init: RequestInit =
+    body === undefined
+      ? { method }
+      : { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+  const result = await fetchWithin(path, init, { signal, timeoutMs: DOWNLOAD_IDLE_TIMEOUT_MS }, async (response, progress) =>
     response.ok
       ? {
           ok: true as const,

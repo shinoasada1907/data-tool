@@ -65,7 +65,7 @@ function parseProblem(body: string) {
 
 function toProblemItem(item: unknown): ProblemItemDto[] {
   if (!isRecord(item) || typeof item.code !== 'string' || typeof item.message !== 'string') return []
-  return [{ field: stringOrNull(item.field), code: item.code, message: item.message }]
+  return [{ field: stringOrNull(item.field), code: item.code, message: item.message, pointer: stringOrNull(item.pointer) }]
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

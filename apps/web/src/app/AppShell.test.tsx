@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
+import { useEffect, useState } from 'react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 import App from '../App'
@@ -29,7 +30,7 @@ describe('khung app', () => {
   test('sidebar có tên app và mục "Import dữ liệu" đang được chọn', () => {
     render(<App />)
 
-    expect(within(screen.getByRole('complementary')).getByText('Universal Importer')).toBeInTheDocument()
+    expect(within(screen.getByRole('complementary')).getByText('Universal Data Tools')).toBeInTheDocument()
     expect(within(toolNav()).getByRole('button', { name: 'Import dữ liệu' })).toHaveAttribute('aria-current', 'page')
   })
 
@@ -44,7 +45,7 @@ describe('khung app', () => {
     document.title = ''
     render(<App />)
 
-    expect(document.title).toBe('Universal Importer')
+    expect(document.title).toBe('Universal Data Tools')
   })
 
   test('sidebar liệt kê đúng các công cụ đã đăng ký; chọn công cụ khác thì mở trang của nó', async () => {
@@ -65,6 +66,42 @@ describe('khung app', () => {
     expect(screen.getByText('Nội dung báo cáo')).toBeInTheDocument()
     expect(within(toolNav()).getByRole('button', { name: 'Báo cáo' })).toHaveAttribute('aria-current', 'page')
     expect(within(toolNav()).getByRole('button', { name: 'Import dữ liệu' })).not.toHaveAttribute('aria-current')
+  })
+
+  test('chuyển công cụ rồi quay lại thì công cụ cũ còn nguyên trạng thái; công cụ chưa mở thì chưa mount', async () => {
+    const mounted: string[] = []
+    function Counter({ id }: { id: string }) {
+      const [count, setCount] = useState(0)
+      useEffect(() => {
+        mounted.push(id)
+      }, [id])
+      return (
+        <button type="button" onClick={() => setCount(count + 1)}>
+          {`Đếm ${id}: ${count}`}
+        </button>
+      )
+    }
+    const tools: ToolDefinition[] = [
+      { id: 'a', label: 'Công cụ A', description: 'A', Icon: NoIcon, Component: () => <Counter id="a" /> },
+      { id: 'b', label: 'Công cụ B', description: 'B', Icon: NoIcon, Component: () => <Counter id="b" /> },
+    ]
+    const user = userEvent.setup()
+    render(<AppShell tools={tools} />)
+    expect(mounted).toEqual(['a'])
+
+    await user.click(screen.getByRole('button', { name: 'Đếm a: 0' }))
+    await user.click(within(toolNav()).getByRole('button', { name: 'Công cụ B' }))
+
+    // Công cụ A bị ẩn (không còn trong cây truy cập) nhưng không bị unmount.
+    expect(screen.queryByRole('button', { name: /Đếm a/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Đếm b: 0' })).toBeInTheDocument()
+
+    await user.click(within(toolNav()).getByRole('button', { name: 'Công cụ A' }))
+
+    expect(screen.getByRole('button', { name: 'Đếm a: 1' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Công cụ A' })).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(mounted).toEqual(['a', 'b'])
   })
 
   test('thả file ra ngoài vùng upload thì trình duyệt không tự mở file (rời khỏi app)', () => {

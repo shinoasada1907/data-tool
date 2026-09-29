@@ -12,13 +12,17 @@ export interface ErrorText {
  * Dòng chính theo thứ tự: thông điệp FE theo `code` → `detail` → `title` → thông điệp chung theo status
  * (spec import-wizard, "Hiển thị lỗi API nhất quán"). Trả null khi không có gì để báo (request bị huỷ).
  */
-export function describeApiError(error: ApiError): ErrorText | null {
+export function describeApiError(
+  error: ApiError,
+  /** Thông điệp riêng của nơi gọi cho vài mã, ví dụ FILE_PARSE_ERROR của toolbox khác của Importer. */
+  overrides: Readonly<Record<string, string>> = {},
+): ErrorText | null {
   if (error.kind === 'aborted') return null
   if (error.kind === 'network') return { headline: messages.network }
   if (error.kind === 'timeout') return { headline: messages.timeout }
 
   const code = error.code ?? undefined
-  const known = code ? codeMessage(code) : undefined
+  const known = code ? (Object.hasOwn(overrides, code) ? overrides[code] : codeMessage(code)) : undefined
   if (known) {
     return error.detail ? { headline: known, detail: error.detail, code } : { headline: known, code }
   }

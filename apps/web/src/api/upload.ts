@@ -8,11 +8,21 @@ export interface UploadOptions {
   signal?: AbortSignal
 }
 
+/** Upload file nguồn, tạo import session. */
+export function uploadSourceFile(file: File, options: UploadOptions = {}): Promise<ImportSessionDto> {
+  return uploadFile(UPLOAD_URL, file, parseSession, options)
+}
+
 /**
- * Upload file nguồn, tạo import session. Dùng XHR thay vì fetch vì fetch không báo được tiến độ upload
- * (design D6). Lỗi HTTP, lỗi mạng, huỷ và response 2xx sai dạng đều reject bằng ApiError.
+ * Gửi một file dạng multipart (part `file`) tới `url`. Dùng XHR thay vì fetch vì fetch không báo được tiến độ upload
+ * (design D6). Lỗi HTTP, lỗi mạng, huỷ và response 2xx mà `parse` trả null đều reject bằng ApiError.
  */
-export function uploadSourceFile(file: File, { onProgress, signal }: UploadOptions = {}): Promise<ImportSessionDto> {
+export function uploadFile<T>(
+  url: string,
+  file: File,
+  parse: (body: string) => T | null,
+  { onProgress, signal }: UploadOptions = {},
+): Promise<T> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(new ApiError({ kind: 'aborted' }))
@@ -22,7 +32,7 @@ export function uploadSourceFile(file: File, { onProgress, signal }: UploadOptio
     const xhr = new XMLHttpRequest()
     const abort = () => xhr.abort()
 
-    xhr.open('POST', UPLOAD_URL)
+    xhr.open('POST', url)
     xhr.setRequestHeader('Accept', 'application/json, application/problem+json')
 
     xhr.upload.onprogress = (event) => {
@@ -35,9 +45,9 @@ export function uploadSourceFile(file: File, { onProgress, signal }: UploadOptio
         reject(errorFromHttpResponse(xhr.status, xhr.getResponseHeader('Content-Type'), xhr.responseText))
         return
       }
-      const session = parseSession(xhr.responseText)
-      if (session) {
-        resolve(session)
+      const parsed = parse(xhr.responseText)
+      if (parsed !== null) {
+        resolve(parsed)
       } else {
         reject(new ApiError({ kind: 'http', status: xhr.status, code: 'INVALID_RESPONSE' }))
       }

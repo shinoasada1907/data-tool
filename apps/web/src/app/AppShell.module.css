@@ -181,6 +181,11 @@
   margin-inline: auto;
 }
 
+/* `display: flex` ở trên đè thuộc tính `hidden` của trình duyệt: công cụ không đang mở phải ẩn thật. */
+.page[hidden] {
+  display: none;
+}
+
 .pageHeader {
   display: flex;
   flex-direction: column;

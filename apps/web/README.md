@@ -1,7 +1,11 @@
-# Universal Importer — Web (FE)
+# Universal Data Tools — Web (FE)
 
-Giao diện của Universal Importer: nhập file CSV hoặc XLSX, map sang schema đích, cấu hình biến đổi và kiểm tra, chạy
-xử lý trên BE, xem kết quả và tải dữ liệu hợp lệ. FE không tự xử lý dữ liệu; mọi logic nằm ở BE (`apps/api`).
+Giao diện của Universal Data Tools. Hiện có hai công cụ:
+
+- **Import dữ liệu**: nhập file CSV hoặc XLSX, map sang schema đích, cấu hình biến đổi và kiểm tra, chạy xử lý trên BE, xem kết quả và tải dữ liệu hợp lệ (`src/wizard`, `src/features`).
+- **Kiểm tra dữ liệu**: kiểm một file CSV, XLSX hoặc JSON theo schema; xem lỗi theo từng dòng và tải báo cáo (`src/tools/validator`).
+
+FE không tự xử lý dữ liệu; mọi logic nằm ở BE (`apps/api`). Phần upload, tuỳ chọn đọc và xem trước dùng chung cho các công cụ toolbox nằm ở `src/shared/dataset`.
 
 React 19 + TypeScript + Vite. Test bằng Vitest, Testing Library và MSW.
 

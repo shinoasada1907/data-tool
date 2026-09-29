@@ -27,6 +27,22 @@ describe('download', () => {
     expect(await result.blob.text()).toContain('a,b\r\n1,2')
   })
 
+  test('POST: gửi body JSON và nhận file như GET', async () => {
+    let received: unknown
+    server.use(
+      http.post(URL_PATH, async ({ request }) => {
+        received = await request.json()
+        expect(request.headers.get('Content-Type')).toBe('application/json')
+        return new HttpResponse('x', { headers: { 'Content-Disposition': 'attachment; filename="a.csv"' } })
+      }),
+    )
+
+    const result = await download(URL_PATH, { method: 'POST', body: { content: 'ERRORS' } })
+
+    expect(received).toEqual({ content: 'ERRORS' })
+    expect(result.fileName).toBe('a.csv')
+  })
+
   test('không có Content-Disposition thì fileName là null (bên gọi dùng tên dự phòng)', async () => {
     server.use(http.get(URL_PATH, () => HttpResponse.json([])))
 

@@ -28,6 +28,13 @@ function saveCollapsed(collapsed: boolean) {
 export function AppShell({ tools }: { tools: readonly ToolDefinition[] }) {
   const [activeId, setActiveId] = useState(tools[0]?.id)
   const active = tools.find((tool) => tool.id === activeId) ?? tools[0]
+  // Công cụ đã mở một lần thì giữ mount (ẩn khi không đang mở) để chuyển qua lại không mất việc đang làm (design V1).
+  const [visited, setVisited] = useState<ReadonlySet<string>>(() => new Set(active ? [active.id] : []))
+
+  function openTool(id: string) {
+    setActiveId(id)
+    setVisited((current) => (current.has(id) ? current : new Set(current).add(id)))
+  }
   const [collapsed, setCollapsed] = useState(readCollapsed)
   const navHeadingId = useId()
   const sidebarId = useId()
@@ -83,7 +90,7 @@ export function AppShell({ tools }: { tools: readonly ToolDefinition[] }) {
                     aria-current={current ? 'page' : undefined}
                     // Thu gọn chỉ còn icon: di chuột vào thì hiện tên.
                     title={collapsed ? tool.label : undefined}
-                    onClick={() => setActiveId(tool.id)}
+                    onClick={() => openTool(tool.id)}
                   >
                     {collapsed ? (
                       <>
@@ -110,15 +117,17 @@ export function AppShell({ tools }: { tools: readonly ToolDefinition[] }) {
       </aside>
 
       <main className={styles.content}>
-        {active && (
-          <div className={styles.page}>
-            <header className={styles.pageHeader}>
-              <h1>{active.label}</h1>
-              <p>{active.description}</p>
-            </header>
-            <active.Component />
-          </div>
-        )}
+        {tools
+          .filter((tool) => visited.has(tool.id))
+          .map((tool) => (
+            <div key={tool.id} className={styles.page} hidden={tool.id !== active?.id}>
+              <header className={styles.pageHeader}>
+                <h1>{tool.label}</h1>
+                <p>{tool.description}</p>
+              </header>
+              <tool.Component />
+            </div>
+          ))}
       </main>
     </div>
   )

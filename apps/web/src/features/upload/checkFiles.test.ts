@@ -19,6 +19,13 @@ describe('checkSelectedFiles', () => {
     expect(checkSelectedFiles([fileOf(name)], 20)).toEqual({ ok: false, reason: 'extension' })
   })
 
+  test('nhận bảng đuôi file riêng của công cụ (toolbox nhận thêm JSON)', () => {
+    const file = fileOf('data.JSON')
+    const types = { csv: 'CSV', xlsx: 'XLSX', json: 'JSON' } as const
+
+    expect(checkSelectedFiles([file], 20, types)).toEqual({ ok: true, file, fileType: 'JSON' })
+  })
+
   test('từ chối khi chọn nhiều file', () => {
     expect(checkSelectedFiles([fileOf('a.csv'), fileOf('b.csv')], 20)).toEqual({ ok: false, reason: 'multiple' })
   })

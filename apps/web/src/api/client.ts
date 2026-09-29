@@ -51,6 +51,14 @@ export async function request<T>(
 }
 
 /**
+ * Xoá tài nguyên mà không chờ và không báo lỗi: dùng để dọn dataset/run cũ trên site public (design V3). Hỏng thì TTL
+ * của BE vẫn dọn.
+ */
+export function deleteQuietly(path: string): void {
+  fetch(path, { method: 'DELETE' }).catch(() => {})
+}
+
+/**
  * `fetch` rồi đọc body bằng `read`, cùng một tín hiệu huỷ (design D6). Lỗi mạng (kể cả kết nối đứt giữa lúc đọc
  * body), hết giờ và huỷ đều thành ApiError; response lỗi HTTP vẫn được trả cho `read`.
  *

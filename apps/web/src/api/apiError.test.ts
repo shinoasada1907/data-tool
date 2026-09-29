@@ -27,6 +27,23 @@ describe('errorFromHttpResponse', () => {
     })
   })
 
+  test('errors[] có pointer (API toolbox) thì giữ lại; không có thì là null', () => {
+    const body = JSON.stringify({
+      code: 'SCHEMA_INVALID',
+      errors: [
+        { code: 'CONSTRAINT_INVALID', message: 'min must be <= max.', pointer: '/schema/fields/1/constraints/min' },
+        { field: 'email', code: 'FIELD_MISSING', message: 'Missing column.' },
+      ],
+    })
+
+    const error = errorFromHttpResponse(422, PROBLEM, body)
+
+    expect(error.fieldErrors).toEqual([
+      { field: null, code: 'CONSTRAINT_INVALID', message: 'min must be <= max.', pointer: '/schema/fields/1/constraints/min' },
+      { field: 'email', code: 'FIELD_MISSING', message: 'Missing column.', pointer: null },
+    ])
+  })
+
   test('phần tử errors[] sai dạng bị bỏ qua, field vắng thì thành null', () => {
     const body = JSON.stringify({
       title: 'Unprocessable Entity',
@@ -36,7 +53,7 @@ describe('errorFromHttpResponse', () => {
     })
 
     expect(errorFromHttpResponse(422, PROBLEM, body).fieldErrors).toEqual([
-      { field: null, code: 'SCHEMA_INVALID', message: 'Name is blank.' },
+      { field: null, code: 'SCHEMA_INVALID', message: 'Name is blank.', pointer: null },
     ])
   })
 

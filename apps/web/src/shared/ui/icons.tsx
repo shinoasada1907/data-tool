@@ -42,6 +42,17 @@ export function ImportIcon({ size }: { size?: number }) {
   )
 }
 
+/** Tờ giấy có dấu tích: công cụ kiểm tra dữ liệu. */
+export function ValidateIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+      <path d="M14 3v6h6" />
+      <path d="m9 15 2 2 4-4" />
+    </Icon>
+  )
+}
+
 export function ArrowRightIcon({ size = 18 }: { size?: number }) {
   return (
     <Icon size={size} strokeWidth={2.25}>

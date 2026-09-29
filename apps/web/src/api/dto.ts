@@ -14,6 +14,8 @@ export interface ProblemItemDto {
   field: string | null
   code: string
   message: string
+  /** JSON Pointer tới chỗ sai trong body (chỉ API toolbox gửi, ví dụ `/schema/fields/1/constraints/min`). */
+  pointer?: string | null
 }
 
 /** Body của mọi lỗi (`application/problem+json`). */
