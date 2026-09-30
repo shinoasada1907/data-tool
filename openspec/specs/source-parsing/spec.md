@@ -1,7 +1,7 @@
 # source-parsing Specification
 
 ## Purpose
-TBD - created by archiving change be-f02-csv-preview. Update Purpose after archive.
+Đọc file nguồn CSV (UTF-8, dấu phẩy) và XLSX (sheet đầu tiên đang hiện) thành cột và row dạng text theo cùng một quy ước, và cho xem trước vài row đầu.
 ## Requirements
 ### Requirement: Đọc toàn bộ file nguồn khi upload
 Khi upload một file đã có parser cho loại file đó, hệ thống SHALL đọc toàn bộ file ngay trong request upload để kiểm cấu trúc, lấy header và đếm số row dữ liệu không trống. Đọc thành công thì hệ thống SHALL lưu source schema (cột, `totalRows`, `sheetName`) và chuyển session sang `CONFIGURING`. Đọc thất bại thì hệ thống SHALL trả lỗi 422 (`FILE_PARSE_ERROR` hoặc `FILE_EMPTY`), xoá file đã lưu, và MUST NOT tạo session.

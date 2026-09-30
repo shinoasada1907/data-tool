@@ -1,0 +1,13 @@
+.wizard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* Thẻ nội dung của bước: viền mực, bóng đổ cứng (hướng C). */
+.card {
+  padding: var(--space-8) var(--space-9);
+  border: var(--border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-hard);
+}

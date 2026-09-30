@@ -1,0 +1,56 @@
+/* Nút dùng chung cho các công cụ toolbox, cùng hình với nút "Tiếp"/"Quay lại" của wizard Import. */
+.primary,
+.secondary,
+.small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: var(--border);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.primary,
+.secondary {
+  height: 48px;
+  padding: 0 22px;
+  font-size: 15px;
+}
+
+/* Nút chính: nền mực, bóng vàng. */
+.primary {
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+  box-shadow: var(--shadow-accent-sm);
+}
+
+.secondary {
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+/* Nút phụ trong dòng (Đổi file, Thêm field, Lên/Xuống…). */
+.small {
+  height: 36px;
+  padding: 0 12px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-size: 14px;
+}
+
+.primary:active:not(:disabled),
+.secondary:active:not(:disabled),
+.small:active:not(:disabled) {
+  box-shadow: none;
+  transform: translate(2px, 2px);
+}
+
+.primary:disabled,
+.secondary:disabled,
+.small:disabled {
+  border-color: var(--color-locked);
+  background: var(--color-surface-subtle);
+  color: var(--color-locked);
+  box-shadow: none;
+}

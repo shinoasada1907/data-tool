@@ -1,0 +1,50 @@
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  /* Tiêu đề nhận focus khi đổi bước (design D14): viền focus ôm theo chữ, không kéo hết chiều ngang. */
+  align-self: flex-start;
+}
+
+/* Dòng tổng quan: tên file đậm, các thông tin còn lại chữ mono nhỏ, ngăn bằng vạch đứng. */
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.summary li + li::before {
+  content: '';
+  display: inline-block;
+  width: 2px;
+  height: 14px;
+  margin-right: var(--space-4);
+  background: var(--color-ink);
+  vertical-align: middle;
+}
+
+.fileName {
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.chip {
+  font-weight: 500;
+}

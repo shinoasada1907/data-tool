@@ -1,7 +1,7 @@
 # import-session Specification
 
 ## Purpose
-TBD - created by archiving change be-f01-import-session. Update Purpose after archive.
+Quản lý vòng đời của một phiên import: upload và đọc file, trạng thái `UPLOADED` → `CONFIGURING`/`READY` → `PROCESSED` hoặc `FAILED`, và tự dọn session hết hạn cùng thư mục lưu trữ mồ côi.
 ## Requirements
 ### Requirement: Upload file tạo import session
 Hệ thống SHALL nhận file qua `POST /api/import-sessions` (multipart, part tên `file`). Khi file được chấp nhận, hệ thống SHALL lưu file, tạo một import session, và trả `201 Created`. Response gồm header `Location: /api/import-sessions/{id}` và body `ImportSessionDto { id, status, originalFileName, fileType, sizeBytes, createdAt, updatedAt }`. Lúc tạo, `status` là trạng thái ban đầu `UPLOADED`.
@@ -130,4 +130,160 @@ Hệ thống SHALL trả `ImportSessionDto` của session qua `GET /api/import-s
 #### Scenario: Id không phải UUID
 - **WHEN** client gọi `GET /api/import-sessions/abc`
 - **THEN** hệ thống trả `400` với `code` là `REQUEST_INVALID`
+
+### Requirement: Session trả kèm cấu hình và readiness
+Mọi response trả `ImportSessionDto` (upload `201`, `GET /api/import-sessions/{id}`, và `session` trong response của PUT cấu hình) SHALL có thêm:
+- `config`: chứa ít nhất `schema.fields`;
+- `readiness`: `{ ready, issues[{field, code, message}] }`, trong đó `ready` là `true` khi và chỉ khi `issues` rỗng.
+
+#### Scenario: Session vừa upload
+- **WHEN** client upload một CSV hợp lệ
+- **THEN** response có `config.schema.fields` là mảng rỗng
+- **AND** `readiness` là `{ready false, issues [{field null, code "SCHEMA_EMPTY", message "Target schema has no fields."}]}`
+
+#### Scenario: GET trả cấu hình đã lưu
+- **WHEN** client đã PUT schema gồm field `email`, rồi gọi `GET /api/import-sessions/{id}`
+- **THEN** response có `config.schema.fields[0].name` là `email`
+
+### Requirement: Readiness khi schema chưa có field
+Khi schema của session chưa có field nào, readiness SHALL có issue `{field null, code "SCHEMA_EMPTY", message "Target schema has no fields."}`, và session MUST NOT ở trạng thái `READY`.
+
+#### Scenario: Có schema thì hết issue SCHEMA_EMPTY
+- **WHEN** session đang `CONFIGURING` và client PUT schema gồm một field optional `note`
+- **THEN** `readiness.issues` không còn `SCHEMA_EMPTY`
+
+### Requirement: Cập nhật cấu hình theo trạng thái session
+Mọi PUT cấu hình (`/schema`, `/mapping`, `/transformations`, `/validations`) SHALL tuân theo các luật sau:
+- Session không tồn tại → `404` với `code` là `SESSION_NOT_FOUND`.
+- Session ở `UPLOADED` hoặc `FAILED` → `409` với `code` là `SESSION_STATE_INVALID`, và không lưu gì.
+- Session ở `CONFIGURING`, `READY` hoặc `PROCESSED` → lưu cấu hình, rồi chuyển session sang `READY` nếu `readiness.ready`, ngược lại sang `CONFIGURING`.
+- Ngoại lệ: session đang `PROCESSED` mà cấu hình sau khi PUT giống hệt trước khi PUT (cùng `configHash`) thì SHALL giữ nguyên `PROCESSED`.
+
+#### Scenario: Session không tồn tại
+- **WHEN** client PUT schema cho một UUID chưa từng được tạo
+- **THEN** hệ thống trả `404` với `code` là `SESSION_NOT_FOUND`
+
+#### Scenario: Session FAILED không nhận cấu hình
+- **WHEN** session đang `FAILED` và client PUT schema hợp lệ
+- **THEN** hệ thống trả `409` với `code` là `SESSION_STATE_INVALID`, và cấu hình không đổi
+
+#### Scenario: Session chưa đọc file
+- **WHEN** session đang `UPLOADED` và client PUT schema hợp lệ
+- **THEN** hệ thống trả `409` với `code` là `SESSION_STATE_INVALID`
+
+#### Scenario: Chuyển sang READY
+- **WHEN** session đang `CONFIGURING` và client PUT một schema hợp lệ, khiến readiness không còn issue nào
+- **THEN** `session.status` trong response là `READY`
+
+#### Scenario: PUT giống hệt khi đã PROCESSED
+- **WHEN** session đang `PROCESSED` và client PUT lại đúng schema đang có
+- **THEN** `session.status` vẫn là `PROCESSED`
+
+### Requirement: Các lệnh ghi trên cùng session chạy tuần tự
+Các lệnh ghi (PUT cấu hình và process) trên cùng một session SHALL chạy lần lượt: lệnh sau chỉ bắt đầu khi lệnh trước đã commit xong. Lệnh ghi trên các session khác nhau MAY chạy song song.
+
+#### Scenario: Hai PUT schema đồng thời
+- **WHEN** hai request PUT schema cho cùng một session được gửi cùng lúc, một request với field `a` và một request với field `b`
+- **THEN** cả hai đều trả `200`, không có request nào trả `500`
+- **AND** `GET /api/import-sessions/{id}` sau đó trả `config.schema` khớp với `session.config.schema` trong response của request hoàn tất sau
+
+### Requirement: Readiness khi field required chưa được map
+Với mỗi field `required` trong schema chưa có mapping, readiness SHALL có một issue `{field, code "TARGET_FIELD_REQUIRED", message "Required field is not mapped."}`, theo thứ tự schema. Khi còn issue này, session MUST NOT ở trạng thái `READY`. Nếu gọi process khi đó, hệ thống SHALL trả `409` với `code` là `SESSION_NOT_READY`, và `errors` là danh sách issue.
+
+#### Scenario: Field required chưa map
+- **WHEN** schema có `email` (required) và `note` (optional), và client PUT mapping chỉ cho `note`
+- **THEN** `session.status` là `CONFIGURING`
+- **AND** `session.readiness` là `{ready false, issues [{field "email", code "TARGET_FIELD_REQUIRED", message "Required field is not mapped."}]}`
+
+#### Scenario: Map đủ field required
+- **WHEN** tiếp theo client PUT mapping cho cả `email` và `note`
+- **THEN** `session.status` là `READY` và `session.readiness.issues` rỗng
+
+#### Scenario: Thêm field required vào schema đã READY
+- **WHEN** session đang `READY`, và client PUT schema thêm field required `phone` chưa được map
+- **THEN** `session.status` là `CONFIGURING`, và `readiness.issues` chứa `{field "phone", code "TARGET_FIELD_REQUIRED", …}`
+
+### Requirement: Dọn session hết hạn theo TTL
+Hệ thống SHALL tự động dọn dẹp: một lần ngay khi ứng dụng khởi động, sau đó mỗi giờ. Mỗi lần chạy SHALL xoá mọi session có `updatedAt` cũ hơn TTL; TTL cấu hình qua `IMPORTER_SESSION_TTL`, mặc định `24h`. Với mỗi session:
+1. xoá session, cùng config của nó, khỏi database. Chỉ xoá nếu `updatedAt` vẫn cũ hơn mốc cắt; việc kiểm và việc xoá là một lệnh duy nhất trên database;
+2. rồi xoá thư mục storage `{storageRoot}/{sessionId}`.
+
+Quy tắc khi gặp sự cố:
+- Lỗi khi xoá một session MUST NOT làm dừng việc xoá các session khác.
+- Xoá trong database thất bại: session SHALL được giữ nguyên vẹn, cả row lẫn file, để lần chạy sau thử lại.
+- Xoá storage thất bại sau khi row đã mất: thư mục SHALL trở thành mồ côi và được dọn ở lần chạy sau. Hệ thống MUST NOT để lộ ra một session còn row mà mất file.
+- Session đang có lệnh ghi (đang giữ khoá theo session) SHALL được bỏ qua ở lần chạy đó. Session vừa có lệnh ghi sau lúc được liệt kê MUST NOT bị xoá.
+
+`IMPORTER_SESSION_TTL` là số trần thì được hiểu là giờ. TTL dưới 1 phút SHALL làm ứng dụng không khởi động được.
+
+Chỉ lệnh ghi mới làm mới `updatedAt`; lệnh đọc (GET) MUST NOT kéo dài thời hạn của session.
+
+#### Scenario: Session quá hạn bị xoá, session còn hạn được giữ
+- **WHEN** TTL là `24h`, session A có `updatedAt` cách đây 25 giờ, session B cách đây 23 giờ, và cleanup chạy
+- **THEN** A không còn trong database và thư mục `{storageRoot}/{A}` không còn tồn tại
+- **AND** B vẫn còn nguyên, cả trong database lẫn trong storage
+
+#### Scenario: Session đã bị dọn trả 404
+- **WHEN** session A đã bị cleanup xoá, và client gọi `GET /api/import-sessions/{A}`
+- **THEN** hệ thống trả `404` với `code` là `SESSION_NOT_FOUND`
+
+#### Scenario: Lỗi ở một session không chặn session khác
+- **WHEN** A và C đều quá hạn, và việc xoá A trong database ném lỗi
+- **THEN** C bị xoá hoàn toàn
+- **AND** A vẫn còn nguyên (row và file), và report của lần chạy ghi `failures` là `1`, `deletedSessions` là `1`
+
+#### Scenario: File không xoá được thành mồ côi
+- **WHEN** A quá hạn, và việc xoá thư mục storage của A ném lỗi
+- **THEN** A không còn trong database, thư mục của A còn lại
+- **AND** ở lần chạy sau, thư mục đó được xoá như một mồ côi
+
+#### Scenario: TTL không đơn vị
+- **WHEN** `IMPORTER_SESSION_TTL` là `24`
+- **THEN** TTL là 24 giờ
+
+#### Scenario: Session đang bận được bỏ qua
+- **WHEN** A quá hạn nhưng đang có một lệnh ghi giữ khoá của A
+- **THEN** A không bị xoá ở lần chạy này, và report ghi `skipped` là `1`
+
+#### Scenario: Chạy ngay khi khởi động
+- **WHEN** ứng dụng khởi động xong
+- **THEN** lần dọn đầu tiên chạy trong vòng 5 giây, không phải chờ đủ một giờ
+
+### Requirement: Dọn thư mục lưu trữ mồ côi
+Mỗi lần dọn dẹp, hệ thống SHALL xoá những thư mục con của storage root thoả đồng thời:
+- có tên là một UUID ở dạng chuẩn;
+- là thư mục thật, không phải link hay junction;
+- không thuộc tài nguyên nào mà database biết: session Importer, dataset, hoặc mọi loại tài nguyên có lưu trữ về sau;
+- có thời điểm sửa cuối cũ hơn TTL nhỏ nhất của các loại tài nguyên, và cũ hơn ít nhất 1 giờ.
+
+Thư mục hay file có tên không phải UUID MUST NOT bị xoá. Thư mục mồ côi còn mới MUST NOT bị xoá, vì có thể là upload đang dở. Việc xoá MUST NOT đi xuyên link hay junction ra ngoài thư mục đang xoá.
+
+Storage root thuộc về một database duy nhất:
+- Lần dọn đầu tiên SHALL ghi id của database (bảng `installation`) vào `{storageRoot}/.owner`, nếu storage còn trống hoặc có chứa ít nhất một tài nguyên mà database biết.
+- Storage có `.owner` của database khác, hoặc chưa có `.owner` mà chỉ chứa thư mục lạ, SHALL không bị dọn mồ côi. Hệ thống SHALL ghi log lỗi.
+- Một lượt thấy hơn 10 mồ côi, và số mồ côi nhiều hơn một nửa tổng số thư mục mà database biết, SHALL không xoá mồ côi nào và ghi log lỗi.
+
+#### Scenario: Mồ côi quá hạn bị xoá
+- **WHEN** storage root có thư mục `{X}` (X là UUID), không session hay dataset nào có id X, và thư mục được sửa lần cuối cách đây 25 giờ
+- **THEN** cleanup xoá thư mục `{X}`, và report ghi `deletedOrphans` là `1`
+
+#### Scenario: Thư mục của dataset không bị coi là mồ côi
+- **WHEN** storage root có thư mục `{D}` của một dataset còn hạn, tạo cách đây 30 giờ nhưng được dùng lần cuối cách đây 1 giờ
+- **THEN** thư mục `{D}` vẫn còn sau cleanup
+
+#### Scenario: Mồ côi còn mới được giữ
+- **WHEN** storage root có thư mục `{Y}` (Y là UUID), không tài nguyên nào có id Y, và thư mục được sửa lần cuối cách đây 1 giờ
+- **THEN** thư mục `{Y}` vẫn còn sau cleanup
+
+#### Scenario: Thư mục không phải UUID không bị đụng tới
+- **WHEN** storage root có thư mục `backup` được sửa lần cuối cách đây 30 ngày
+- **THEN** thư mục `backup` vẫn còn sau cleanup
+
+#### Scenario: Storage của database khác
+- **WHEN** `{storageRoot}/.owner` ghi id của một database khác, và storage có thư mục `{X}` cũ 3 ngày mà database hiện tại không biết
+- **THEN** thư mục `{X}` vẫn còn sau cleanup
+
+#### Scenario: Junction không bị đi xuyên qua
+- **WHEN** bên trong thư mục của một session có một junction trỏ ra một thư mục ngoài storage, và session đó bị xoá
+- **THEN** junction bị gỡ, còn thư mục bên ngoài và file trong đó vẫn còn nguyên
 

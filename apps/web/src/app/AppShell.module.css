@@ -1,0 +1,208 @@
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  min-height: 100vh;
+  transition: grid-template-columns 180ms ease;
+}
+
+.shell[data-collapsed] {
+  grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell {
+    transition: none;
+  }
+}
+
+/* Sidebar đen: tên app chữ đậm, mục đang mở nền vàng. */
+.sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 44px;
+  height: 100vh;
+  padding: var(--space-8) var(--space-6) var(--space-6);
+  /* Trong lúc co giãn, chữ của trạng thái mở không được tràn ra ngoài dải hẹp. */
+  overflow: hidden;
+  background: var(--color-sidebar-bg);
+  color: var(--color-sidebar-text);
+}
+
+/* Dải thu gọn: nút bật/tắt, ô vuông vàng và icon công cụ xếp dọc, căn giữa. */
+.shell[data-collapsed] .sidebar {
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-6) var(--space-3);
+}
+
+/* Mở: thương hiệu bên trái, nút bật/tắt góc phải. Thu gọn: nút ở trên, ô vuông vàng ở dưới. */
+.top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.shell[data-collapsed] .top {
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.toggle {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid var(--color-sidebar-muted);
+  background: transparent;
+  color: var(--color-sidebar-text);
+}
+
+.toggle:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* Nền tối: viền focus màu vàng mới thấy được. */
+.sidebar :focus-visible {
+  outline-color: var(--color-accent);
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mark {
+  display: block;
+  width: 22px;
+  height: 22px;
+  background: var(--color-accent);
+}
+
+/* min-content: mỗi từ của tên app một dòng, tên dài hay ngắn đều xếp gọn. */
+.appName {
+  width: min-content;
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.navHeading {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-sidebar-muted);
+}
+
+.toolList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.toolButton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  height: 50px;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  color: var(--color-sidebar-text);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.toolButton:hover {
+  background: rgb(255 255 255 / 0.08);
+}
+
+.shell[data-collapsed] .toolButton {
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+}
+
+.toolButton[aria-current='page'] {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: 700;
+}
+
+.toolIndex {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.toolLabel {
+  flex-grow: 1;
+}
+
+.version {
+  margin-top: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-sidebar-muted);
+}
+
+.content {
+  min-width: 0;
+  padding: var(--space-10) var(--space-14);
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: var(--content-max-width);
+  /* Căn giữa trong phần bên phải sidebar: trên màn rộng, nội dung không dồn sát sidebar. */
+  margin-inline: auto;
+}
+
+/* `display: flex` ở trên đè thuộc tính `hidden` của trình duyệt: công cụ không đang mở phải ẩn thật. */
+.page[hidden] {
+  display: none;
+}
+
+.pageHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.pageHeader h1 {
+  font-family: var(--font-display);
+  font-size: 68px;
+  font-weight: 800;
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+}
+
+.pageHeader p {
+  max-width: 60ch;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--color-muted);
+}

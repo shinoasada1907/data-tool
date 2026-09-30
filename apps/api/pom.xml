@@ -8,7 +8,7 @@
         <version>4.1.1</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
-    <groupId>com.universalimporter</groupId>
+    <groupId>com.universaldatatools</groupId>
     <artifactId>api</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>api</name>
@@ -30,6 +30,8 @@
         <java.version>21</java.version>
         <!-- Extra JVM flags for tests, e.g. -Dsurefire.extraArgLine=-Xmx256m for memory checks. -->
         <surefire.extraArgLine></surefire.extraArgLine>
+        <!-- Perf smoke tests (@Tag("perf")) are left out unless run with -DexcludedGroups=none. -->
+        <excludedGroups>perf</excludedGroups>
     </properties>
     <dependencies>
         <dependency>
@@ -137,7 +139,12 @@
             <groupId>org.dhatim</groupId>
             <artifactId>fastexcel</artifactId>
             <version>0.20.2</version>
-            <scope>test</scope>
+        </dependency>
+        <!-- Linear-time regular expressions for user-supplied patterns (core-03 SR10): no ReDoS. -->
+        <dependency>
+            <groupId>com.google.re2j</groupId>
+            <artifactId>re2j</artifactId>
+            <version>1.8</version>
         </dependency>
     </dependencies>
 

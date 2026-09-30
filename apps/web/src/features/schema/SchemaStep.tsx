@@ -1,0 +1,330 @@
+import { useEffect, useId, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
+import { putSchema } from '../../api/endpoints'
+import { toTargetSchemaDto } from '../../api/mappers'
+import { checkSchema } from '../../domain/schemaRules'
+import { FIELD_TYPES, type FieldKey, type FieldType, type TargetField } from '../../domain/types'
+import { messages, stepLabels } from '../../shared/messages'
+import { ConfirmPanel } from '../../shared/ui/ConfirmPanel'
+import { EmptyState } from '../../shared/ui/EmptyState'
+import { ArrowDownIcon, ArrowUpIcon, PlusIcon, TrashIcon } from '../../shared/ui/icons'
+import { focusMoveButton } from '../../shared/ui/listFocus'
+import { useWizard } from '../../wizard/context'
+import { SaveFailureBanner } from '../../wizard/SaveFailureBanner'
+import { isBusy, type SchemaEdit } from '../../wizard/state'
+import { StepActions } from '../../wizard/StepActions'
+import { StepHeader } from '../../wizard/StepHeader'
+import { useBusyRequest } from '../../wizard/useBusyRequest'
+import { useSaveFeedback } from '../../wizard/useSaveFeedback'
+import styles from './SchemaStep.module.css'
+
+/** Chỗ focus sau khi danh sách field đổi, vì control đang giữ focus có thể vừa biến mất hoặc bị khoá (design D14). */
+type PendingFocus =
+  | { kind: 'firstName' }
+  | { kind: 'lastName' }
+  | { kind: 'name'; key: FieldKey }
+  | { kind: 'move'; key: FieldKey; direction: 'up' | 'down' }
+  | { kind: 'addButton' }
+
+type FieldPatch = Partial<Pick<TargetField, 'name' | 'type' | 'required'>>
+
+export function SchemaStep() {
+  const { state, dispatch } = useWizard()
+  const runBusy = useBusyRequest()
+  const fields = state.schema.draft
+  const check = checkSchema(fields)
+  // Trong lúc PUT, khoá cả phần sửa: sửa lúc đó thì bản vừa lưu không còn là bản đang hiển thị (review FE-F04).
+  const saving = isBusy(state)
+  // Field đã có lúc mở bước đều đã từng được focus (lúc thêm), nên coi như đã rời ô: quay lại bước vẫn thấy lỗi.
+  const [touched, setTouched] = useState<ReadonlySet<FieldKey>>(() => new Set(fields.map((field) => field.key)))
+  const { serverErrors, failure, clearBeforeSave, clearOnEdit, report } = useSaveFeedback()
+  const [confirmingRegenerate, setConfirmingRegenerate] = useState(false)
+  const pendingFocus = useRef<PendingFocus | null>(null)
+  const regenerateButtonRef = useRef<HTMLButtonElement>(null)
+  const rows = useRef(new Map<FieldKey, HTMLLIElement>())
+  const addButtonRef = useRef<HTMLButtonElement>(null)
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  const titleId = useId()
+
+  useEffect(() => {
+    const target = pendingFocus.current
+    pendingFocus.current = null
+    if (target) focusPending(target, fields, rows.current, addButtonRef.current)
+  }, [fields])
+
+  function edit(schemaEdit: SchemaEdit, focus?: PendingFocus) {
+    pendingFocus.current = focus ?? null
+    clearOnEdit()
+    dispatch({ type: 'schemaEdited', edit: schemaEdit })
+  }
+
+  function removeField(index: number) {
+    const neighbour = fields[index + 1] ?? fields[index - 1]
+    edit(
+      { kind: 'remove', key: fields[index].key },
+      neighbour ? { kind: 'name', key: neighbour.key } : { kind: 'addButton' },
+    )
+  }
+
+  function regenerate() {
+    setConfirmingRegenerate(false)
+    edit({ kind: 'regenerate' }, { kind: 'firstName' })
+  }
+
+  // Đang có field thì hỏi trước khi thay; chưa có thì không có gì để mất.
+  function requestRegenerate() {
+    if (fields.length === 0) regenerate()
+    else setConfirmingRegenerate(true)
+  }
+
+  function cancelRegenerate() {
+    // Hộp xác nhận (đang giữ focus) biến mất: trả focus về nút đã mở nó.
+    flushSync(() => setConfirmingRegenerate(false))
+    regenerateButtonRef.current?.focus()
+  }
+
+  async function saveAndContinue() {
+    // Đã lưu và chưa sửa gì từ đó: không PUT lại (spec target-schema).
+    if (state.schema.saved) {
+      dispatch({ type: 'navigate', step: 'mapping' })
+      return
+    }
+    // Không cần khoá riêng chống bấm đúp: requestStarted khoá nút "Tiếp" ngay trong sự kiện click đầu tiên.
+    if (!state.session) return
+    const draft = fields
+    const sessionId = state.session.id
+    clearBeforeSave()
+    try {
+      await runBusy(() => putSchema(sessionId, toTargetSchemaDto(draft)))
+      dispatch({ type: 'sectionSaved', section: 'schema', draft })
+      dispatch({ type: 'navigate', step: 'mapping' })
+    } catch (error) {
+      // Lỗi của field nằm ở ô tên.
+      report(error, draft, (key) => focusControl(rows.current.get(key)?.querySelector('[data-action="name"]')), titleRef.current)
+    }
+  }
+
+  return (
+    <section aria-labelledby={titleId} className={styles.step}>
+      <StepHeader id={titleId} title={stepLabels.schema} intro={messages.schema.intro} headingRef={titleRef} />
+
+      {failure && <SaveFailureBanner failure={failure} />}
+
+      <fieldset className={styles.editor} disabled={saving}>
+        <legend className="sr-only">{messages.schema.editorLabel}</legend>
+        {fields.length === 0 ? (
+          <EmptyState title={messages.schema.empty} hint={messages.schema.emptyHint} />
+        ) : (
+          <div className={styles.table}>
+            <div className={styles.head} aria-hidden="true">
+              <span>#</span>
+              <span>{messages.schema.columns.name}</span>
+              <span>{messages.schema.columns.type}</span>
+              <span>{messages.schema.columns.required}</span>
+              <span />
+            </div>
+            <ol className={styles.fields}>
+              {fields.map((field, index) => (
+                <FieldRow
+                  key={field.key}
+                  field={field}
+                  position={index + 1}
+                  isFirst={index === 0}
+                  isLast={index === fields.length - 1}
+                  error={serverErrors[field.key] ?? (touched.has(field.key) ? check.errors[field.key] : undefined)}
+                  rowRef={(element) => {
+                    rows.current.set(field.key, element)
+                    return () => {
+                      rows.current.delete(field.key)
+                    }
+                  }}
+                  onNameBlur={() =>
+                    setTouched((current) => (current.has(field.key) ? current : new Set(current).add(field.key)))
+                  }
+                  onChange={(patch) => edit({ kind: 'update', key: field.key, patch })}
+                  onMove={(direction) =>
+                    edit(
+                      { kind: 'move', key: field.key, offset: direction === 'up' ? -1 : 1 },
+                      { kind: 'move', key: field.key, direction },
+                    )
+                  }
+                  onRemove={() => removeField(index)}
+                />
+              ))}
+            </ol>
+          </div>
+        )}
+
+        <div className={styles.tools}>
+          <button
+            ref={addButtonRef}
+            type="button"
+            className={styles.add}
+            onClick={() => edit({ kind: 'add' }, { kind: 'lastName' })}
+          >
+            <PlusIcon />
+            {messages.schema.add}
+          </button>
+          <button ref={regenerateButtonRef} type="button" className={styles.regenerate} onClick={requestRegenerate}>
+            {messages.schema.regenerate}
+          </button>
+        </div>
+
+        {confirmingRegenerate && (
+          <ConfirmPanel
+            message={messages.schema.regenerateConfirm(fields.length, state.preview?.columns.length ?? 0)}
+            confirmLabel={messages.schema.regenerateAction}
+            cancelLabel={messages.schema.cancel}
+            onConfirm={regenerate}
+            onCancel={cancelRegenerate}
+          />
+        )}
+      </fieldset>
+
+      <StepActions
+        onBack={() => dispatch({ type: 'navigate', step: 'preview' })}
+        onNext={() => void saveAndContinue()}
+        nextBlockedReason={check.blockedReason ?? undefined}
+      />
+    </section>
+  )
+}
+
+interface FieldRowProps {
+  field: TargetField
+  position: number
+  isFirst: boolean
+  isLast: boolean
+  error: string | undefined
+  rowRef: (element: HTMLLIElement) => () => void
+  onNameBlur: () => void
+  onChange: (patch: FieldPatch) => void
+  onMove: (direction: 'up' | 'down') => void
+  onRemove: () => void
+}
+
+function FieldRow({ field, position, isFirst, isLast, error, rowRef, onNameBlur, onChange, onMove, onRemove }: FieldRowProps) {
+  const id = useId()
+  const errorId = `${id}-error`
+
+  return (
+    <li ref={rowRef} className={styles.row} data-invalid={error ? true : undefined}>
+      <fieldset className={styles.fieldset}>
+        <legend className="sr-only">{messages.schema.group(position)}</legend>
+        <span className={styles.position} aria-hidden="true">
+          {position}
+        </span>
+
+        <div className={styles.nameCell}>
+          <label htmlFor={`${id}-name`} className="sr-only">
+            {messages.schema.columns.name}
+          </label>
+          <input
+            id={`${id}-name`}
+            data-action="name"
+            type="text"
+            className={styles.name}
+            value={field.name}
+            autoComplete="off"
+            spellCheck={false}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? errorId : undefined}
+            onChange={(event) => onChange({ name: event.target.value })}
+            onBlur={onNameBlur}
+          />
+          {error && (
+            <p id={errorId} className={styles.error}>
+              {error}
+            </p>
+          )}
+        </div>
+
+        <label htmlFor={`${id}-type`} className="sr-only">
+          {messages.schema.typeLabel}
+        </label>
+        <select
+          id={`${id}-type`}
+          className={styles.type}
+          value={field.type}
+          onChange={(event) => onChange({ type: event.target.value as FieldType })}
+        >
+          {FIELD_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {type}
+            </option>
+          ))}
+        </select>
+
+        <label className={styles.required}>
+          <input
+            type="checkbox"
+            checked={field.required}
+            onChange={(event) => onChange({ required: event.target.checked })}
+          />
+          <span className="sr-only">{messages.schema.requiredLabel}</span>
+        </label>
+
+        <div className={styles.actions}>
+          <button
+            type="button"
+            data-action="up"
+            className={styles.iconButton}
+            aria-label={messages.schema.moveUp}
+            title={messages.schema.moveUp}
+            disabled={isFirst}
+            onClick={() => onMove('up')}
+          >
+            <ArrowUpIcon />
+          </button>
+          <button
+            type="button"
+            data-action="down"
+            className={styles.iconButton}
+            aria-label={messages.schema.moveDown}
+            title={messages.schema.moveDown}
+            disabled={isLast}
+            onClick={() => onMove('down')}
+          >
+            <ArrowDownIcon />
+          </button>
+          <button
+            type="button"
+            data-action="remove"
+            className={styles.iconButton}
+            aria-label={messages.schema.remove}
+            title={messages.schema.remove}
+            onClick={onRemove}
+          >
+            <TrashIcon />
+          </button>
+        </div>
+      </fieldset>
+    </li>
+  )
+}
+
+function focusControl(element: HTMLElement | null | undefined): boolean {
+  element?.focus()
+  return Boolean(element)
+}
+
+function focusPending(
+  target: PendingFocus,
+  fields: TargetField[],
+  rows: ReadonlyMap<FieldKey, HTMLLIElement>,
+  addButton: HTMLButtonElement | null,
+) {
+  if (target.kind === 'addButton') {
+    addButton?.focus()
+    return
+  }
+  const key = target.kind === 'firstName' ? fields[0]?.key : target.kind === 'lastName' ? fields.at(-1)?.key : target.key
+  const row = key === undefined ? undefined : rows.get(key)
+  if (!row) return
+  if (target.kind === 'move') {
+    focusMoveButton(row, target.direction)
+  } else {
+    row.querySelector<HTMLInputElement>('[data-action="name"]')?.focus()
+  }
+}
+

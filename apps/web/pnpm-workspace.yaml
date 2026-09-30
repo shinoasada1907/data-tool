@@ -1,0 +1,4 @@
+allowBuilds:
+  # Không cần postinstall của msw: public/mockServiceWorker.js sẽ được sinh bằng `msw init` rồi commit
+  # (task 3.9 trong openspec/changes/fe-import-wizard-v0-1/tasks.md).
+  msw: false

@@ -1,0 +1,90 @@
+.stepper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.stepper[data-disabled] .list {
+  opacity: 0.55;
+}
+
+/* 6 ô chung một khung viền mực. */
+.list {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  border: var(--border);
+  background: var(--color-surface);
+  list-style: none;
+}
+
+.cell {
+  display: flex;
+  min-width: 0;
+}
+
+.cell + .cell {
+  border-left: var(--border);
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-3) var(--space-4) 14px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+}
+
+.step:focus-visible {
+  outline-offset: -5px;
+}
+
+.number {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+/* Đang ở: nền vàng. */
+.cell[data-state='current'] {
+  background: var(--color-accent);
+}
+
+/* Mở được và đã xong: chữ mực bình thường, rê chuột thì nền giấy. */
+.cell[data-state='available']:hover,
+.cell[data-state='done']:hover {
+  background: var(--color-surface-subtle);
+}
+
+/* Bị khoá: chữ mờ, nhãn nhẹ hơn. */
+.cell[data-state='locked'] .step {
+  color: var(--color-locked);
+}
+
+.cell[data-state='locked'] .label {
+  font-weight: 600;
+}
+
+.notice {
+  min-height: 1lh;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-danger);
+}

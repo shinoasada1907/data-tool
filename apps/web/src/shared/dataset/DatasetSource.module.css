@@ -1,0 +1,166 @@
+.source {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Vùng thả file: icon vàng và câu hướng dẫn bên trái, nút "Chọn file" bên phải (như bước Upload của Import). */
+.dropZone {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-height: 150px;
+  padding: var(--space-6) var(--space-8);
+  border: var(--border-dashed);
+  background: var(--color-surface-subtle);
+  cursor: pointer;
+}
+
+.dropZone:hover,
+.dropZone[data-dragging] {
+  background: var(--color-warning-bg);
+}
+
+/* Ô chọn file ẩn nằm ngoài label: focus bằng bàn phím thì viền cả vùng thả. */
+input:focus-visible + .dropZone {
+  outline: 3px solid var(--color-ink);
+  outline-offset: 3px;
+}
+
+.dropIcon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border: var(--border);
+  background: var(--color-accent);
+}
+
+.dropText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex-grow: 1;
+  color: var(--color-muted);
+}
+
+.dropText strong {
+  color: var(--color-ink);
+  font-size: 17px;
+}
+
+.uploading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: var(--border);
+  background: var(--color-surface-subtle);
+}
+
+.uploading p {
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border);
+  background: var(--color-surface-subtle);
+}
+
+.fileIcon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: var(--border);
+  background: var(--color-success-bg);
+}
+
+.fileBody {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.fileLabel,
+.fileMeta {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.fileLabel {
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.retention {
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4) var(--space-6);
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  border: var(--border);
+}
+
+.options legend {
+  padding: 0 var(--space-2);
+  font-weight: 700;
+}
+
+.option {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.option select {
+  min-width: 200px;
+  height: 38px;
+  padding: 0 var(--space-2);
+  border: var(--border);
+  background: var(--color-surface);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 38px;
+}
+
+.check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-ink);
+}
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.summary {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-muted);
+}

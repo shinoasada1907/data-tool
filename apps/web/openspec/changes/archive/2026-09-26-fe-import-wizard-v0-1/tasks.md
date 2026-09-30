@@ -1,0 +1,651 @@
+> **Cách làm**
+> - Task nào có logic thì viết test trước (TDD).
+> - Xong mỗi nhóm, `pnpm test`, `pnpm lint`, `pnpm build` phải xanh.
+> - Nhóm 5–12 có thể làm trên nhánh riêng theo gợi ý của Notion (`feature/fe-f01-upload`, …).
+> - Task nào làm khác kế hoạch: gạch task cũ và ghi **LÝ DO** ngay tại chỗ.
+> - Contract: bám mục "API contract V0.1" trong `design.md`. Nếu có chỗ lệch, file BE `openspec/changes/archive/2026-09-25-be-f01-import-session/design.md` là chuẩn.
+> - BE thật: feature BE nào đã merge vào `dev` thì có thể kiểm với BE thật ngay (checklist 13.4). Luồng nhánh: feature → `dev`, rồi `dev` → `main` khi xong hết (design → Migration Plan). Tới ngày 2026-09-26, `dev` có BE-F01 (upload, `GET /api/import-sessions/{id}`), BE-F02 (đọc CSV, `GET .../preview`), BE-F03 (đọc XLSX) và Swagger UI (`/swagger-ui.html`). BE-F04 trở đi chưa bắt đầu. Endpoint chưa có trả `404 REQUEST_INVALID`, và FE phải hiển thị nó như lỗi thường (4.6).
+> - **Làm theo lát cắt của từng feature** (áp dụng từ FE-F01, ngày 2026-09-26). **LÝ DO:** Agent Working Rule của pack Notion quy định: nhận FE-Fxx thì chỉ làm phạm vi feature đó và dependency bắt buộc. Vì vậy các task nền của nhóm 3 và 4 được làm dần theo từng feature. Task nào mới xong một phần thì chưa tick, và ghi rõ phần đã xong ở feature nào.
+
+## 1. Nền tảng dự án
+
+- [x] 1.1 Dọn template: xoá `src/assets/`, `src/App.css`, nội dung demo trong `App.tsx`, `public/icons.svg` (giữ `favicon.svg`). Trong `index.html` đặt `lang="vi"` và `<title>Universal Importer</title>`. Kiểm: `pnpm build` và `pnpm lint` qua.
+- [x] 1.2 Thêm `"strict": true` tường minh vào `tsconfig.app.json` và sửa lỗi type phát sinh nếu có. Kiểm: `pnpm build` qua.
+  - Thêm cả vào `tsconfig.node.json` (cho `vite.config.ts`), để hai cấu hình cùng một mức kiểm tra.
+- [x] 1.3 Cài devDependencies:
+  - `vitest` (chọn bản có peerDependency khớp Vite 8), `jsdom`
+  - `@testing-library/react`, `@testing-library/user-event`, `@testing-library/jest-dom`
+  - `msw@^2`
+
+  Thêm khối `test` vào `vite.config.ts` (`environment: 'jsdom'`, `setupFiles: ['src/test/setup.ts']`), thêm script `test` (`vitest run`) và `test:watch`. Kiểm: smoke test render `<App/>` chạy xanh.
+  - Đã cài `vitest` 5.0.1, `@testing-library/dom` (peer của React Testing Library 16), `msw` 2.15.
+  - **`jsdom` được ghim ở `^29.1.1`, không dùng bản 30. LÝ DO:**
+    - Vitest 5.0.1 bọc `Request` để đổi `FormData`/`Blob` của jsdom sang bản của Node. Nó lấy "impl symbol" ẩn qua own symbol của `new window.Blob()`.
+    - jsdom 30 không còn để lộ symbol đó, nên mọi `FormData` có file đi qua `Request` đều crash (`Cannot read properties of undefined (reading '_buffer')`).
+    - Chính Vitest được phát triển cùng `jsdom ^29.1.1`.
+    - Khi nâng jsdom, chạy lại test upload trước.
+  - pnpm 11 đòi quyết định về build script của `msw`: đặt `allowBuilds.msw: false` trong `apps/web/pnpm-workspace.yaml`, vì `mockServiceWorker.js` sẽ được sinh bằng `msw init` (task 3.9).
+- [x] 1.4 Proxy và biến môi trường (design D16):
+  - `vite.config.ts` dùng `loadEnv` đọc `API_PROXY_TARGET` (mặc định `http://localhost:8080`) cho `/api`.
+  - `src/config.ts` đọc `VITE_MAX_UPLOAD_MB` (mặc định **20**, khớp `IMPORTER_MAX_FILE_SIZE` của BE) và `VITE_USE_MOCK`; khai báo kiểu `ImportMetaEnv`.
+  - Tạo `.env.example`.
+
+  Test `config.ts`: dùng mặc định khi biến vắng hoặc không hợp lệ.
+  - Kiểu `ImportMetaEnv` khai báo ở `src/env.d.ts`.
+  - Đã chạy thử `vite` thật: trang tải được; `/api` được proxy tới 8080 (BE tắt thì nhận `502`).
+- [x] 1.5 `src/index.css`: CSS variables (màu, khoảng cách, font, trạng thái lỗi/cảnh báo/thành công), reset tối thiểu, khung app `min-width: 1024px`.
+- [x] 1.6 `shared/messages.ts` và `shared/format.ts`, có test cho `format.ts`:
+  - `messages.ts`: chuỗi UI tiếng Việt, cùng thông điệp cho **mọi** mã trong bảng "Mã lỗi và các mã khác" của design (lỗi API, lỗi theo row, readiness issue).
+  - `format.ts`: `formatBytes`, `formatNumber` theo `vi-VN`, ví dụ `1,2 MB`, `1.200`.
+  - FE-F01 đã xong: `messages.ts` (đủ mọi mã), `formatBytes` có test. `formatNumber` làm ở FE-F02, vì lúc đó mới cần hiển thị tổng số dòng.
+  - FE-F02 đã xong `formatNumber`, có test; số 4 chữ số cũng có dấu chấm (`1.200`), đúng ví dụ của spec source-preview.
+
+## 2. Chốt contract với BE
+
+> Nhóm này đã xong ngày 2026-09-25. BE chốt "API contract V0.1" và trả lời Q1–Q10. Nguồn ban đầu là `openspec/changes/be-f01-import-session/design.md`; sau khi archive, file nằm ở `openspec/changes/archive/2026-09-25-be-f01-import-session/design.md`. Câu trả lời đã ghi vào `design.md` → Open Questions.
+>
+> Các task đã chỉnh theo contract: 1.4, 1.6, 3.1, 3.2, 3.5, 3.7, 3.8, 4.1, 4.4, 4.6, 5.2, 6.1, 7.1, 7.4, 9.1, 9.2, 9.4, 10.2, 11.1, 11.2, 11.6, 12.2, 13.4. Đã bỏ: 6.3 và một phần 6.2, 11.2 (có ghi lý do tại chỗ).
+
+- [x] 2.1 Gửi cho người phụ trách BE mục "API contract đề xuất" và danh sách Q1–Q10 trong `design.md`. BE đã nhận và trả lời đủ.
+- [x] 2.2 Q1 (payload validations): trùng với đề xuất, không phải sửa `mappers.ts` hay spec `rule-config`.
+- [x] 2.3 Q2, Q3 (lỗi của PUT; phân trang, lọc và `errorCounts`): trùng với đề xuất, giữ task 11.4. Điểm mới: result chưa process hoặc đã cũ trả `409 RESULT_NOT_AVAILABLE` → thêm design D18 và task 11.6.
+- [x] 2.4 Q4, Q5, Q6, Q9 (`rowNumber`, `dateFormat`, định dạng error report, header trùng hoặc rỗng): đã ghi vào design. Field kiểu `date` khoá `outputFormat` (D19, spec `rule-config`). Bỏ task 6.3.
+- [x] 2.5 Q7, Q8, Q10 (upload 20 MB, `413`; `rule`, `stage`, `step` và mã lỗi mới; cùng origin): `.env.example` và `messages.ts` chưa tồn tại, nên phần cập nhật được dồn vào task 1.4 và 1.6.
+
+## 3. API client và contract
+
+- [x] 3.1 `api/dto.ts`: khai báo đủ các kiểu trong mục "API contract V0.1" của `design.md`, gồm cả `ImportSessionDto.config` và `readiness` (V0.1 chưa dùng).
+- [x] 3.2 TDD `api/client.ts` (`request()` và `ApiError` có `detail`). Ca test:
+  - 2xx có JSON;
+  - problem+json có `code`, `detail` và `errors[]`;
+  - `404 SESSION_NOT_FOUND` và `404 REQUEST_INVALID` giữ đúng `code` để phân biệt;
+  - `409 RESULT_NOT_AVAILABLE`;
+  - body HTML khi `502`: `code=null`, message theo status, không lộ HTML;
+  - `fetch` reject → `kind=network`; huỷ → `kind=aborted`.
+  - FE-F01 đã xong:
+    - `ApiError` và `errorFromHttpResponse` có test: ProblemDetail đủ trường, `errors[]` sai dạng bị bỏ qua, body HTML, JSON hỏng, `413` không có code.
+    - Hai thứ này nằm ở **`api/apiError.ts`** chứ không ở `client.ts`. **LÝ DO:** upload (XHR) và `request()` (fetch) dùng chung phần parse lỗi.
+  - Còn lại `request()` bằng fetch: làm ở FE-F02, cùng GET preview.
+  - FE-F02 đã xong `request()`, test với MSW đủ các ca trên, thêm: body 2xx sai dạng hoặc không phải JSON → `INVALID_RESPONSE`; signal đã huỷ từ trước thì không gửi request. Đã làm mutation check (bỏ Accept, bỏ signal, bỏ validate, coi huỷ là lỗi mạng): đều có test fail.
+  - **`request()` nhận thêm `validate` (bắt buộc).** **LÝ DO:** giống upload (D6), body lệch contract phải báo lỗi rõ ràng thay vì để bảng vỡ lúc render.
+  - ~~Hiện `request()` mới hỗ trợ GET.~~ FE-F04 đã thêm `method` và `body` (gửi JSON kèm `Content-Type: application/json`), có test.
+  - FE-F04 thêm timeout 30 giây, có test: hết giờ thì `kind=timeout`; user huỷ trước khi hết giờ thì vẫn là `aborted` (design D6).
+- [x] 3.3 TDD `api/contentDisposition.ts`: `filename*=UTF-8''…` (ưu tiên), `filename="…"`, `filename=` không có ngoặc kép, không có header → `null`; loại `/` và `\` khỏi tên. → Làm ở FE-F10.
+  - Làm ở FE-F10. Thêm so với danh sách: tên tham số và charset không phân biệt hoa thường, có thẻ ngôn ngữ (`UTF-8'vi'…`), ISO-8859-1; `filename*` hỏng thì dùng `filename`; ngoặc kép có ký tự thoát và dấu chấm phẩy bên trong; tên rỗng → `null`. `/`, `\` và ký tự điều khiển được thay bằng `_`, như BE (be-f10 F10-D6).
+- [x] 3.4 TDD `api/download.ts`: 2xx → `{blob, filename}`; lỗi → ném `ApiError`, không trả blob; `saveBlob()` tạo object URL, click `<a download>` rồi revoke URL. → Làm ở FE-F10.
+  - Làm ở FE-F10. Phần fetch + timeout + huỷ của `client.ts` tách thành `fetchWithin()` dùng chung, để `download` không chép lại; đọc body nằm trong cùng thời gian chờ.
+  - Kết nối đứt khi BE đang stream (status đã là 200, BE cắt kết nối, `blob()` reject) là lỗi mạng, không bao giờ là file; có test bằng `ReadableStream` báo lỗi giữa chừng.
+  - ~~Timeout 5 phút (`DOWNLOAD_TIMEOUT_MS`), khớp giới hạn stream của BE (be-f10 F10-D8).~~ **Sai, đã sửa sau review FE-F10 — LÝ DO:**
+    - F10-D8 đã bị BE gạch: 20 MB CSV có thể thành khoảng 130 MB JSON, và trên mạng chậm giới hạn tổng làm file bị cắt.
+    - Timeout của `fetchWithin` lại tính cả lúc đọc body, nên file lớn không bao giờ tải xong.
+
+    Nay là **thời gian im lặng** 30 giây (`DOWNLOAD_IDLE_TIMEOUT_MS`): chưa có header, hoặc giữa hai chunk. `download` đọc body theo chunk và tính lại thời gian sau mỗi chunk. Nhờ đó lượt tải cũng kết thúc khi BE cắt kết nối giữa chừng qua proxy của Vite: reviewer đã probe thấy request khi đó treo chứ không báo lỗi.
+  - Bị huỷ (hết giờ, rời bước) khi đang đọc body thì luồng có thể kết thúc êm như đã xong. `readBody` kiểm lại tín hiệu huỷ sau mỗi lần đọc và ném lỗi, không bao giờ trả file bị cắt cụt; test bắt được đúng lỗi này khi viết.
+  - `saveBlob` gắn thẻ `<a>` vào document trước khi click và thu hồi object URL sau 1 giây: Firefox huỷ lượt tải nếu URL bị thu hồi ngay. Test dùng helper `test/downloads.ts` (`captureDownloads`), trả lại `URL.createObjectURL` như cũ khi test xong.
+- [x] 3.5 TDD `api/upload.ts` (XHR):
+  - multipart có part `file`;
+  - `onProgress` nhận phần trăm, test bằng XHR giả được inject vào;
+  - huỷ qua `AbortSignal` → `aborted`;
+  - `201` → `ImportSessionDto`;
+  - `413 FILE_TOO_LARGE`, `415 FILE_UNSUPPORTED`, `422 FILE_EMPTY`, `422 FILE_PARSE_ERROR` → `ApiError` đúng `code` và `detail`;
+  - `onerror` → `network`.
+  - XHR giả nằm ở `src/test/fakeXhr.ts`, gắn vào bằng `vi.stubGlobal`, nên production code không cần tham số chỉ để test.
+  - Cách đổi từng mã lỗi sang `ApiError` đã có test ở 3.2 (`apiError.ts`), nên test của upload chỉ giữ một ca lỗi đại diện (`415`). Bốn mã còn lại được kiểm ở test component 5.2.
+- [x] 3.6 `api/endpoints.ts`: 10 hàm cho các endpoint FE dùng (không gồm `GET /api/import-sessions/{id}`). Test với MSW: method, path, query và body của từng hàm; PUT trả `200 {session, warnings}` thì hàm vẫn resolve và bỏ qua body.
+  - FE-F01 chỉ cần upload (3.5). Mỗi hàm còn lại làm cùng feature dùng nó.
+  - FE-F02 đã xong `getPreview` (`limit=50`), có test với MSW: path, query, và body 200 sai dạng → `INVALID_RESPONSE` (kể cả ô không phải chuỗi hay `null`, vì React không vẽ boolean và vỡ trang với object).
+  - FE-F05 đã xong `putMapping`, có test với MSW (method, path, body).
+  - FE-F06/F07 đã xong `putTransformations` và `putValidations`, có test với MSW. Hai lệnh này được gọi trong trình tự "Chạy xử lý" (FE-F08).
+  - FE-F10 đã xong `downloadValidRows(format)` và `downloadErrorReport`, đi qua `download.ts`.
+  - FE-F08/F09 đã xong `postProcess` (timeout riêng 5 phút, có test bằng fake timer) và `getResult` (`size=50`; `field`/`code` chỉ gửi khi có), có test với MSW.
+  - ~~Không gồm `GET /api/import-sessions/{id}`.~~ **Đổi — LÝ DO:** BE-F08 trả cùng `500 INTERNAL_ERROR` cho ba nguyên nhân (đọc file nguồn lỗi thì session `FAILED`; lưu kết quả lỗi hoặc bug thì session giữ nguyên, kết quả cũ còn), body không phân biệt được. Sau khi process trả 5xx, FE gọi `getSessionStatus` để biết có phải upload lại không, và kết quả cũ còn dùng được không (design D12).
+  - FE-F04 đã xong `putSchema`, có test với MSW: method, path, body; `200 {session, warnings}` thì resolve và bỏ qua body; `422` giữ `errors[]`. Body 200 chỉ được kiểm là có `session` (để body HTML từ proxy vẫn báo `INVALID_RESPONSE`).
+  - Xong đủ ở FE-F10: upload (`upload.ts`, 3.5), `getPreview`, `putSchema`, `putMapping`, `putTransformations`, `putValidations`, `postProcess`, `getResult`, `downloadValidRows`, `downloadErrorReport`, cộng `getSessionStatus` (xem dòng gạch ở trên). Timeout riêng 5 phút của `postProcess` vẫn đúng: process là một request JSON bình thường, không stream; riêng tải file dùng thời gian im lặng (3.4).
+- [x] 3.7 `domain/types.ts` và TDD `api/mappers.ts`:
+  - đổi key ↔ tên field; `order` theo vị trí;
+  - mapping chỉ gồm field đã map;
+  - `order` của transformation tính riêng theo field; `trim`, `uppercase`, `lowercase` không có `params`;
+  - `dateFormat` trên field kiểu `date` luôn có `outputFormat: "yyyy-MM-dd"`;
+  - validations chỉ có `email`/`unique`, không có `params`;
+  - preview giữ đúng thứ tự `columns[]`.
+  - FE-F01 đã xong: `SessionInfo` và `toSessionInfo`. Hàm này chỉ chép field nên không có unit test riêng; test component 5.3 kiểm nó (tên file của session hiện đúng khi quay lại bước Upload). Phần còn lại làm theo feature.
+  - FE-F02 đã xong `SourcePreview` và `toSourcePreview`, có test: thứ tự `columns[]` giữ nguyên kể cả cột tên dạng số, `values` theo vị trí.
+  - FE-F06/F07 đã xong `Transformation`, `UserRule`, `toTransformationConfigDto` và `toValidationConfigDto`, có test: theo thứ tự schema rồi thứ tự bước, `order` từ 0 trong từng field; chỉ `defaultValue`/`dateFormat` có `params`; field kiểu `date` luôn gửi `outputFormat: "yyyy-MM-dd"`; validations chỉ `email`/`unique` theo thứ tự cố định, không `params`, bỏ `email` ở field không phải `string`.
+  - FE-F05 đã xong `FieldMapping`, `MappingDraft` và `toMappingConfigDto`, có test: chỉ gồm field đã map, theo thứ tự schema; `targetField` là tên đã chuẩn hoá (NFC + trim), khớp tên đã PUT schema.
+  - FE-F04 đã xong `TargetField`, `FieldType`, `FIELD_TYPES` và `toTargetSchemaDto`, có test: tên đã trim, `order` theo vị trí hiển thị từ 0, không gửi key nội bộ.
+  - FE-F08/F09 đã xong `PipelineSummary`, `ResultQuery`, `ResultRow`, `RowError`, `ResultPage`, `toPipelineSummary` và `toResultPage`, có test: giữ số đếm và thời điểm chạy; lỗi đủ trường (bỏ `rowNumber` lặp lại trong lỗi).
+- [x] 3.8 Mock cho test:
+  - `mocks/fixtures.ts`, đúng shape của contract V0.1:
+    - preview CSV và XLSX, trong đó có cột tên dạng số, `totalRows` luôn có;
+    - result có dòng lỗi và nhiều trang; `ImportErrorDto` có `stage`, `rule`, `step`, `fieldName`;
+    - PUT trả `{session, warnings}`.
+  - `mocks/handlers.ts`: session store trong bộ nhớ, chỉ trả fixture, không mô phỏng pipeline.
+  - `mocks/node.ts` và `src/test/setup.ts` (jest-dom, vòng đời MSW server).
+  - FE-F01 đã xong:
+    - `importSessionFixture` và `problemFixture`;
+    - `mocks/node.ts`; `src/test/setup.ts` (có `onUnhandledRequest: 'error'`);
+    - helper `src/test/http.ts` (`mockUpload` có đếm số request, `gate` để giữ request đang chạy) và `src/test/files.ts`.
+  - Fixture preview/result và session store làm theo feature.
+  - FE-F02 đã xong:
+    - `csvPreviewFixture` (cột tên dạng số `2024` và `1`, ô `null`, ô chỉ có khoảng trắng, số dòng nhảy cóc) và `xlsxPreviewFixture` (có `sheetName`). Shape đã đối chiếu với response của BE thật.
+    - Helper `mockPreview` (dùng chung logic với `mockUpload`).
+  - FE-F04 đã xong `configUpdateFixture` (body 200 của PUT cấu hình) và helper `mockSaveSchema` (ghi lại body JSON của từng lần PUT).
+  - FE-F05 thêm `mockSaveMapping`; hai helper dùng chung `mockPutJson`.
+    - `mocks/handlers.ts` có handler mặc định cho GET preview. **LÝ DO:** upload xong là bước Xem trước gọi preview ngay; không có handler thì mọi test upload cũ phụ thuộc may rủi thời gian (request bị huỷ lúc unmount trước khi MSW kịp báo lỗi).
+  - FE-F06–F10 thêm fixture summary và result (dòng lỗi có `stage`, `rule`, `step`, `fieldName`; key `values` cố ý lệch thứ tự schema); các helper `mockSaveTransformations`, `mockSaveValidations`, `mockProcess`, `mockResult` (ghi query), `mockSession`, `recordRequests`, `problemWithErrors`; `test/flows.ts` (đi qua các bước) và `test/downloads.ts` (bắt file được lưu). Kết quả nhiều trang dựng bằng cách ghi đè `page` của fixture (`pagesByView`).
+  - ~~`mocks/handlers.ts`: session store trong bộ nhớ, chỉ trả fixture.~~ **Đổi — LÝ DO:** test tự khai báo từng response cho tình huống của nó, và request lạ phải làm test fail; một session store chung trong handler của test sẽ che mất request thừa. Session store trong bộ nhớ nằm ở `mocks/devHandlers.ts`, chỉ dùng cho `dev:mock` (3.9).
+- [x] 3.9 Chế độ `dev:mock`:
+  - Tạo `mocks/browser.ts`; chạy `pnpm dlx msw init public/ --save` để sinh `public/mockServiceWorker.js`.
+  - `main.tsx` chỉ import động và khởi động worker khi `VITE_USE_MOCK=true`.
+  - ~~Tạo `.env.mock`;~~ script `dev:mock` = `vite --mode mock`. (`.env.mock` bỏ ở review FE-F11, xem dưới.)
+
+  Kiểm: `pnpm dev:mock` mở được app không cần BE; bản build thường không tải chunk mock.
+  - Chưa làm ở FE-F01. **LÝ DO:** lúc này chỉ bước Upload chạy được, và BE thật đã có upload, nên chế độ mock chưa đem lại gì. Sẽ làm khi có từ hai bước chạy được trở lên.
+  - Làm ở FE-F11:
+    - BE giả có trạng thái theo session ở `mocks/devHandlers.ts` (`createDevHandlers()`), tách khỏi `mocks/handlers.ts` của test: test vẫn tự khai báo từng response và vẫn báo lỗi khi có request lạ.
+    - ~~Dữ liệu là mẫu cố định trong `fixtures.ts`, không chạy logic dữ liệu (design D8). Summary khớp các dòng mẫu. Sửa cấu hình sau khi chạy thì result và export trả 409 như BE thật.~~ **Sai, đã sửa ở review FE-F11 — LÝ DO:**
+      - Kết quả lấy từ fixture với key cứng, nên đổi tên field hay upload XLSX thì bảng kết quả trống và export ra `null`.
+      - "409 như BE thật" không đúng: BE giữ kết quả khi PUT không đổi cấu hình, còn mock thì PUT nào cũng xoá.
+      - Test không chứng minh được luật đó: mutation bỏ luật vẫn xanh, vì qua giao diện không tới được nhánh này.
+
+      Nay kết quả dựng từ bảng mẫu theo schema và mapping đã PUT (design D15). PUT chỉ xoá kết quả khi body khác bản đã có. `totalRows` của preview bằng số dòng mẫu. Export đặt tên theo tên file upload; JSON giữ thứ tự schema.
+    - ~~Script `dev:mock` = `vite --mode mock`, `main.tsx` khởi động worker khi `VITE_USE_MOCK=true` (qua `config.ts`).~~ ~~`main.tsx` đọc thẳng `import.meta.env.VITE_USE_MOCK`.~~ **Đổi hai lần — LÝ DO (review FE-F11):** gate theo biến env thì `.env` quên bật cờ là bản build production mang theo BE giả. Nay gate theo `import.meta.env.DEV && MODE === 'mock'`; bỏ `VITE_USE_MOCK` khỏi `config.ts`, `env.d.ts`, `.env.example`; bỏ `.env.mock`. Đã kiểm ba bản build (thường, `--mode mock`, và `.env.local` có `VITE_USE_MOCK=true`): cả ba chỉ có một chunk JS, không có `setupWorker`, không có `mockServiceWorker.js` (plugin `drop-mock-service-worker`).
+    - BE giả không khởi động được (không có service worker: mở qua IP LAN, trình duyệt ẩn danh) thì vẫn hiện app và ghi lỗi rõ vào console, thay vì trang trắng.
+    - Test `mocks/devHandlers.test.tsx`: gọi thẳng BE giả bằng `fetch` cho từng luật (đổi tên field; mapping hằng số, cột khác, chưa map; XLSX; PUT giống hệt giữ kết quả, PUT khác thì 409 tới lần process sau; schema rỗng thì `SESSION_NOT_READY`; session lạ thì 404), và đi hết luồng qua giao diện một lần. 8 mutation đều bị bắt.
+    - Kiểm bằng Chrome headless với `pnpm dev:mock`, không có BE nào chạy: đi hết 6 bước, ba file tải về đúng tên và nội dung, console sạch.
+
+## 4. Khung wizard (phần khung của FE-F11, làm trước để các bước cắm vào)
+
+- [x] 4.1 TDD `wizard/state.ts` và `wizard/reducer.ts`.
+  - Actions: `sessionCreated`, `previewLoaded`, `schemaEdited`, `mappingEdited`, `transformationsEdited`, `validationsEdited`, `sectionSaved`, `processCompleted`, `resultUnavailable` (nhận `409 RESULT_NOT_AVAILABLE`), `busyChanged`, `reset`.
+  - Test đủ bảng "chuyển về chưa lưu / đánh dấu cũ" của spec `import-wizard`.
+  - Test cascade (spec `target-schema`): đổi tên; xoá field; đổi kiểu khỏi `string` thì xoá rule `email`; đổi kiểu sang `date` thì đặt `outputFormat` về `yyyy-MM-dd`.
+  - FE-F01 đã xong, có test: `sessionCreated` (thay toàn bộ state cũ, sang bước Xem trước), `reset`, `requestStarted`, `requestSettled`.
+  - **Thêm action `navigate`**, vốn không có trong danh sách trên. **LÝ DO:** mọi lần đổi bước đều đi qua reducer, để guard `canEnter` và trạng thái bận được áp ở đúng một chỗ, stepper không tự quyết.
+  - ~~`busyChanged`~~ được thay bằng `requestStarted`/`requestSettled`: `pendingRequests` là bộ đếm, `isBusy()` suy ra từ nó, và có hook `useBusyRequest()` bọc request. **LÝ DO (review FE-F01):** với cờ boolean, mỗi component phải tự ghép cặp bật/tắt. Quên `finally` là điều hướng bị khoá vĩnh viễn, còn hai request chồng nhau thì request xong trước nhả khoá sớm (design D2).
+  - Các action còn lại làm theo feature.
+  - FE-F02 đã xong `previewLoaded`, có test. Action mang id mà FE đã dùng để gửi request; khác session hiện tại thì reducer bỏ qua, để response về muộn của session cũ không ghi đè session mới. `sessionCreated` và `reset` xoá preview.
+    - ~~So với `sessionId` trong response của BE~~ **LÝ DO đổi (review FE-F02):** nếu id BE gửi lại lệch dạng, reducer lặng lẽ bỏ response và spinner quay mãi mà không báo lỗi. Vì vậy model `SourcePreview` cũng bỏ field `sessionId`.
+  - FE-F04 đã xong `schemaEdited` và `sectionSaved` cho schema, có test:
+    - `schemaEdited` mang một `edit`: `add`, `update`, `remove`, `move`. Mọi thay đổi đưa schema về chưa lưu. Key sinh từ `nextFieldSeq` (`f1`, `f2`, …), không dùng lại sau khi xoá, và đếm lại từ `f1` khi có session mới.
+    - `sectionSaved` mang đúng bản draft đã gửi; reducer chỉ đánh dấu đã lưu khi draft hiện tại vẫn là bản đó (so tham chiếu). **LÝ DO:** nếu user sửa trong lúc PUT đang chạy, bản đang hiển thị chưa được lưu. Từ review FE-F04, phần sửa bị khoá trong lúc lưu, nên phép so này là lớp phòng thủ thứ hai.
+    - Reducer đọc `section` bằng `switch`: thêm section mới vào union mà quên nhánh thì compiler báo lỗi.
+  - FE-F06/F07 đã xong `transformationsEdited` (add, update, remove, move; id bước `t1`, `t2`… từ `nextTransformationSeq`), `validationToggled` và `sectionSaved` cho hai section này, có test. Cascade từ schema (spec target-schema): mọi sửa schema đưa cả hai về chưa lưu với tham chiếu mới; xoá field thì xoá rules của nó; đổi kiểu khỏi `string` bỏ rule `email`; đổi kiểu sang `date` đặt `outputFormat` của mọi `dateFormat` về `yyyy-MM-dd`; "Tạo lại từ file" xoá hết rules. Reducer không cho bật `email` ở field không phải `string`, và giữ `outputFormat` ở ISO cho field kiểu `date` dù có patch khác.
+  - FE-F05 đã xong `mappingEdited` và `sectionSaved` cho mapping, có test:
+    - `mappingEdited { key, mapping }`, với `mapping: null` là bỏ map.
+    - Schema sinh từ cột nguồn thì mapping được map sẵn theo tên cột. "Tạo lại từ file" thay mapping cùng field.
+    - Cascade từ schema: mọi thay đổi schema đưa mapping về chưa lưu (PUT /schema làm BE xoá mapping của tên cũ, `CONFIG_PRUNED`); đổi tên giữ mapping vì gắn theo key; xoá field thì xoá mapping của field đó; field tự thêm là chưa map.
+    - Cascade sang mapping và rules làm ở F05–F07, khi có state tương ứng.
+  - FE-F08/F09 đã xong `processCompleted` (kết quả mới, `runId` tăng, trang đầu chưa tải), `resultPageLoaded` (bỏ qua khi kết quả đã cũ) và `resultUnavailable` (mang lý do, design D18), có test. Mọi action sửa cấu hình đánh dấu kết quả cũ khi state thật sự đổi; lưu, điều hướng và bộ đếm bận thì không.
+  - ~~`validationsEdited`~~ là `validationToggled` (bật/tắt một rule), vì UI chỉ có checkbox cho `email` và `unique`.
+- [x] 4.2 TDD `wizard/guards.ts`: `canEnter(step, state)` trả `{allowed, reason}`; test đủ bảng điều kiện của spec `import-wizard`.
+  - FE-F01 đã xong: Upload và Xem trước theo điều kiện thật. Các bước sau khoá kèm lý do, cho tới khi feature tương ứng đưa state của nó vào.
+  - FE-F02 đã xong: bước Schema mở khi preview đã tải, kể cả file không có dòng dữ liệu; bước Xem trước được tính là "đã xong" khi có preview.
+  - FE-F04 đã xong: bước Mapping mở khi schema đã lưu và có ít nhất một field; bước Schema "đã xong" theo cùng điều kiện.
+  - FE-F05 đã xong: bước Biến đổi & kiểm tra mở khi schema và mapping đều đã lưu; sửa schema là khoá lại cho tới khi mapping được lưu lại.
+  - FE-F08/F09 đã xong: bước Kết quả mở khi điều kiện của bước Biến đổi & kiểm tra còn đúng và đã có kết quả (kể cả kết quả cũ); lý do khoá đi theo điều kiện chưa đạt đầu tiên. Bước Biến đổi & kiểm tra "đã xong" khi có kết quả chưa cũ.
+- [x] 4.3 `WizardContext.tsx`, `WizardShell.tsx` và `shared/ui/Stepper`: 6 bước với trạng thái xong/đang ở/khoá; bấm bước bị khoá thì hiện lý do; khoá điều hướng khi `busy`; mỗi bước tạm là placeholder. Có component test.
+  - **`WizardContext.tsx` được tách làm hai**: `wizard/context.ts` (context và hook `useWizard`) và `wizard/WizardProvider.tsx` (component). **LÝ DO:** luật `react/only-export-components` của oxlint (phục vụ Fast Refresh) không cho một file vừa export component vừa export hook.
+  - `Stepper` là component generic, không biết gì về wizard; `WizardShell` tính trạng thái từng bước bằng `canEnter` và `isStepDone`.
+  - Trạng thái "đã xong" có chữ "(đã xong)" cho screen reader. Bản đầu thiếu trạng thái này dù task đã tick; review FE-F01 phát hiện và đã bổ sung, có test.
+  - Lý do khoá bị xoá khi đổi bước, nên không hiện lại khi quay về bước cũ. Bản đầu chỉ ẩn đi và có lỗi này; có test.
+  - Thả file ra ngoài vùng upload được chặn ở `window` (`usePreventFileDrop`), để trình duyệt không mở file và rời khỏi app; có test.
+- [x] 4.4 Thành phần UI dùng chung trong `shared/ui`:
+  - `ErrorBanner`: nhận `ApiError`; dòng chính theo thứ tự ưu tiên; dòng phụ là `detail` khi dòng chính lấy từ bảng của FE; hiện mã lỗi; có nút "Thử lại" tuỳ chọn; có chế độ hiện danh sách `fieldErrors` (dùng cho readiness issue).
+  - `EmptyState`, `Spinner`, `Pagination`, `ConfirmPanel`.
+  - `DataTable`: cột khai báo tường minh, cuộn ngang trong khung bảng.
+
+  Test `ErrorBanner` theo các scenario "Hiển thị lỗi API nhất quán".
+  - FE-F01 đã xong:
+    - `ErrorBanner` (có nút hành động tuỳ chọn) và `ConfirmPanel` (focus vào nút xác nhận khi hiện ra).
+    - Phần chọn nội dung được tách thành hàm thuần `describeApiError` ở `shared/describeError.ts`, có test đủ thứ tự ưu tiên, lỗi mạng, huỷ. Vì vậy `ErrorBanner` nhận `ErrorText` thay vì `ApiError`, và dùng được cho cả lỗi kiểm tra phía client.
+  - Còn lại:
+    - ~~`EmptyState`, `Spinner`, `DataTable` → FE-F02~~ Đã xong ở FE-F02, test qua component test của bước Xem trước. `DataTable` có thêm `EmptyCell` cho ô `null`; cách chia độ rộng cột ghi ở design D14.
+    - ~~chế độ danh sách `fieldErrors` → FE-F04 / FE-F08~~ FE-F04 đã thêm `items` cho `ErrorBanner` (lỗi của BE không gắn được vào field nào). Danh sách readiness issue của FE-F08 dùng lại prop này.
+    - ~~`Pagination` → FE-F09.~~ Đã xong ở FE-F09 (`shared/ui/Pagination.tsx`), test qua bước Kết quả: đổi trang, focus ở biên cả hai chiều.
+    - Nút "Thử lại" của request đọc nằm ở `wizard/LoadFailureBanner.tsx` (dựng trên `ErrorBanner`, prop `action`), dùng chung cho bước Xem trước và bước Kết quả (review FE-F08/F09).
+  - **Thêm `wizard/StepActions.tsx`** (nút "Quay lại"/"Tiếp" ở chân bước), vốn không có trong danh sách trên. **LÝ DO:** mọi bước từ Preview tới Rules đều cần cặp nút này, cùng luật khoá khi bận và luôn hiện lý do khoá cạnh nút "Tiếp" (spec import-wizard, target-schema).
+- [x] 4.5 Đăng ký `beforeunload` khi có session và gỡ khi reset; test cả hai chiều.
+  - Hook `wizard/useBeforeUnload.ts`, test trong `WizardShell.test.tsx`: chưa có session; có session; đang upload thay thế thì vẫn cảnh báo, vì session cũ còn cho tới khi có session mới.
+  - `returnValue = true` chứ không phải `''`: chuỗi rỗng bị trình duyệt cũ coi là "không hỏi".
+- [x] 4.6 Session không dùng được nữa:
+  - `code` là `SESSION_NOT_FOUND` hoặc `SESSION_STATE_INVALID` → `ErrorBanner` có nút "Upload lại", bấm thì chạy action `reset`;
+  - `404` mang mã khác (`REQUEST_INVALID`) → lỗi thường.
+
+  Test rằng không tự reset, và cả ba trường hợp trên.
+  - Làm ở FE-F02, vì GET preview là lệnh đầu tiên gọi endpoint của session sau khi upload.
+  - Đã xong: `isSessionUnusable` (theo `code`) và `isRetryable` (lỗi mạng, 5xx) nằm ở `api/apiError.ts`, có unit test; `isRetryable` chuyển từ `UploadStep` sang đây để các bước dùng chung. Component test ở bước Xem trước phủ cả ba trường hợp: `SESSION_NOT_FOUND`, `SESSION_STATE_INVALID` (có "Upload lại", không tự reset, bấm thì về bước Upload trống) và `404 REQUEST_INVALID` (lỗi thường). Các bước sau dùng lại cùng luật; task 13.2 rà lại toàn bộ.
+
+## 5. FE-F01 Upload (spec import-upload)
+
+- [x] 5.1 TDD ~~`features/upload/validateFile.ts`~~ `features/upload/checkFiles.ts`: đuôi `.csv`/`.xlsx` không phân biệt hoa thường; `.csv` mang MIME `application/vnd.ms-excel` vẫn được nhận; file 0 byte; nhiều file; vượt `VITE_MAX_UPLOAD_MB` (20 MB).
+  - **Đổi tên file. LÝ DO:** hàm kiểm cả danh sách file (nhiều file, không có file nào) và trả kết quả kiểm chứ không ném lỗi, nên `checkSelectedFiles` đúng nghĩa hơn `validateFile`.
+  - Có thêm ca biên: file đúng bằng 20 MB thì nhận, hơn 1 byte thì từ chối (cơ số 1024, cùng cách BE tính).
+- [x] 5.2 `UploadStep`:
+  - vùng kéo-thả và input `accept=".csv,.xlsx"`;
+  - gợi ý định dạng (CSV UTF-8 phân cách dấu phẩy; XLSX đọc sheet hiển thị đầu tiên; tối đa 20 MB);
+  - thông tin file (tên, dung lượng, loại), tiến độ %, nút "Huỷ";
+  - hiển thị lỗi từ BE; khi lỗi mạng có nút "Upload lại" gửi lại đúng file đó;
+  - thành công thì dispatch `sessionCreated` và sang Preview.
+
+  Component test với MSW: thành công, `415 FILE_UNSUPPORTED`, `413 FILE_TOO_LARGE`, `422 FILE_EMPTY`, `422 FILE_PARSE_ERROR` (dòng phụ hiện `detail`), lỗi mạng, huỷ.
+  - **Các test "đang upload" (tiến độ %, Huỷ, thả file chồng) dùng XHR giả thay vì MSW. LÝ DO:**
+    - Interceptor XHR của MSW bỏ qua `abort()` khi handler còn treo: không phát sự kiện `abort`, và request vẫn hoàn tất với 201. Trình duyệt thật không như vậy.
+    - Đã xác nhận bằng một test chẩn đoán (đã xoá sau khi xong).
+  - Bổ sung sau review FE-F01, mỗi mục có test:
+    - "Upload lại" hiện khi lỗi mạng **và lỗi 5xx** (proxy `502`, BE `500`); lỗi 4xx thì không có nút này. Bỏ dòng gợi ý mạng, vì dòng phụ chỉ dành cho `detail` của BE.
+    - Focus: bắt đầu upload thì focus nút Huỷ; huỷ hoặc lỗi thì focus về ô chọn file.
+    - Vùng live chỉ báo lúc bắt đầu và lúc gửi xong, không đọc lại theo từng %. Gửi xong 100% thì hiện "Đang đọc file trên máy chủ…".
+    - Mỗi lúc chỉ một upload: thả thêm file khi đang upload thì bỏ qua, kể cả file sai đuôi.
+    - Response 2xx sai dạng (không phải JSON, thiếu `id`) báo `INVALID_RESPONSE`.
+  - Hai test focus (hộp xác nhận, nút Huỷ) chọn file bằng kéo-thả chứ không dùng `user.upload`. **LÝ DO:** user-event giả lập việc trả focus về input sau `change`, nên nó blur luôn nút vừa nhận focus (design D15).
+  - Đã làm mutation check:
+    - làm hỏng nút Huỷ, phần cập nhật %, hàng rào chống upload chồng, việc nhả cờ bận, hoặc việc gỡ listener abort thì test fail;
+    - `reset` ngay khi xác nhận thì 2 test fail.
+- [x] 5.3 Upload file mới khi đã có session: ~~`ConfirmPanel` → `reset` → upload~~ `ConfirmPanel` → upload; state cũ chỉ bị thay khi có session mới. Test cả nhánh xác nhận và nhánh huỷ.
+  - **LÝ DO bỏ `reset` (review FE-F01, lỗi nghiêm trọng):** `reset` ngay khi xác nhận làm mất sạch session và cấu hình nếu upload thay thế lỗi hoặc bị huỷ. `sessionCreated` đã tự thay state nguyên khối khi có session mới (design D13).
+  - Có test: upload thay thế bị `415`, hoặc bị huỷ, thì session cũ vẫn còn và bước Xem trước vẫn vào được. Câu hỏi xác nhận nêu tên file.
+
+> **Review FE-F01** (senior-reviewer, 2026-09-26). Các góp ý không làm, và lý do:
+> - Không gom `UPLOAD_URL` của test vào code production: test phải tự viết đường dẫn của contract, để bắt được việc hằng số production bị đổi nhầm.
+> - Không bọc `xhr.open`/`xhr.send` trong `try`: với URL và method cố định, hai hàm này không ném lỗi. Chỉ sửa docstring cho đúng.
+> - `formatBytes` không xử lý `NaN` hay số âm: `File.size` không bao giờ như vậy. Lỗi làm tròn (`1.024 KB`) thì đã sửa.
+> - Hàm `isRetryable` chưa có unit test riêng: hành vi (có hoặc không có nút "Upload lại") đã được test component phủ cho 4xx, 5xx, 502 và lỗi mạng.
+
+## 6. FE-F02/F03 Source Preview (spec source-preview)
+
+- [x] 6.1 `PreviewStep`:
+  - gọi GET preview một lần cho mỗi session và lưu vào state;
+  - `DataTable` theo `columns[]`, cột "Dòng", placeholder cho ô `null`, giá trị hiển thị nguyên như BE trả;
+  - dòng tổng quan: "Xem trước x / y dòng" (`totalRows` luôn có) và `sheetName`.
+
+  Test: cột tên dạng số giữ đúng thứ tự; XLSX hiện tên sheet, CSV thì không; quay lại bước không gọi lại API.
+  - Có thêm test: ô `null` hiện placeholder (không hiện chữ `null`), ô chỉ có khoảng trắng giữ nguyên; "Tiếp" sang Schema và bước Xem trước được đánh dấu đã xong; chạy trong `StrictMode` thì request bị huỷ ở lần chạy effect đầu không hiện thành lỗi.
+  - **GET preview không khoá stepper** (không đi qua `useBusyRequest`). **LÝ DO:** ghi ở design D2.
+  - Đã làm mutation check (luôn gọi lại preview, in thẳng `null`, nhận biết session hỏng theo status, "Thử lại" không xoá lỗi, bỏ khoá "Tiếp", báo cả lỗi huỷ): đều có test fail. Ca "báo cả lỗi huỷ" ban đầu lọt; bổ sung test StrictMode mới bắt được.
+  - Bổ sung sau review FE-F02, mỗi mục có test và đã làm mutation check:
+    - rời bước khi đang tải thì request bị huỷ (test đọc `request.signal` ở handler MSW); trong lúc tải, stepper và "Quay lại" vẫn bấm được;
+    - vùng live luôn nằm trong DOM, báo "Đang tải…" rồi "Xem trước x / y dòng";
+    - focus: "Tiếp", "Quay lại", "Upload lại" và upload xong đều đưa focus tới tiêu đề bước mới; "Thử lại" đưa focus về tiêu đề bước; đổi bước bằng stepper thì focus ở lại nút stepper;
+    - ô số dòng là row header, vùng cuộn lấy tên từ caption.
+- [x] 6.2 Các trạng thái, mỗi trạng thái có test:
+  - đang tải;
+  - chỉ có header, không có dòng dữ liệu;
+  - ~~`FILE_PARSE_ERROR` → banner, nút "Upload file khác", khoá "Tiếp"~~ **Bỏ — LÝ DO:** BE đọc và kiểm toàn bộ file ngay lúc upload, nên `FILE_EMPTY`/`FILE_PARSE_ERROR` trả về ở bước Upload (task 5.2), không bao giờ xảy ra ở preview;
+  - 5xx hoặc lỗi mạng → "Thử lại".
+  - Đã test: đang tải (chỉ báo và nút "Tiếp" khoá kèm lý do); chỉ có header ("File không có dòng dữ liệu", vẫn sang được Schema); lỗi mạng, `500`, `502` HTML → "Thử lại" gọi lại và hiện bảng.
+  - Lỗi preview là state cục bộ của bước: rời bước rồi quay lại thì bước tự gọi lại, không cần bấm "Thử lại". **LÝ DO:** preview chưa tải được thì chưa có gì để giữ; vào lại bước coi như một lần thử mới. Với lỗi 4xx, lần gọi lại cũng chỉ hiện lại đúng lỗi đó, không hại gì. Giữ lỗi trong wizard state chỉ thêm action mà không đem lại gì cho user. Spec "không gọi lại API" áp cho preview **đã tải xong** (có test).
+
+> **Review FE-F02** (senior-reviewer, 2026-09-26). Đã sửa: huỷ request và quyết định không khoá stepper chưa có test; guard response cũ so với id do BE gửi lại; mất focus khi nút biến mất; vùng live bị gắn/gỡ khỏi DOM; validator chưa kiểm kiểu ô; lỗi lạ không được log; ô số dòng chưa là row header và tên vùng cuộn bị đọc hai lần. Các góp ý không làm, và lý do:
+> - ~~Timeout 30 giây cho `request()`: ghi ở design D6. Timeout chung sẽ áp cả lên các lệnh PUT sau này, và PUT hết giờ trong khi BE đã ghi thì FE báo lỗi sai.~~ Đã làm ở FE-F04; lý do đổi quyết định ghi ở design D6.
+> - Giữ lỗi preview trong wizard state: xem ghi chú ngay trên.
+  - ~~Lưu ý khi làm: cho tới khi có BE-F03, preview của session XLSX trả `409 SESSION_STATE_INVALID`…~~ **Không còn cần. LÝ DO:** BE-F03 đã merge vào `main` (`e7f6f21`); upload XLSX giờ trả `201` ở `CONFIGURING`, và preview dùng chung shape với CSV.
+- [x] ~~6.3 Cảnh báo khi `columns[].name` trùng nhau hoặc rỗng (giả định Q9); có test.~~ **Bỏ — LÝ DO:** BE tự đặt lại tên header trùng hoặc rỗng (`Email (2)`, `Column C`), nên `columns[].name` luôn duy nhất và không rỗng (Q9).
+
+## 7. FE-F04 Target Schema (spec target-schema)
+
+- [x] 7.1 TDD `domain/schemaRules.ts`: tên rỗng sau khi trim; tên dài quá 100 ký tự sau khi trim; trùng tên sau khi trim, không phân biệt hoa thường (đánh dấu cả hai field); schema rỗng.
+  - Hàm `checkSchema` trả lỗi theo key và lý do khoá "Tiếp": "Cần ít nhất một field", "Còn field chưa đặt tên" (ưu tiên), "Còn lỗi ở tên field". Có thêm ca biên: đúng 100 ký tự thì hợp lệ; nhiều field cùng rỗng không bị coi là trùng.
+  - Thêm `matchServerErrors`, có test: chia `errors[]` của `422` theo field (so tên đã trim); lỗi không có `field`, hoặc tên không khớp field nào, đưa lên đầu form.
+  - Tên field được chuẩn hoá NFC rồi mới trim, cả khi kiểm, khi gửi lên BE lẫn khi ghép lỗi của BE (`normalizeFieldName`). Có test. **LÝ DO (review FE-F04):** chữ Việt gõ dạng tổ hợp (NFD) và dựng sẵn (NFC) nhìn giống hệt nhau nhưng khác chuỗi; không chuẩn hoá thì file xuất ra có hai cột trùng tiêu đề, và độ dài bị đếm dư.
+  - `toLowerCase` của JS lệch `equalsIgnoreCase` của Java ở vài chữ hiếm (ς/σ, İ/i). Những ca này BE vẫn chặn bằng 422, và lỗi hiện tại field.
+- [x] 7.2 `SchemaStep`:
+  - thêm field (focus ô tên), xoá, Lên/Xuống (khoá ở biên);
+  - ô tên, chọn một trong 5 kiểu, checkbox required;
+  - lỗi inline chỉ hiện sau khi ô tên mất focus lần đầu; nút "Tiếp" khoá, lý do luôn hiện cạnh nút.
+
+  Có component test.
+  - Đã xong, có component test theo từng scenario của spec. Mỗi field là một `<fieldset>` tên "Field n"; ô tên có `aria-invalid` và `aria-describedby` trỏ tới lỗi.
+  - Focus (design D14), có test: "Thêm field" → ô tên của field mới; "Lên"/"Xuống" tới biên thì nút vừa bấm bị khoá → nút chiều ngược lại của cùng field; "Xoá" → ô tên của field kề bên, hết field thì nút "Thêm field".
+- [x] 7.3 Lưu khi bấm "Tiếp": PUT schema nếu chưa lưu (tên đã trim, `order` từ 0); bỏ qua nếu đã lưu; `422 SCHEMA_INVALID` → lỗi tại field có tên khớp, phần còn lại ở đầu form. Test với MSW.
+  - Có thêm test: đang lưu thì khoá stepper và nút điều hướng; bấm đúp chỉ gửi một PUT; sửa field đang có lỗi từ BE thì lỗi đó biến mất; lỗi mạng không có "Thử lại" (D6), bấm "Tiếp" lần nữa là gửi lại; `SESSION_NOT_FOUND`/`SESSION_STATE_INVALID` có "Upload lại"; `404 REQUEST_INVALID` là lỗi thường và không mất dữ liệu đang nhập.
+  - Lưu lỗi thì focus tới ô tên của field lỗi đầu tiên, hoặc tiêu đề bước nếu lỗi không gắn được vào field nào (nút "Tiếp" bị khoá trong lúc lưu nên đã mất focus).
+  - Không có khoá riêng chống bấm đúp. **LÝ DO:** `requestStarted` khoá nút "Tiếp" ngay trong sự kiện click đầu tiên (React xử lý click đồng bộ). Mutation check cho thấy một khoá riêng không làm test nào đổi kết quả, tức là code thừa.
+  - Đã làm mutation check (luôn PUT dù đã lưu, không xoá lỗi BE khi sửa, không chuyển focus sau Lên/Xuống hoặc Xoá, báo lỗi ngay khi chưa rời ô, không focus field lỗi từ BE): đều có test fail.
+  - Bổ sung sau review FE-F04, mỗi mục có test và đã làm mutation check:
+    - trong lúc lưu, khoá cả phần sửa (ô tên, kiểu, bắt buộc, Lên/Xuống/Xoá, "Thêm field");
+    - lúc ô tên nhận focus sau khi lưu lỗi, mô tả lỗi đã gắn sẵn (`flushSync`);
+    - sửa bất kỳ field nào cũng xoá lỗi BE và khối lỗi, vì chúng nói về bản đã gửi; riêng lỗi session hỏng thì giữ nút "Upload lại";
+    - rời bước rồi quay lại, field đã báo lỗi vẫn báo lỗi;
+    - "Xuống" ở giữa danh sách: nút của chính field vừa di chuyển giữ focus;
+    - đổi thứ tự sau khi đã lưu cũng đưa schema về chưa lưu (test reducer).
+  - ~~**Chưa kiểm với BE thật:** BE-F04 chưa có.~~ Đã kiểm với BE thật sau khi BE-F04 vào `dev` (`4803fd0`); kết quả ghi ở 13.4.
+- [x] 7.4 Test tích hợp UI cho cascade:
+  - Chưa làm ở FE-F04. **LÝ DO:** state của mapping, transformations và validations chưa tồn tại; mỗi ca cascade làm cùng feature đưa state đó vào (F05, F06, F07). Key cố định của field (D3) đã có sẵn cho việc này.
+  - FE-F05 đã xong hai ca đầu cho mapping, có test tích hợp UI: đổi tên field thì mapping giữ nguyên và lần PUT mapping kế tiếp gửi tên mới; xoá field thì mapping của nó không còn trong PUT. Hai ca về rule làm ở F06/F07.
+  - FE-F06/F07 đã xong hai ca về rule ở mức reducer (đổi kiểu khỏi `string` bỏ `email`; đổi kiểu sang `date` đặt `outputFormat` về ISO). Kiểm payload PUT transformations/validations sau khi đổi tên làm ở FE-F08, khi có trình tự "Chạy xử lý".
+  - FE-F08 xong ca cuối: đổi tên field sau khi đã cấu hình rules thì PUT transformations và PUT validations trong trình tự "Chạy xử lý" gửi tên mới (`features/run/runPipeline.test.tsx`).
+  - đổi tên vẫn giữ mapping/rules, và các lần PUT mapping/transformations/validations sau đó gửi tên mới (BE đã xoá cấu hình của tên cũ khi PUT schema);
+  - xoá field thì xoá cấu hình của field đó;
+  - đổi kiểu khỏi `string` thì xoá rule `email`;
+  - đổi kiểu sang `date` thì `outputFormat` về `yyyy-MM-dd`.
+
+- [x] 7.5 Sinh schema từ cột nguồn (spec target-schema, requirement "Sinh schema từ cột nguồn"; người dùng yêu cầu ngày 2026-09-26, sau khi FE-F04 đã vào `dev`):
+  - TDD `domain/inferSchema.ts`: `inferFieldType(values)` theo đúng luật kiểu của BE-F07, và `fieldsFromPreview(preview)`.
+  - Reducer: `previewLoaded` sinh schema khi schema đang trống; thêm kiểu sửa `regenerate` vào `schemaEdited`, key tiếp tục từ `nextFieldSeq`.
+  - `SchemaStep`: nút "Tạo lại từ file", hỏi xác nhận bằng `ConfirmPanel` khi đang có field.
+  - Cập nhật các test đang giả định bước Schema mở ra trống.
+  - Ghi chú cho FE-F05: Mapping mặc định map field sang cột nguồn cùng tên.
+  - Đã xong, có test:
+    - `inferFieldType`: từng kiểu và các ca biên (`1`/`0` là `number`; `" 42"`, `1,234`, `2024-02-30`, ngày có giờ, `yes`/`no` là `string`; ô `null`, rỗng, chỉ khoảng trắng hoặc NBSP bị bỏ qua).
+    - Reducer: `previewLoaded` chỉ sinh khi schema đang trống; `regenerate` dùng key mới, tiếp theo `nextFieldSeq`.
+    - Màn Schema: vào bước thấy field sinh sẵn; xoá rồi quay lại thì không sinh lại; "Tạo lại từ file" hỏi xác nhận khi đang có field ("Huỷ" giữ nguyên, trả focus về nút; đồng ý thì thay và focus field đầu); chưa có field thì sinh ngay; lưu schema sinh sẵn gửi đúng tên, kiểu, thứ tự.
+  - Các test thao tác của FE-F04 (thêm, sửa, xoá, lưu) vẫn bắt đầu từ danh sách trống, bằng cách xoá hết field được sinh qua giao diện (helper `openSchemaStep`).
+  - Đã làm mutation check (sinh đè lên field đã có, dùng lại key cũ, cột `1`/`0` thành `boolean`, không bỏ ô chỉ có khoảng trắng, luôn hỏi xác nhận, "Huỷ" không trả focus, không focus field đầu sau khi tạo lại): đều có test fail.
+  - Đã chạy thật với BE ở 8080 (Chrome headless): CSV 6 cột ra đúng `string`, `string`, `date`, `number`, `boolean`, `email`; hộp xác nhận hiện đúng số field; console sạch.
+
+## 8. FE-F05 Mapping (spec field-mapping)
+
+- [x] 8.0 Map mặc định theo tên cột (spec field-mapping, requirement "Map mặc định theo tên cột"; bổ sung ngày 2026-09-26 cùng với việc sinh schema, design D20): field sinh từ cột nguồn map sẵn với cột cùng tên; field tự thêm là "Chưa map".
+- [x] 8.1 TDD `domain/configRules.ts` phần mapping: field required chưa map → lỗi; field optional chưa map → cảnh báo; hằng rỗng → lỗi.
+  - `checkMapping` trả vấn đề theo key và lý do khoá "Tiếp" liệt kê tên field theo thứ tự schema ("Field bắt buộc chưa map: …", "Giá trị cố định đang trống: …", nối bằng dấu chấm phẩy). Một cột dùng cho nhiều field là hợp lệ.
+- [x] 8.2 `MappingStep`:
+  - mỗi field chọn Chưa map / Cột nguồn / Giá trị cố định;
+  - danh sách cột theo thứ tự preview; tối đa 3 giá trị mẫu không rỗng;
+  - cảnh báo và lỗi; nút "Tiếp" khoá kèm danh sách field lỗi.
+
+  Có component test.
+  - Mỗi field là một `<fieldset>` tên là tên field. Ô "Nguồn" là một `<select>`: "Chưa map", nhóm "Cột nguồn" theo thứ tự preview, rồi "Giá trị cố định…". Chọn giá trị cố định thì hiện ô nhập; chọn cột thì hiện tối đa 3 giá trị mẫu (bỏ ô rỗng hoặc chỉ khoảng trắng), lấy từ preview, không gọi API.
+  - Lỗi và cảnh báo gắn vào ô tương ứng qua `aria-describedby`; lỗi hằng rỗng gắn vào ô nhập, các vấn đề khác gắn vào ô chọn nguồn.
+  - Chọn "Giá trị cố định…" không tự đưa focus sang ô nhập. **LÝ DO:** trên Windows, Chrome phát `change` mỗi lần bấm mũi tên trên `<select>` đang đóng; tự chuyển focus sẽ cướp focus giữa lúc user đang lướt các lựa chọn.
+- [x] 8.3 Lưu khi bấm "Tiếp": PUT mapping chỉ gồm field đã map; bỏ qua nếu đã lưu; `422` (`SOURCE_COLUMN_NOT_FOUND` / `MAPPING_INVALID`) → lỗi tại dòng của field. Test với MSW, kiểm payload đúng scenario của spec.
+
+  - Có test: payload đúng scenario (hằng, cột, field chưa map bị bỏ); đã lưu và không sửa thì không PUT lại; đang lưu thì khoá phần sửa và điều hướng; `422 SOURCE_COLUMN_NOT_FOUND` hiện tại dòng field và focus ô nguồn của field đó (lỗi được render trước khi focus, `flushSync`); `404 SESSION_NOT_FOUND` có "Upload lại".
+  - Đã làm mutation check (không map sẵn theo tên cột, sửa schema không đưa mapping về chưa lưu, xoá field không xoá mapping, luôn PUT dù đã lưu, mẫu không bỏ ô trống, không khoá phần sửa khi lưu, `targetField` không chuẩn hoá): đều có test fail.
+  - Đã kiểm với BE thật (13.4).
+
+> **Review FE-F05** (senior-reviewer, 2026-09-26). Đã sửa, mỗi mục có test và đã làm mutation check:
+> - Lưu lỗi ở dòng giá trị cố định thì focus vào ô nhập giá trị (nơi mang lỗi), không vào ô chọn nguồn. Luồng báo lỗi và focus được gom thành `useSaveFeedback` + `SaveFailureBanner`, dùng chung cho Schema và Mapping.
+> - Sửa schema tạo tham chiếu mới cho `mapping.draft`, để `sectionSaved` của bản gửi trước đó không đánh dấu nhầm là đã lưu (design D2).
+> - Thêm test cho "sửa field khác thì xoá lỗi BE" và "lỗi session vẫn giữ nút Upload lại" ở bước Mapping.
+> - Câu xác nhận "Tạo lại từ file" nói rõ mapping cũng được đặt lại.
+> - Ô chọn nguồn được mô tả bằng kiểu, bắt buộc và giá trị mẫu cho screen reader.
+> - Map mặc định lấy tên cột từ `preview.columns`, không từ tên field. Có test: `sourceColumn` dạng NFD được gửi nguyên văn.
+> - Luật "giá trị cố định rỗng" theo đúng `String.isBlank()` của Java: NBSP không tính là rỗng, còn U+001C–U+001F thì có.
+> - Lướt qua lựa chọn khác rồi quay lại "Giá trị cố định…" thì giá trị đã gõ vẫn còn.
+> - Dòng mapping được `memo` với props ổn định, và giá trị mẫu tính một lần cho mỗi cột. Gõ vào một ô không render lại cả bảng.
+> - Test đổi tên so đủ danh sách payload; có test "quay lại Schema rồi trở lại vẫn giữ lựa chọn đang sửa"; test reducer phủ cả đổi kiểu, bắt buộc, thứ tự, thêm field.
+>
+> Không làm: hiện một lựa chọn riêng khi cột đã map không còn trong preview. **LÝ DO:** preview cố định theo session, và session mới thì schema lẫn mapping đều bị xoá, nên tình huống này không xảy ra được. Nếu sau này cho tải lại preview giữa chừng thì phải làm.
+> Chưa gom CSS trùng giữa các bước (tiêu đề, khung bảng). **LÝ DO:** rủi ro thấp; gom khi làm tới bước thứ ba dùng cùng khung.
+
+## 9. FE-F06/F07 Transform & Validate (spec rule-config)
+
+- [x] 9.1 TDD `configRules.ts` phần rules:
+  - `defaultValue` rỗng và `dateFormat` thiếu định dạng → lỗi;
+  - rule suy ra (`required`, `type:<kiểu>`);
+  - `email` chỉ có ở field `string`;
+  - `dateFormat` trên field `date` thì `outputFormat` cố định `yyyy-MM-dd`.
+  - `checkTransformations` trả lỗi theo từng ô tham số (`value`, `inputFormat`, `outputFormat`) và lý do khoá "Chạy xử lý" liệt kê tên field. `impliedRules` và `canUseRule` có test. Luật `outputFormat` ISO cho field `date` nằm ở reducer và mapper.
+  - ~~"Rỗng" theo `isBlank()` của Java như BE.~~ **Sai, đã sửa sau review FE-F06/F07:** BE có hai luật. Tham số transformation dùng `TextValues.isEmpty`, tính cả NBSP (U+00A0, U+2007, U+202F) là rỗng; giá trị cố định ở mapping dùng `isBlank()`. FE dùng đúng luật cho từng chỗ (`isEmptyLikeBe`, `isBlankLikeJava`), có test cho cả ba ký tự NBSP.
+- [x] 9.2 `TransformationEditor`:
+  - thêm, xoá, Lên/Xuống; ô tham số;
+  - gợi ý mẫu `dateFormat` (datalist); `outputFormat` điền sẵn `yyyy-MM-dd`, và **chỉ đọc** ở field kiểu `date`;
+  - dòng tóm tắt "trim → uppercase" hoặc "Không biến đổi".
+
+  Có component test.
+  - Mỗi bước là một nhóm "Bước n: <loại>"; ô tham số có nhãn và `aria-describedby` trỏ tới lỗi. Ô định dạng dùng `<datalist>` với 6 mẫu gợi ý và vẫn cho nhập tự do.
+  - Focus (design D14): thêm bước có tham số thì vào ô tham số đầu (bước không có tham số thì focus ở lại nút "Thêm biến đổi"); Lên/Xuống tới biên thì sang nút chiều ngược lại của cùng bước; Xoá thì sang nút "Xoá" của bước kề bên, hết bước thì về ô chọn loại biến đổi.
+  - Thêm gợi ý dưới `dateFormat` khi chưa có `trim` đứng trước. **LÝ DO:** BE-F06 không tự bỏ khoảng trắng trước khi đọc ngày.
+- [x] 9.3 `ValidationEditor`: chip rule suy ra (chỉ đọc); bật/tắt `email` (chỉ field `string`) và `unique`. Component test theo các scenario của spec.
+- [x] 9.4 `RulesStep`: ghép hai editor theo từng field, theo thứ tự schema. Test:
+  - payload transformations đúng thứ tự, không có `params` cho `trim`/`uppercase`/`lowercase`;
+  - payload validations chỉ có rule do user bật, không có `params`.
+  - Mỗi field là một vùng (`<section>` có tiêu đề h3 là tên field). Hai test payload nằm ở test mapper (`toTransformationConfigDto`, `toValidationConfigDto`); test UI của payload làm ở FE-F08 cùng trình tự "Chạy xử lý".
+  - Nút "Chạy xử lý" có ở lát này nhưng khoá, lý do là lỗi tham số nếu có, hoặc "đang được hoàn thiện (FE-F08)". **LÝ DO:** trình tự chạy cần BE-F07 đến BE-F09; làm ở FE-F08 ngay sau.
+  - Đã làm mutation check (outputFormat không khoá ở field `date`, luôn nhắc trim, không chuyển focus sau khi xoá bước, `email` bật được ở mọi kiểu): đều có test fail.
+  - Chạy app thật (BE 8081): khối theo field, tóm tắt "trim → uppercase", `dateFormat` ở field `date` khoá đầu ra `yyyy-MM-dd`, chip `type:<kiểu>`, `email` chỉ ở field `string`, console sạch.
+
+> **Review FE-F06/F07** (senior-reviewer, 2026-09-26). Đã sửa, mỗi mục có test và đã làm mutation check:
+> - Luật "rỗng" của tham số transformation theo `TextValues.isEmpty` của BE (tính cả NBSP), tách khỏi luật của giá trị cố định ở mapping.
+> - Bộ lọc `email` theo kiểu trong `toValidationConfigDto` có test (field `number` và field kiểu `email`); docstring nói đúng hành vi của BE (422 hoặc warning `RULE_IMPLIED_BY_SCHEMA`).
+> - Dòng tóm tắt chuỗi biến đổi là vùng live (`aria-live="polite"`), nên thêm, xoá, đổi thứ tự bước đều được đọc. Xoá bước thì focus về control đầu tiên bấm được của bước kề bên, như bước Schema, để bấm đúp không xoá liên tiếp.
+> - Lời nhắc thêm `trim` là mô tả của ô "Định dạng đầu vào"; mẫu ngày có khoảng trắng ở đầu hoặc cuối có cảnh báo tại ô.
+> - Test UI cho cascade đổi kiểu: khỏi `string` thì checkbox `email` biến mất và `unique` còn bật; sang `date` thì đầu ra thành `yyyy-MM-dd` chỉ đọc. Test reducer "xoá field" kiểm cả việc field khác giữ nguyên cấu hình.
+> - Mỗi field là một nhóm (`role="group"`), không phải landmark, để file nhiều cột không tạo hàng trăm landmark.
+> - `TransformationEditor` và `ValidationEditor` được `memo`, dùng tham chiếu rỗng cố định và vấn đề tách theo field. Gõ vào một ô không render lại các field khác.
+> - Kiểu `patch` được reducer áp theo loại bước (không ép kiểu), khoá vắng giữ giá trị cũ.
+> - Gom phần chép giữa các bước (bước thứ ba dùng cùng khung, như đã hứa ở review FE-F05): `StepHeader` (tiêu đề và dòng giới thiệu) dùng chung cho Schema, Mapping, Rules; helper `focusMoveButton`/`focusFirstControl` dùng chung cho danh sách có Lên/Xuống/Xoá.
+> - Bỏ mã task nội bộ khỏi chuỗi hiển thị; bỏ ref không dùng; sửa comment và design theo cascade mới.
+
+## 10. FE-F08 Chạy pipeline (spec pipeline-run)
+
+- [x] 10.1 Nút "Chạy xử lý" khoá kèm lý do khi còn lỗi cấu hình, còn phần chưa lưu, hoặc đang chạy. Có test.
+  - Lý do khoá lấy từ `runBlockedReason(state)` (`features/run/useRunPipeline.ts`): điều kiện vào bước Biến đổi & kiểm tra (schema, mapping đã lưu), rồi tham số transformation còn thiếu. Nút "Chạy lại" ở bước Kết quả dùng đúng lý do này.
+- [x] 10.2 Trình tự, dừng ở bước lỗi đầu tiên:
+  1. PUT transformations (nếu chưa lưu)
+  2. PUT validations (nếu chưa lưu)
+  3. POST process
+  4. ~~GET result (`view` chọn theo `invalid`)~~
+  5. ~~sang bước Result~~
+
+  **Đổi thứ tự 4–5 (review FE-F08/F09) — LÝ DO:** xem ghi chú "Bước 4 (GET result)…" ngay dưới. Nay là: 4. sang bước Result; 5. bước Result gửi GET result (`view` chọn theo `invalid`).
+
+  Test với MSW:
+  - thành công;
+  - bỏ qua phần đã lưu;
+  - validations trả `422 CONFIG_INVALID`;
+  - process trả `409 SESSION_NOT_READY`, hiện danh sách readiness issue từ `errors[]`;
+  - process trả `409 SESSION_STATE_INVALID` (đi theo 4.6);
+  - process trả `422 FILE_PARSE_ERROR` → hiện nút "Upload lại" ngay (session đã `FAILED`, design D12);
+  - process trả `500 INTERNAL_ERROR` → lỗi chung, "Chạy xử lý" bấm lại được.
+
+  Đã làm trong hook `useRunPipeline`, dùng chung cho "Chạy xử lý" và "Chạy lại". Thêm so với danh sách trên:
+  - ~~Bước 4 (GET result) nằm trong trình tự, lỗi thì ở lại bước hiện tại.~~ **Đổi sau review FE-F08/F09 — LÝ DO:** GET trang đầu lỗi (mạng chập, 503) mà ở lại bước Biến đổi thì summary vừa có bị vứt, và cách duy nhất là chạy lại cả pipeline (vài phút với file lớn). Nay process xong là sang bước Kết quả (`processCompleted`, `page: null`), và bước đó tự tải trang đầu; lỗi thì khối lỗi có "Thử lại" chỉ tải lại trang, như mọi GET khác. Thứ tự request không đổi.
+  - Process lỗi: 422 (lỗi đọc file) → "Upload lại" ngay. 5xx → hỏi `GET /api/import-sessions/{id}`: `FAILED` thì "Upload lại", còn lại là lỗi chung; không hỏi được thì cũng là lỗi chung. Nút chạy luôn bấm lại được.
+  - Process lỗi thì kết quả đang có bị đánh dấu cũ, vì BE có thể đã xoá nó (session `FAILED`); trừ khi sau 5xx session vẫn `PROCESSED`, nghĩa là BE giữ kết quả cũ.
+  - `SESSION_NOT_READY`: readiness issue hiện trong khối lỗi dạng `field: thông điệp FE theo mã` (ví dụ "Email: Field bắt buộc chưa được map"), không gắn vào thẻ field, vì đó là việc cần làm chứ không phải lỗi của ô nào.
+  - `CONFIG_INVALID` của PUT: ở bước Biến đổi & kiểm tra, lỗi nằm ngay dưới đầu thẻ field (là mô tả của nhóm) và nhận focus; ở bước Kết quả không có thẻ field nên lỗi nằm trong danh sách của khối lỗi. Sửa bất kỳ rule nào thì lỗi của bản đã gửi biến mất.
+  - Có dòng lỗi thì trang đầu là `view=invalid`, không thì `view=valid`; có test cho cả hai.
+  - `POST /process` có timeout riêng 5 phút (`PROCESS_TIMEOUT_MS`), vì BE chạy pipeline đồng bộ (design D6).
+- [x] 10.3 Trạng thái "Đang xử lý…" và khoá điều hướng; test bấm đúp chỉ gửi một lượt request.
+  - "Đang xử lý…" nằm trong vùng status cạnh nút chạy (`StepActions`, prop `progressLabel`); vùng này chỉ có ở bước có việc chạy dài, và có sẵn trong DOM trước khi đổi nội dung.
+  - ~~Chặn bấm đúp bằng một ref trong hook.~~ **Bỏ — LÝ DO:** `runBusy` tăng bộ đếm bận ngay trong sự kiện click, trước lần `await` đầu tiên, nên nút đã khoá trước cú bấm thứ hai. Mutation check cho thấy ref không đổi kết quả của test nào, tức là code không kiểm được. Bỏ ref thì test bấm đúp vẫn xanh; bỏ việc khoá nút khi bận thì test đỏ.
+- [x] 10.4 Chạy lại sau khi sửa cấu hình: kết quả mới thay kết quả cũ và bỏ đánh dấu cũ. Có test.
+  - Reducer đánh dấu cũ ở mọi action sửa cấu hình (`schemaEdited`, `mappingEdited`, `transformationsEdited`, `validationToggled`) khi state thật sự đổi; thao tác không đổi gì (bật rule đã bật) thì không. Lưu, điều hướng và bộ đếm bận không đụng tới kết quả.
+  - Chạy lại chỉ gửi phần chưa lưu: sửa một rule thì chỉ PUT validations, rồi process và GET result (test ở cả hai bước).
+
+## 11. FE-F09 Kết quả (spec result-review)
+
+- [x] 11.1 `ResultStep`: 3 thẻ tóm tắt. Khi kết quả đã cũ: cảnh báo kèm nút "Chạy lại" (dùng lại trình tự của 10.2), và khoá đổi trang, đổi tab, bộ lọc.
+- [x] 11.2 Tab Hợp lệ/Lỗi, tab mặc định chọn theo `invalid`.
+  - Bảng: cột "Dòng", rồi các field theo thứ tự schema.
+  - Dòng lỗi: làm nổi ô lỗi và liệt kê từng lỗi gồm field, nhãn mã lỗi, rule, bước (`step + 1`, khi `stage=TRANSFORMATION`), message và giá trị nguồn.
+
+  Test:
+  - thứ tự cột theo schema, kể cả field tên dạng số;
+  - lỗi validation;
+  - lỗi transformation, trong đó ô có giá trị `null` hiện placeholder;
+  - ~~lỗi không gắn với field~~ **Bỏ — LÝ DO:** trong contract V0.1, `ImportErrorDto.fieldName` luôn có giá trị.
+
+  Đã làm:
+  - Cột của bảng là tên field lúc chạy (`result.columns`), không lấy từ key của `values` hay từ schema hiện tại: sau khi đổi tên field, kết quả cũ vẫn đọc đúng cột.
+  - Ô có lỗi có nền đỏ và chữ ẩn "(có lỗi)"; dưới dòng là danh sách lỗi (`aria-label` "Lỗi của dòng n"), mỗi lỗi một câu: field, nhãn mã lỗi, mã, rule hoặc "biến đổi `rule` ở bước `step + 1`", giá trị nguồn trong ngoặc kép, message của BE (`lang="en"`). `DataTable` có thêm `flagged` theo cột và `detail` theo dòng.
+  - Tab theo mẫu kích hoạt thủ công của WAI-ARIA: mũi tên, Home, End chỉ dời focus; Enter hoặc Space mới tải tab, vì mỗi lần đổi tab là một request.
+  - Giá trị số hiện đúng từng chữ số BE gửi, kể cả số dài hơn độ chính xác của JS và số có 0 ở cuối (`10.50`): `getResult` đọc JSON với `exactNumbers` (design, mục rủi ro). Có test ở mức endpoint và ở bảng.
+- [x] 11.3 Phân trang 50 dòng/trang; đổi trang hoặc đổi tab thì gọi lại GET result. Có test.
+  - `shared/ui/Pagination.tsx`. Nút đổi trang không bị khoá trong lúc tải, để giữ focus; cú bấm thứ hai khi trang kế còn đang tải bị bỏ qua (có test). Tới trang đầu hoặc cuối thì nút vừa bấm bị khoá, focus sang nút chiều ngược lại.
+  - Trong lúc tải, tab và bộ lọc hiện ngay lựa chọn mới, bảng cũ mờ đi (`aria-busy`); vùng status báo "Đang tải kết quả…" rồi "Dòng lỗi: trang x / y".
+- [x] 11.4 Lọc tab Lỗi theo field và mã lỗi qua query (BE đã xác nhận ở Q3); lựa chọn kèm số lỗi từ `errorCountsByField` / `errorCountsByCode`; nút "Xoá lọc"; đổi bộ lọc thì về trang 0. Có test.
+  - Lựa chọn field theo thứ tự schema lúc chạy, không theo key của `errorCountsByField`: JS đưa key dạng số ("1", "2024") lên đầu object, dù BE gửi theo thứ tự schema. Mã lỗi hiện nhãn tiếng Việt kèm số lỗi.
+  - "Xoá lọc" bị khoá ngay khi hết bộ lọc, nên focus chuyển sang ô lọc field.
+  - Không có dòng lỗi nào thì không hiện bộ lọc.
+- [x] 11.5 Trạng thái rỗng "Không có dòng lỗi" / "Không có dòng hợp lệ". Có test.
+  - Thêm "Không có dòng lỗi khớp bộ lọc" khi đang lọc mà không còn dòng nào (lọc cả field lẫn mã lỗi có thể ra rỗng).
+- [x] 11.6 `GET result` trả `409 RESULT_NOT_AVAILABLE` → dispatch `resultUnavailable`: đánh dấu kết quả là cũ, giữ trang đang xem, hiện cảnh báo và nút "Chạy lại" (design D18). Có test.
+  - Focus chuyển tới nút "Chạy lại", vì mọi nút đổi trang, tab, bộ lọc vừa bị khoá. Lỗi tải trang khác hiện khối lỗi có "Thử lại" (gửi lại đúng truy vấn đó) hoặc "Upload lại" (session hỏng).
+  - Chạy lại thành công: nút "Chạy lại" biến mất cùng cảnh báo, focus về tiêu đề bước.
+
+> **Review FE-F08/F09** (senior-reviewer, 2026-09-27). Đã sửa, mỗi mục có test ~~và đã làm mutation check~~ (**không đúng hết — LÝ DO:** review lần 2 chạy mutation thật và thấy các nhánh 409, 404, hết giờ, mất mạng, 5xx+READY, lỗi khi hỏi trạng thái session của `afterProcessFailure`, cùng nhánh lỗi của vòng tải trang, không có test nào. Đã bổ sung ở lần 2):
+> - "Thử lại" ở bước Kết quả làm focus rơi về đầu trang: bản chép từ bước Xem trước bỏ mất dòng focus. Gom khối lỗi của request đọc vào `wizard/LoadFailureBanner.tsx` (và `wizard/loadFailure.ts`), dùng chung cho hai bước, focus nằm trong đó.
+> - Process lỗi mà kết quả cũ vẫn hiện như kết quả hiện hành, trong khi BE đã xoá nó: nay đánh dấu cũ (xem 10.2).
+> - GET trang đầu lỗi thì phải chạy lại cả pipeline: nay bước Kết quả tự tải trang đầu (xem 10.2).
+> - Đổi bộ lọc khi trang trước còn đang tải thì lựa chọn bị bỏ và select nhảy ngược: nay lựa chọn mới nhất thắng. Nó được xếp hàng và tải ngay sau; trang của lựa chọn cũ về tới nơi thì không được vẽ. Chọn lại đúng trang đang tải (bấm đúp "Sau") thì chỉ chờ nó.
+> - Kết quả cũ khoá cả tab đang chọn, tablist mất điểm dừng Tab: nay chỉ khoá tab kia.
+> - Dòng chi tiết lỗi bị gắn với mọi tiêu đề cột: ô chi tiết nay có `headers` trỏ tới ô số dòng. Phần dính bên trái khi cuộn ngang chuyển vào `DataTable`, đúng như comment của nó.
+> - CSS làm mờ khi tải đoán sai phần tử con đầu: nay làm mờ theo class của vùng bảng và phân trang.
+> - Vùng status giữ câu của lần chạy trước: lỗi tải và câu status nay gắn với `summary` của lần chạy, chạy lại là tự hết hiệu lực.
+> - Lỗi bất ngờ khi map (`rule = "mapping"`, `step = null`, BE-F08) bị ghi là "biến đổi mapping": nay là "lỗi khi map giá trị".
+> - Test thiếu: focus ở biên "Trước"; phím ArrowRight, Home, End, Space của tab; PUT transformations lỗi thì dừng ngay; process 404; timeout riêng của process. `Pagination` chỉ dời focus ở biên khi focus còn ở nút vừa bấm (hoặc đã rơi về đầu trang), để trang tới nơi sau "Thử lại" không giật focus khỏi tiêu đề.
+> - Helper test chép lại (`addTrim`, `problemWithErrors`, `RESULT_HEADING`) gom về `test/flows.ts` và `test/http.ts`; sửa hai comment sai.
+> - Câu hỏi của reviewer, vì sao bỏ lượt gọi thay vì latest-wins: không cân nhắc, chỉ mang cơ chế của nút phân trang sang mọi control. Đã đổi như trên.
+>
+> **Review FE-F08/F09 lần 2** (senior-reviewer, 2026-09-27). Các mục của lần 1 được xác nhận là đã sửa đúng (có probe). Đã sửa thêm, mỗi mục có test và mutation check thật (chạy lại trên code sạch sau khi một lượt mutation bị tiến trình bên ngoài kill giữa chừng):
+> - Kết quả cũ chỉ là boolean. Process lỗi làm session hỏng mà màn Kết quả vẫn báo "Cấu hình đã thay đổi" và mời "Chạy lại" một việc chắc chắn lỗi. Nay `stale` là lý do (`configChanged` / `unavailable` / `sessionUnusable`, design D18), câu cảnh báo và nút đi theo lý do; session hỏng thì chỉ còn "Upload lại". Lý do "session hỏng" luôn thắng, lý do khác giữ lý do có trước.
+> - Test cho mọi nhánh của `afterProcessFailure`: 422, 409 `SESSION_STATE_INVALID`, 409 `SESSION_NOT_READY`, mất mạng, 5xx+READY, 5xx+PROCESSED, 5xx rồi hỏi trạng thái gặp 404. Test cho nhánh lỗi của vòng tải trang: lựa chọn cũ lỗi trong lúc lựa chọn mới đang chờ thì không hiện lỗi.
+> - Sau 5xx, lượt hỏi trạng thái session trả 404 thì lỗi đó quyết định: "Upload lại" (trước đây bị nuốt, thành lỗi chung).
+> - Process trả `SESSION_NOT_FOUND`/`SESSION_STATE_INVALID` cũng là session hỏng, không chỉ 422.
+> - Tài liệu: D12 ghi rõ 422 của process nhận theo status (BE bọc mọi lỗi đọc file nguồn); spec pipeline-run có scenario "5xx mà session vẫn PROCESSED"; thứ tự 10.2 sửa lại.
+> - Câu hỏi của reviewer, vì sao thêm nguyên nhân thứ ba vào boolean có sẵn: thêm nguyên nhân mà không xem lại câu chữ và hành động mà boolean đó điều khiển. Đã đổi sang lý do như trên.
+
+## 12. FE-F10 Export (spec result-export)
+
+- [x] 12.1 `ExportActions`: 3 nút; khoá kèm lý do theo các quy tắc: kết quả cũ, `valid=0`, `invalid=0`, đang tải. Có test.
+  - Nằm dưới ba thẻ tóm tắt của bước Kết quả, trong một nhóm "Tải kết quả".
+  - Lý do khoá là mô tả của nút (`aria-describedby`). Kết quả cũ thì lý do theo lý do cũ (design D18): "Chạy lại để tải kết quả khớp cấu hình hiện tại", hoặc "Phiên import không dùng được nữa; hãy upload lại file".
+  - Nút đang tải chỉ `aria-disabled` (có ô vuông xoay), để giữ focus; cú bấm thêm bị bỏ qua. Các nút khác vẫn bấm được. Vùng status báo "Đang tải file CSV…" rồi "Đã tải <tên file>".
+  - Không khoá điều hướng: rời bước thì mọi lượt tải đang chạy bị huỷ và không lưu gì. Đúng tiêu chí ngoại lệ của D2 (response chỉ bước đang mở dùng tới, bị huỷ khi unmount).
+- [x] 12.2 Tải file qua `download.ts` và `saveBlob`:
+  - tên dự phòng `<tên-gốc>-valid.<ext>` và `<tên-gốc>-errors.csv`;
+  - lỗi thì hiện `ErrorBanner` và không lưu file;
+  - `409 RESULT_NOT_AVAILABLE` → `resultUnavailable`.
+
+  Test với MSW: có `filename*`; không có header; `500 EXPORT_FAILED`; `409 RESULT_NOT_AVAILABLE`; lỗi mạng.
+
+  Sau review FE-F10 (mục "Review FE-F10" dưới 12.2): lượt tải gắn với lần chạy; 404 thì kết quả cũ vì session hỏng; hai lượt tải cùng lúc giữ thông báo và lỗi riêng.
+
+  Đã làm, thêm: nội dung file giữ nguyên byte (gồm BOM của CSV); `404 SESSION_NOT_FOUND` → "Upload lại"; lỗi mạng rồi bấm lại thì tải được và hết báo lỗi; đang tải thì bấm thêm không gửi request; rời bước khi đang tải thì không lưu file; session hỏng sau khi có kết quả thì khoá cả ba nút với lý do upload lại. `409` đi qua cùng hàm `markUnavailable` với lượt tải trang (focus "Chạy lại"). Tên dự phòng theo đúng luật của BE (`features/export/fileNames.ts`).
+
+> **Review FE-F10** (senior-reviewer, 2026-09-27). Đã sửa, mỗi mục có test và mutation check thật (17 mutation, đều bị bắt):
+> - **Timeout.** Giới hạn tổng 5 phút dựa vào F10-D8 đã bị BE gạch, và cắt file lớn trên mạng chậm. Nay là thời gian im lặng 30 giây, tính lại sau mỗi chunk (xem 3.4). Cách này cũng sửa lượt tải treo khi BE cắt kết nối qua proxy của Vite.
+> - **Lượt tải của lần chạy trước.** Lỗi tải và lượt tải còn dở sống sang kết quả mới sau "Chạy lại": file cũ vẫn được lưu và báo "Đã tải". Nay `ResultState.runId` đánh số lần chạy, và cụm tải được render với `key={runId}`. Chạy lại là cụm mới; lượt tải cũ bị huỷ khi cụm cũ unmount.
+> - **Focus khi "Chạy lại" đang khoá.** 409 đến lúc một trang khác đang tải thì focus nằm trên một nút đã chết. Nay `markUnavailable` focus nút hành động nếu bấm được, không thì focus tiêu đề bước. Trang về muộn khi kết quả đã cũ thì reducer bỏ qua (`resultPageLoaded`), giữ trang đang xem.
+> - **Tên dự phòng và `Content-Disposition` lệch luật BE.**
+>   - Luật: thay cả `\p{Cf}` (ví dụ U+202E đảo chiều chữ) và C1, tên chỉ có khoảng trắng thì `export` (`isBlank()` của Java).
+>   - Parser: `filename*` rỗng rơi về `filename`; ngoặc kép không đóng không còn cắt mất ký tự cuối.
+>   - Có test cho ISO-8859-1 và cho tham số lặp lại.
+> - **404 khi tải file hoặc tải trang.** Trước chỉ hiện khối lỗi, các nút vẫn bấm được. Nay đánh dấu kết quả cũ vì session hỏng (design D18); cảnh báo có "Upload lại" và nhận focus.
+> - **Hai lượt tải cùng lúc.** Chúng đè thông báo và xoá lỗi của nhau. Nay thông báo và lỗi gắn với loại file sinh ra chúng.
+> - **Chép code.** `toFailure` chép từ `loadFailure.ts`; nay dùng `toLoadFailure`. Helper `captureDownloads` dùng bộ đếm tăng dần cho URL giả.
+> - **Không sửa: style nút tải giống `.rerun` của bước Kết quả — LÝ DO:** mỗi bước đang có style nút riêng trong module của nó (`StepActions`, `ConfirmPanel`, bước Schema…). Gom thành component nút dùng chung là refactor toàn app, ngoài phạm vi F10.
+> - **Câu hỏi của reviewer, vì sao timeout tính trên toàn bộ thời gian:** chép từ `request()`/`postProcess` mà không xét tải file là stream. Đã đổi như trên.
+
+## 13. FE-F11 Tích hợp và hoàn thiện (spec import-wizard)
+
+- [x] 13.1 Test tích hợp trên `<App/>` với MSW:
+  - CSV đi hết 6 bước tới lúc tải JSON;
+  - XLSX tương tự, có tên sheet ở bước Preview;
+  - sửa cấu hình rồi chạy lại.
+
+  Đã làm ở `src/App.integration.test.tsx`:
+  - CSV kiểm đúng trình tự 9 request, từ upload tới export, cùng tên file tải về và dấu "đã xong" của mọi bước trước Kết quả.
+  - XLSX kiểm tên sheet và schema sinh từ cột của sheet.
+  - Sửa cấu hình rồi chạy lại: đổi tên field ở Schema thì bước Kết quả bị khoá tới khi lưu lại mapping, chạy lại gửi đủ PUT, và bảng kết quả mới dùng tên mới.
+  - Chi tiết từng bước (lỗi, focus, trạng thái rỗng) nằm ở test của từng feature.
+- [x] 13.2 Rà lỗi nhất quán: mọi chỗ gọi API đều hiển thị qua `ErrorBanner`; request GET có nút "Thử lại"; `SESSION_NOT_FOUND` / `SESSION_STATE_INVALID` có nút "Upload lại". Bổ sung test cho chỗ còn thiếu.
+  - Đã rà mọi chỗ gọi API:
+    - upload: `UploadStep`;
+    - GET preview: `LoadFailureBanner` (có "Thử lại" và "Upload lại");
+    - GET result: `LoadFailureBanner` với "Thử lại". Riêng khi session không dùng được nữa, kết quả thành cũ và cảnh báo của bước có "Upload lại" (review FE-F10, design D18);
+    - PUT schema, PUT mapping và trình tự chạy: `SaveFailureBanner`;
+    - tải file: `ExportActions`.
+
+    Cả bốn đều dựng trên `ErrorBanner`. Nút tải file tự bấm lại được nên không cần "Thử lại" riêng.
+  - ~~Thiếu một test và đã bổ sung: GET result gặp `SESSION_NOT_FOUND` thì hiện "Upload lại", không có "Thử lại".~~ **Sửa lại (review FE-F11) — LÝ DO:** test F11 viết cho ca này đã bị thay khi gộp `dev`, bằng test cùng ca có sẵn từ bản sửa FE-F10 (`e3c7020`): "Upload lại" nằm trong cảnh báo kết quả cũ và nhận focus. Vậy F11 chỉ rà, không thêm test nào cho 13.2.
+- [x] 13.3 Viết lại `apps/web/README.md`: yêu cầu cài đặt, biến môi trường, `pnpm dev` (chạy với BE thật; Postgres khởi động bằng `docker compose up -d` với `docker-compose.yml` ở gốc repo), `pnpm dev:mock`, `pnpm test`, demo flow từng bước.
+  - Thay README mẫu của Vite. Demo từng bước dùng `customers-sample.csv` (fixture pipeline của BE), cấu hình và kết quả mong đợi như lần kiểm với BE thật ở 13.4 (FE-F06–F09), kể cả rule `unique` của `Email` (bản đầu thiếu, review FE-F11).
+  - Sửa sau review FE-F11: Node 22.13+ hoặc 24+ (và `engines` trong `package.json`); ba terminal thay cho "chạy lần lượt"; đổi biến bằng `.env.local` thay cho cú pháp chỉ có ở shell POSIX; mô tả đúng BE giả; thêm mục "Deploy" (yêu cầu proxy chuyển nguyên 413).
+- [x] 13.4 Kiểm tay với BE thật, khi các feature BE tương ứng đã có. Ghi kết quả từng mục ngay dưới task này:
+  - CSV happy path;
+  - XLSX happy path;
+  - field required để trống và giá trị sai kiểu ra lỗi đúng (Q1);
+  - đổi tên field rồi chạy lại: mapping và rule vẫn còn;
+  - sửa cấu hình rồi chạy lại;
+  - lỗi hiển thị nhất quán, gồm upload file hỏng (`FILE_PARSE_ERROR`) và file vượt 20 MB (`413`);
+  - file tải về đúng tên và đúng nội dung.
+
+  Kết quả từng phần:
+  - **FE-F02 (2026-09-26)**, BE bản `main` `4b75cf6` chạy ở 8080, FE `pnpm dev` qua proxy, Chrome headless điều khiển bằng DevTools Protocol:
+    - CSV có header dạng số và trùng tên, dòng trống, ô rỗng, ô chỉ có khoảng trắng: bảng đúng thứ tự (`2024 | Họ tên | 1 | Email | email (2)`), số dòng 2, 3, 5, ô rỗng hiện gạch ngang, "Xem trước 3 / 3 dòng".
+    - XLSX `types.xlsx` (fixture của BE): "Sheet: Data", 15 cột, giá trị đúng như BE đổi sang chuỗi (`84901234567`, `2024-12-25T13:45:30`, `#N/A`, `13:30:00`). Thay file XLSX khi đang có session CSV đi qua hộp xác nhận đúng.
+    - "Tiếp" sang bước Schema. Console không có lỗi hay cảnh báo.
+    - Ảnh chụp lộ lỗi bảng bị bóp cột; đã sửa (design D14).
+    - Sau các sửa đổi của review, chạy lại cùng kịch bản với BE `main` ở cổng 8081 (Vite 5174, `API_PROXY_TARGET=http://localhost:8081`): kết quả như trên, console sạch. Lý do đổi cổng: lúc đó 8080 là bản BE cũ do IntelliJ chạy từ thư mục chính (nhánh FE, chỉ có code BE-F01), không có endpoint preview.
+  - **FE-F04 và sinh schema (2026-09-26)**, BE `dev` `4803fd0` (có BE-F04) chạy ở 8081, FE `pnpm dev` qua proxy, Chrome headless:
+    - CSV 6 cột (`Mã KH`, `Họ tên`, `Ngày sinh`, `Số dư`, `Đang hoạt động`, `Email`): schema sinh sẵn đúng kiểu `string`, `string`, `date`, `number`, `boolean`, `email`.
+    - Đánh dấu `Mã KH` bắt buộc rồi bấm "Tiếp": `PUT /schema` trả `200`; body đúng tên (tiếng Việt nguyên vẹn), kiểu, `required`, `order` 0–5. Wizard sang Mapping, bước Schema "đã xong".
+    - Quay lại Schema rồi bấm "Tiếp" không sửa gì: không có PUT thứ hai.
+    - `GET /api/import-sessions/{id}`: `status = READY`, `config.schema` khớp 6 field đã gửi, `readiness = {ready: true, issues: []}`.
+    - `422` thật (gọi thẳng BE): `errors[]` có `field: "email"` cho field trùng tên đứng sau, và `field: null` cho tên rỗng và kiểu lạ. Khớp cách FE ghép lỗi (`matchServerErrors`). Session vẫn `READY`, không lưu gì.
+    - BE hiện mới trả `config.schema` (chưa có mapping, transformations, validations). Đã sửa `dto.ts` cho các phần đó là tuỳ chọn, và thêm `config`/`readiness` vào fixture session cho giống response thật.
+    - Console không có lỗi.
+  - **FE-F05 (2026-09-26)**, BE `dev` `b8ff03c` (có BE-F05) chạy ở 8081, Chrome headless:
+    - Vào bước Mapping sau khi lưu schema 6 field: mỗi field map sẵn với cột cùng tên, có 3 giá trị mẫu; "Mã KH" (bắt buộc) có nhãn "Bắt buộc".
+    - Đổi "Họ tên" sang giá trị cố định `Khách lẻ`, bỏ map "Ngày sinh" (hiện cảnh báo "Chưa map (field không bắt buộc)"), rồi bấm "Tiếp": `PUT /mapping` trả `200`, body có 5 phần tử theo thứ tự schema (không có "Ngày sinh"). Wizard sang bước Biến đổi & kiểm tra, bước Mapping "đã xong".
+    - `GET /api/import-sessions/{id}`: `status = READY`, `readiness.ready = true`, `config.mapping` khớp đúng body đã gửi.
+    - Console không có lỗi.
+  - **FE-F06–F09 (2026-09-27)**, BE `dev` `18f71f1` (có BE-F06 đến BE-F09) chạy ở 8081 từ worktree FE, Vite 5175 qua proxy, Chrome headless. File `customers-sample.csv` (fixture pipeline của BE, 6 dòng):
+    - Schema: `Email` kiểu `email`, `Tuổi` kiểu `number`, `Ngày sinh` kiểu `date`, `Họ tên` bắt buộc. Rules: `Họ tên` trim; `Ngày sinh` dateFormat `dd/MM/yyyy` (đầu ra khoá `yyyy-MM-dd`); `Email` unique.
+    - "Chạy xử lý": status "Đang xử lý…", rồi PUT transformations, PUT validations, POST process đều `200`, sang bước Kết quả sau khoảng 0,75 giây. Focus ở tiêu đề bước.
+    - Tóm tắt: Tổng 6, Hợp lệ 3, Lỗi 3. Tab "Lỗi (3)" chọn sẵn, cột đúng thứ tự schema.
+    - Dòng lỗi 3, 4, 6, khớp đúng kết quả BE tự kiểm:
+      - dòng 3 có 3 lỗi: `VALIDATION_EMAIL`, `VALIDATION_TYPE`, và `TRANSFORMATION_FAILED` "biến đổi dateFormat ở bước 1" với giá trị nguồn `31/02/1990`, ô của field hiện gạch ngang;
+      - dòng 4 thiếu `Họ tên` bắt buộc;
+      - dòng 6 sai kiểu `Tuổi`.
+    - Tab Hợp lệ: dòng 2, 5, 7, giá trị đã ép kiểu (`30`, `1990-12-25`), ô trống hiện gạch ngang.
+    - Bộ lọc: field theo thứ tự schema kèm số lỗi; mã lỗi có nhãn tiếng Việt. Lọc `VALIDATION_TYPE` ra dòng 3 và 6.
+    - Kết quả cũ: sửa rule rồi bấm stepper sang Kết quả. Hiện cảnh báo và "Chạy lại"; tab kia và bộ lọc bị khoá; bước Biến đổi & kiểm tra mất dấu "đã xong". "Chạy lại" chỉ gửi PUT validations và process, rồi tải trang đầu; focus về tiêu đề.
+    - Console không có lỗi hay cảnh báo.
+    - Chưa kiểm: file đủ lớn để có nhiều trang (sample chỉ 6 dòng); phân trang và lỗi 5xx đã có test với MSW.
+  - **FE-F10 (2026-09-27)**, BE `dev` `aebcc08` (có BE-F10) chạy ở 8081 từ worktree FE, Vite 5175, Chrome headless tải file thật vào một thư mục (`Page.setDownloadBehavior`). Cùng file và cấu hình như FE-F06–F09:
+    - "Tải JSON": `customers-sample-valid.json` (tên từ `filename*`), 3 object, key theo thứ tự schema, giá trị đã ép kiểu (`"Tuổi": 30`, `null` ở ô trống), không có BOM.
+    - "Tải CSV": `customers-sample-valid.csv`, có BOM, CRLF, header theo schema, 3 dòng hợp lệ.
+    - "Tải báo cáo lỗi": `customers-sample-errors.csv`, có BOM, header `rowNumber,fieldName,stage,rule,step,code,message,sourceValue`, 5 dòng lỗi khớp bảng lỗi; `step` trống ở lỗi validation, `sourceValue` trống ở lỗi required.
+    - Vùng status báo "Đã tải <tên file>" sau mỗi lượt.
+    - Sửa rule rồi quay lại bước Kết quả: cả ba nút khoá kèm lý do "Chạy lại để tải kết quả khớp cấu hình hiện tại".
+    - Console không có lỗi hay cảnh báo.
+  - **Các mục còn lại (2026-09-27)**, BE `dev` `e3c7020` (có BE-F01 đến BE-F10) chạy ở 8081 từ worktree FE, Vite 5175, Chrome headless:
+    - **Upload file hỏng:** CSV có byte không phải UTF-8 ở dòng 3. Hiện "Không đọc được file; CSV phải mã hoá UTF-8 và phân cách bằng dấu phẩy", dòng phụ là detail của BE "File is not valid UTF-8 (near row 3).", kèm mã `FILE_PARSE_ERROR`.
+    - **File vượt 20 MB (`413`):** Vite chạy với `VITE_MAX_UPLOAD_MB=30` để file 21 MB lọt qua bước kiểm phía client.
+      - Qua proxy dev của Vite, Chrome nhận `ERR_CONNECTION_RESET` thay cho 413, và FE hiện "Không kết nối được máy chủ" kèm "Upload lại".
+      - Đã probe để tìm nguyên nhân: Chrome gọi thẳng BE (trang cùng origin 8081) nhận đúng `413 FILE_TOO_LARGE` cả 3 lần; curl nhận 413 cả khi gọi thẳng lẫn qua proxy. Vậy lỗi nằm ở cách proxy của Vite chuyển câu trả lời sớm của BE cho trình duyệt đang upload, không phải ở BE hay FE.
+      - ~~Không sửa: bản chạy thật không đi qua proxy này.~~ **Sửa kết luận (review FE-F11) — LÝ DO:** repo chưa có topology deploy nào, nên "không đi qua proxy" là giả định. Mọi reverse proxy không đọc hết body hoặc không chuyển nguyên 413 đều phá lại đúng điều BE đã làm; nginx mặc định còn chặn từ 1 MB. Nay ghi thành yêu cầu khi deploy (design D16, README mục "Deploy").
+      - Không sửa proxy dev của Vite: trong dev, FE chặn trước file vượt giới hạn (khớp `IMPORTER_MAX_FILE_SIZE`), nên chỉ gặp khi hai giới hạn lệch nhau. Cách FE hiển thị 413 đã có test với MSW.
+    - **XLSX happy path:** `types.xlsx` (fixture của BE). Hiện "Sheet: Data" và 15 cột; schema đoán kiểu (`int`/`decimal`/`big` → `number`, `bool` → `boolean`, `date_*` → `date`); chạy xử lý ra 1 dòng hợp lệ. Bảng 15 cột cuộn ngang, `84901234567` hiện đủ chữ số; "Tải báo cáo lỗi" khoá kèm lý do "Không có dòng lỗi để tải".
+    - **Đổi tên field rồi chạy lại:** thêm `trim` cho field `text`, đổi tên thành `text mới` ở bước Schema, rồi đi lại Mapping và Biến đổi.
+      - Rule `trim` vẫn còn trên field đã đổi tên.
+      - PUT schema, mapping và transformations đều mang tên mới (`"targetField":"text mới"`), cùng PUT validations.
+      - Bảng kết quả mới dùng tên mới và không còn cảnh báo kết quả cũ.
+    - Console chỉ có hai dòng Chrome ghi request lỗi của hai ca cố ý làm hỏng (422 và reset). Không có lỗi hay cảnh báo nào của app.
+> **Review FE-F11** (senior-reviewer, 2026-09-27). Đã sửa, mỗi mục có test hoặc được kiểm lại bằng build:
+> - **BLOCKER:** `.env` có `VITE_USE_MOCK=true` thì bản build production chạy BE giả. Nay chế độ mock đi theo mode của dev server, mọi bản build đều loại nó, và `mockServiceWorker.js` không còn trong `dist` (3.9, design D15).
+> - BE giả trả kết quả không theo schema: đổi tên field hay upload XLSX thì bảng trống. "409 như BE" thì sai và không có test chứng minh. Đã sửa như 3.9; 8 mutation đều bị bắt.
+> - Kết luận về 413 qua proxy dựa trên giả định về deploy. Nay là yêu cầu deploy (design D16, README).
+> - BE giả không khởi động được thì trang trắng. Nay vẫn hiện app và ghi lỗi rõ.
+> - Cờ `useMock` còn sót trong `config.ts`; comment của `handlers.ts` và `devHandlers.ts` cùng design D15 nói sai về mock. Đã sửa hết.
+> - README sai phiên bản Node, lệnh chạy BE/FE, cú pháp biến env trên PowerShell, và mô tả BE giả. Đã sửa (13.3).
+> - Ghi chú 13.2 nói F11 thêm một test trong khi test đó đã bị thay khi gộp `dev`. Đã sửa lời.
+> - Test tích hợp: ca XLSX đi tới tải file; ca đổi tên kiểm bước Kết quả khoá rồi mở lại khi mapping được lưu.
+> - **Câu hỏi của reviewer, vì sao gate bằng biến env rồi thêm `.env.mock`:** làm theo kế hoạch ở task 3.9 mà không xét biến env còn sống lúc build. Đã đổi sang gate theo mode như reviewer gợi ý.
+
+- [x] 13.5 `pnpm test`, `pnpm lint`, `pnpm build` đều xanh; đối chiếu từng mục "Done when" phía FE của F01–F11 trong Notion.
+  - 2026-09-27: `pnpm test` xanh (488 test), `pnpm lint` không cảnh báo, `pnpm build` thành công (một chunk JS, không có code của `dev:mock`).
+  - Đối chiếu trang "03 — Feature Breakdown để Dev" của Notion (đọc qua API public), chỉ các mục phía FE. Mục thuần BE (test BE, storage path, formula injection, reproducible…) thuộc các change BE.
+
+    | Feature | Mục "Done when" / FE | Bằng chứng |
+    |---|---|---|
+    | F01 | CSV/XLSX tạo session; sang Preview sau khi upload; file sai loại hoặc quá giới hạn báo rõ | test `UploadStep`, `checkFiles`; BE thật 13.4 (CSV, XLSX). File quá giới hạn: FE chặn trước khi gửi; 413 của BE hiển thị đúng khi gọi thẳng BE (test MSW). Qua proxy thì phụ thuộc cấu hình proxy (yêu cầu deploy ở design D16); proxy dev của Vite biến nó thành lỗi mạng. |
+    | F02 | Header đúng thứ tự; sample rows + số dòng; parse error hiển thị có cấu trúc | test `PreviewStep`; BE thật 13.4 (FE-F02, `FILE_PARSE_ERROR`) |
+    | F03 | XLSX preview được; dùng chung preview; workbook trống báo rõ; số dòng truy được | cùng bảng preview, tên sheet; `FILE_EMPTY` có thông điệp riêng; BE thật `types.xlsx` |
+    | F04 | Thêm/xoá/sắp xếp field; 5 kiểu end-to-end; trùng tên chặn ở FE và BE; `required` lưu đúng | test `SchemaStep`, `schemaRules`; BE thật 13.4 (FE-F04, 422 trùng tên) |
+    | F05 | Map cột, map hằng; thiếu cột nguồn báo từ BE; cảnh báo field chưa map | test `MappingStep` (`SOURCE_COLUMN_NOT_FOUND`); BE thật 13.4 (FE-F05) |
+    | F06 | Nhiều biến đổi đúng thứ tự; FE gửi đúng thứ tự; lỗi hiển thị có cấu trúc | test `RulesStep`, `toTransformationConfigDto`; lỗi `TRANSFORMATION_FAILED` ở bảng kết quả (BE thật) |
+    | F07 | Một dòng nhiều lỗi; lỗi có dòng + field + mã; FE cấu hình được rule V0.1 | BE thật: dòng 3 có 3 lỗi; `email`, `unique`, `required`/`type` suy ra |
+    | F08 | FE process và process lại được | test `runPipeline`; BE thật (chạy lại sau khi sửa rule, sau khi đổi tên) |
+    | F09 | total/valid/invalid; dòng lỗi kèm lỗi; dữ liệu sau biến đổi; dùng được khi nhiều lỗi | test `ResultStep` (phân trang, lọc, rỗng); BE thật 13.4 |
+    | F10 | JSON đúng tên và kiểu; CSV đúng header và thứ tự; tải được file thật từ BE | test `ExportActions`, `download`; BE thật 13.4 (FE-F10) |
+    | F11 | CSV và XLSX happy path end-to-end; sửa cấu hình rồi chạy lại; lỗi BE hiển thị nhất quán; README có demo | `App.integration.test.tsx`; BE thật 13.4; 13.2; `README.md` |
+
+  - Các gạch đầu dòng "FE" của từng feature trong Notion đều có mặt. Hai điểm khác đã ghi lý do từ trước:
+    - Wizard 6 bước thay vì 7: "Process" là nút chính của bước 5 (design M1).
+    - "Preview config" của F06 là dòng tóm tắt chuỗi biến đổi, không chạy thử dữ liệu (design D8).

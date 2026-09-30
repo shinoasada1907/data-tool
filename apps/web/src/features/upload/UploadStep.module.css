@@ -1,0 +1,281 @@
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  /* Tiêu đề nhận focus khi đổi bước (design D14): viền focus ôm theo chữ, không kéo hết chiều ngang. */
+  align-self: flex-start;
+}
+
+/* Thẻ "file đang dùng" khi đã có session. */
+.current {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border);
+  background: var(--color-surface-subtle);
+}
+
+.currentIcon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: var(--border);
+  background: var(--color-success-bg);
+  color: var(--color-ink);
+}
+
+.currentBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.currentLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.note {
+  flex-shrink: 0;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+/* Vùng thả file: nằm ngang, bên trái ô icon vàng và câu hướng dẫn, bên phải nút "Chọn file". */
+.dropZone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  min-height: 180px;
+  padding: var(--space-8) var(--space-9);
+  border: var(--border-dashed);
+  background: var(--color-surface-subtle);
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.dropZone[hidden] {
+  display: none;
+}
+
+.dropZone:hover,
+.dropZone[data-dragging] {
+  background: var(--color-warning-bg);
+}
+
+/* Chỉ hiện viền focus khi dùng bàn phím, không hiện khi bấm chuột hay khi focus được trả về sau lỗi. */
+.dropZone:has(.input:focus-visible) {
+  outline: 3px solid var(--color-ink);
+  outline-offset: 3px;
+}
+
+.dropZone[data-disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dropZone[data-disabled]:hover {
+  background: var(--color-surface-subtle);
+}
+
+.dropLead {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.dropIcon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border: var(--border);
+  background: var(--color-accent);
+  color: var(--color-ink);
+}
+
+.dropText {
+  max-width: 22ch;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+}
+
+/* Chỉ là hình thức: cả vùng thả đã là nút chọn file (input phủ kín bên dưới). */
+.chooseButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  height: 48px;
+  padding: 0 22px;
+  border: var(--border);
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: var(--shadow-accent-sm);
+}
+
+/* Input phủ kín vùng thả để click ở đâu cũng mở hộp chọn file, nhưng vẫn ẩn về mặt thị giác. */
+.input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+/* Input bị khoá có thể không nhận sự kiện kéo-thả; để sự kiện rơi vào vùng thả (có handler) thay vì
+   rơi vào hành vi mặc định của trình duyệt là mở file. */
+.input:disabled {
+  pointer-events: none;
+}
+
+/* Thẻ file đang upload. */
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: var(--space-6);
+  border: var(--border);
+  background: var(--color-surface-subtle);
+}
+
+.progressHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.fileIcon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border: var(--border);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.cancel {
+  flex-shrink: 0;
+  height: 44px;
+  margin-left: auto;
+  padding: 0 var(--space-5);
+  border: var(--border);
+  background: var(--color-surface);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.cancel:active {
+  box-shadow: none;
+  transform: translate(4px, 4px);
+}
+
+.progressBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.progressText {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+/* Tên file và thông tin phụ. */
+.file {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.file[data-stacked] {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  flex-grow: 1;
+}
+
+.fileName {
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileMeta {
+  display: flex;
+  gap: var(--space-2);
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* Gợi ý định dạng: 3 cột có vạch mực ngăn, mỗi cột một nhãn nhỏ. */
+.hints {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  margin: 0;
+  padding: 0;
+  border-top: var(--border);
+  list-style: none;
+}
+
+.hints li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px var(--space-5) 0;
+  color: #2b2925;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.hints li:first-child {
+  padding-left: 0;
+}
+
+.hints li:last-child {
+  padding-right: 0;
+}
+
+.hints li + li {
+  border-left: var(--border);
+}
+
+.hintLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-locked);
+}

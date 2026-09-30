@@ -18,3 +18,6 @@ Thumbs.db
 
 # VS Code
 .vscode/
+
+# Ghi chú riêng của agent Claude Code trên máy này (ví dụ senior-reviewer), không đưa vào repo
+**/.claude/agent-memory/

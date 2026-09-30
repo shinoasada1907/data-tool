@@ -1,0 +1,90 @@
+/* Khung bảng theo hướng C: viền mực 2 px, header nền mực chữ trắng. */
+.scroll {
+  overflow-x: auto;
+  border: var(--border);
+  background: var(--color-surface);
+}
+
+.table {
+  /* Rộng theo nội dung để bảng nhiều cột cuộn ngang thay vì bóp ô; tối thiểu bằng khung. */
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.table th,
+.table td {
+  padding: 10px 14px;
+  border-right: 1px solid var(--color-ink);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table th:last-child,
+.table td:last-child {
+  border-right: 0;
+}
+
+.table thead th {
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Giữ nguyên giá trị như trong file: khoảng trắng đầu/cuối và xuống dòng trong ô vẫn hiện ra. Chỉ giá trị
+   dài quá 40 ký tự mới xuống dòng (td bỏ qua max-width, nên giới hạn nằm ở khối bên trong). */
+.value {
+  display: block;
+  max-width: 40ch;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.table tbody tr + tr > * {
+  border-top: 1px solid var(--color-ink);
+}
+
+.table tbody tr:nth-child(even) td {
+  background: var(--color-surface-subtle);
+}
+
+/* Ô có lỗi: nền đỏ nhạt, viền trái đỏ đậm. */
+.table tbody td[data-flagged] {
+  background: var(--color-danger-bg);
+  box-shadow: inset 4px 0 0 var(--color-danger);
+}
+
+/* Dòng chi tiết ngay dưới dòng dữ liệu: không kẻ lại viền trên. */
+.table tbody tr[data-detail] > td {
+  padding-top: 0;
+  border-top: 0;
+  background: var(--color-surface);
+}
+
+/* Nội dung chi tiết hẹp hơn bảng và dính bên trái, nên luôn đọc được khi bảng rộng đang cuộn ngang. */
+.detail {
+  position: sticky;
+  left: 14px;
+  max-width: 72ch;
+}
+
+.table [data-row-number] {
+  position: sticky;
+  left: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.table tbody th[data-row-number] {
+  background: var(--color-bg);
+  color: var(--color-muted);
+  font-weight: 400;
+}
+
+.emptyCell {
+  color: var(--color-locked);
+}
